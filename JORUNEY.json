@@ -1,0 +1,251 @@
+JORUNEY
+1 - create layer requests available categoires and country and stuff
+2- receive (1)
+3- user chosses category and country and stuff and sends to the api:
+"create_layer_request":{
+    "dataset_category":"fish_resturants",
+    "dataset_country":"saudi",
+    "dataset_city":"jeddah"
+}
+4 api searches in bknd metastore(json file names) using the information if layer exists and if not fetech from google and save it to backend and gets the bknd_dataset_id:
+"fish_resturants_saudi_jeddah.json":
+{
+    "bknd_dataset_id":"122123123",
+    "dataset_refresh_Data":"20230619",
+}
+"all_layers_data/122123123.json":{
+    "google style response and fields"
+    "records_count": 8500,
+}
+5 using all_layers_data builds the response and convert to boxmap ready data, api responds with :
+{
+  "type": "FeatureCollection",
+  "features": [.....],
+  "bknd_dataset_id":"122123123",
+  "records_count": 8500,
+}
+6- user recieves layer and sees it on the map then adds some information to the layer and sends the api:
+"prdcer_layer":{
+    "prdcer_layer_name":"my awesome fish layer",
+    "prdcer_lyr_id":"p1335",
+    "bknd_dataset_id":"122123123",
+    "points_color":"green",
+    "layer_legend":"fish resturants",
+    "layer_description":"i made this layer to test stuff",
+    "records_count": 8500,
+    "is_zone_lyr":"False",
+}
+7- api recives this layer information and stores it in that user's json file(represneting his account information)
+"user_18954.json":{
+    "prdcer":{
+        "prdcer_lyrs":{
+            "p1335":{
+                "prdcer_layer_name":"my awesome fish layer",
+                "prdcer_lyr_id":"p1335",
+                "bknd_dataset_id":"122123123",
+                "points_color":"green",
+                "layer_legend":"fish resturants",
+                "layer_description":"i made this layer to test stuff",
+                "records_count": 8500,
+                "is_zone_lyr":"False",
+              }
+        }
+    }
+}
+"all_layers_data/dataset_lyer_matching.json":{
+    "122123123":["p1335","p1546"]
+}
+
+
+
+
+
+
+
+1- user presses create catlog and an empty ctlg is created
+{
+    "prdcer_ctlg_name":"",
+    "prdcer_ctlg_id":"",
+    "subscription_price":"",
+    "ctlg_description":"",
+    "total_records": 0,
+    "lyrs":[]
+}
+
+2- user presses add layer, frontend requests lyrs available to the user(personal only for the moment), frontend sends:
+{
+    "usr_id":"18954"
+}
+3- backend gets the layers available for that user and returns a collection of layers, api sends:
+[
+    {
+      "prdcer_lyr_id":"p1335",
+      "prdcer_layer_name":"my awesome fish layer",
+      "points_color":"green",
+      "layer_legend":"fish resturants",
+      "layer_description":"i made this layer to test stuff",
+      "records_count": 8500,
+      "is_zone_lyr":"False",
+    }
+  ]
+
+4- user gets layers collection and chosses one of them, frontend will send
+{
+    "prdcer_lyr_id":"p1335"
+}
+5- api responds with data + user layer metadata:
+{
+    "type": "FeatureCollection",
+    "features": [.....],
+    "prdcer_layer_name":"my awesome fish layer",
+    "prdcer_lyr_id":"p1335",
+    "bknd_dataset_id":"122123123",
+    "points_color":"green",
+    "layer_legend":"fish resturants",
+    "layer_description":"i made this layer to test stuff",
+    "records_count": 8500,
+    "is_zone_lyr":"False",
+  }
+6- layer is plotted on the map and the user adds catlog infos
+{
+    "prdcer_ctlg_name":"catalog_gas+fish",
+    "prdcer_ctlg_id":"c80",
+    "subscription_price":"11",
+    "ctlg_description":"my awesome new catalog",
+    "total_records": 8500,
+    "lyrs":["p1335"]
+}
+
+7- when the user press save, this ctlg is sent to the bknd, bknd stores ctlg in user file(representing his account)
+"user_18954.json":{
+    "prdcer":{
+        "prdcer_ctlgs":{
+            "c80":{
+                "prdcer_ctlg_name":"catalog_gas+fish",
+                "prdcer_ctlg_id":"c80",
+                "subscription_price":"11",
+                "ctlg_description":"my awesome new catalog",
+                "total_records": 8500,
+                "lyrs":["p1335"]
+            },}        
+    }}
+    
+
+cREATE cATLOG USING cATLOG
+8- the user press add catlog, frontend requests all catalog collection
+[
+    {
+      "prdcer_ctlg_id": "c2",
+      "prdcer_ctlg_name": "Saudi Arabia - Real Estate Transactions",
+      "ctlg_description": "Database of real-estate transactions in Saudi Arabia",
+      "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
+      "subscription_price":"99",
+      "total_records": 20,
+      "can_access": 1,
+      "lyrs":["p22"]
+    },
+    {
+      "prdcer_ctlg_id": "c3",
+      "prdcer_ctlg_name": "Saudi Arabia - 3",
+      "ctlg_description": "Database of all Saudi Arabia gas stations points of Interests",
+      "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.pNG",
+      "subscription_price":"99",
+      "total_records": 300,
+      "can_access": 1,
+      "lyrs":["p33"]
+    }
+  ]
+9- user choose a catalog and sends to the api:
+{
+    "prdcer_ctlg_id": "c3",
+    "as_layers":"True"
+  }
+10- bknd finds ctlg, fetches the lyrs and using crossponding dataset it builds the response
+"all_layers_data/dataset_lyer_matching.json":{
+    "122123123":["p1335","p1546"],
+    "459":["p22"],
+    "111":["p33"]
+}
+reponds with multiple layers(only 1 in example below):
+[       
+    {    
+    "type": "FeatureCollection",
+    "features": [.....],
+    "prdcer_layer_name":"gas station layer",
+    "prdcer_lyr_id":"p33",
+    "bknd_dataset_id":"111",
+    "points_color":"red",
+    "layer_legend":"gas stations",
+    "layer_description":"",
+    "records_count": 300,
+    "is_zone_lyr":"False",
+} 
+]
+11- so now current catlog in frontend is like
+{
+    "prdcer_ctlg_name":"catalog_gas+fish",
+    "prdcer_ctlg_id":"c80",
+    "subscription_price":"11",
+    "ctlg_description":"my awesome new catalog",
+    "total_records": 8800,
+    "lyrs":["p1335","p33"]
+}
+12- if the user checks that layer p33 should be a zone layer, frontend sends:
+{
+    "lyrs":["p1335","p33"],
+    "lyrs_as_zone(max_2)":["p33"]
+}
+13- Frontend should cache all the current layers' data points and use response from the api which will be 3 or 6 layers:
+[       
+    {    
+    "type": "FeatureCollection",
+    "features": [......],
+    "prdcer_layer_name":"",
+    "prdcer_lyr_id":"zyp33_applied_1_p1335",
+    "points_color":"red",
+    "layer_legend":"fish resturants high zp33",
+    "records_count": 3500,
+    "is_zone_lyr":"False",
+} , {    
+    "type": "FeatureCollection",
+    "features": [......],
+    "prdcer_layer_name":"",
+    "prdcer_lyr_id":"zyp33_applied_2_p1335",
+    "points_color":"Cyan",
+    "layer_legend":"fish resturants medium zp33",
+
+    "records_count": 2300,
+    "is_zone_lyr":"False",
+} , {    
+    "type": "FeatureCollection",
+    "features": [......],
+    "prdcer_layer_name":"",
+    "prdcer_lyr_id":"zyp33_applied_3_p1335",
+    "points_color":"grey",
+    "layer_legend":"fish resturants low zp33",
+    "records_count": 2700,
+    "is_zone_lyr":"False",
+}
+]
+14- so now current catlog in frontend is like
+{
+    "prdcer_ctlg_name":"catalog_gas+fish",
+    "prdcer_ctlg_id":"c80",
+    "subscription_price":"11",
+    "ctlg_description":"my awesome new catalog",
+    "total_records": 8500,
+    "lyrs":["zyp33_applied_1_p1335","zyp33_applied_2_p1335","zyp33_applied_3_p1335"]
+}
+15- when the user press save, this ctlg is sent to the bknd, bknd stores ctlg in user file(representing his account)
+"user_18954.json":{
+    "prdcer":{
+        "prdcer_ctlgs":{
+            "c80":{
+                "prdcer_ctlg_name":"catalog_gas+fish",
+                "prdcer_ctlg_id":"c80",
+                "subscription_price":"11",
+                "ctlg_description":"my awesome new catalog",
+                "total_records": 8500,
+                "lyrs":["zyp33_applied_1_p1335","zyp33_applied_2_p1335","zyp33_applied_3_p1335"]
+            },}        
+    }}

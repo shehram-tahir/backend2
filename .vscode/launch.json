@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "FastAPI: Debug",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "fastapi_app:app",
+                "--reload",
+                "--host", "127.0.0.1",
+                "--port", "7000"
+            ],
+            "jinja": true
+        }
+    ]
+}
