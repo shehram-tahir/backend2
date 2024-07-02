@@ -19,7 +19,8 @@ class static_ApiConfig:
     country_city: str = "/fastapi/country_city"
     nearby_categories: str = "/fastapi/nearby_categories"
     old_nearby_categories: str = "/fastapi/old_nearby_categories"
-    google_fields: str = "name,formatted_address,user_ratings_total,rating,geometry"
+    create_layer: str = "/fastapi/create_layer"
+    google_fields: str = "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
 
 
 @dataclass

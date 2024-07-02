@@ -10,7 +10,8 @@ from data_fetcher import (
     fetch_country_city_data,
     fetch_nearby_categories,
     fetch_layer_collection,
-    old_fetch_nearby_categories
+    old_fetch_nearby_categories,
+    fetch_or_create_lyr
       )
 from all_types.myapi_dtypes import (
     LocationReq,
@@ -20,7 +21,9 @@ from all_types.myapi_dtypes import (
     ResTypeMapData,
     CountryCityData,
     NearbyCategories,
-    OldNearbyCategories
+    OldNearbyCategories,
+    ReqCreateLyr,
+    ResCreateLyr
 )
 from all_types.myapi_dtypes import MapData
 from typing import Type, Callable, Awaitable, Any, Optional
@@ -223,3 +226,35 @@ async def old_nearby_categories():
         old_fetch_nearby_categories,
     )
     return response
+
+
+@app.post(CONF.create_layer, response_model=ResCreateLyr)
+async def create_layer(req:ReqCreateLyr):
+    response = await http_handling(
+        req,
+        ReqCreateLyr,
+        ResCreateLyr,
+        fetch_or_create_lyr,
+    )
+    return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

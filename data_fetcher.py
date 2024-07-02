@@ -3,8 +3,11 @@ from all_types.myapi_dtypes import LocationReq, CatlogId
 from all_types.myapi_dtypes import CountryCityData
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
-from storage import get_data_from_storage, store_data, get_dataset_from_storage
+from storage import get_data_from_storage, store_data, get_dataset_from_storage,search_metastore_for_string
 import asyncio
+import os
+import json
+from fastapi import HTTPException
 
 
 async def fetch_nearby(location_req: LocationReq):
@@ -407,3 +410,43 @@ async def old_fetch_nearby_categories(**kwargs):
             "vietnamese_restaurant",
         ]
     return categories
+
+
+async def fetch_or_create_lyr(req):
+    dataset_category = req.dataset_category
+    dataset_country = req.dataset_country
+    dataset_city = req.dataset_city
+    layer_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
+    existing_layer = await search_metastore_for_string(layer_filename)
+    if existing_layer:
+        bknd_dataset_id = existing_layer["bknd_dataset_id"]
+        dataset_filename = f"{bknd_dataset_id}.json"
+        DATASETS_PATH = "Backend/datasets"
+        dataset_filepath = os.path.join(DATASETS_PATH, dataset_filename)
+        with open(dataset_filepath, 'r') as f:
+            dataset = json.load(f)
+        
+        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+        trans_dataset["bknd_dataset_id"] = bknd_dataset_id
+        trans_dataset["records_count"] = len(trans_dataset["features"])
+        return trans_dataset
+    else:
+        #code to create layer
+        pass
+        
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+

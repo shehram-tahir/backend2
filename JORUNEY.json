@@ -1,23 +1,22 @@
 JORUNEY
 1 - create layer requests available categoires and country and stuff
 2- receive (1)
-3- user chosses category and country and stuff and sends to the api:
+3- user chosses category and country and stuff and sends to the api "request_layer":
 "create_layer_request":{
     "dataset_category":"fish_resturants",
     "dataset_country":"saudi",
     "dataset_city":"jeddah"
 }
 4 api searches in bknd metastore(json file names) using the information if layer exists and if not fetech from google and save it to backend and gets the bknd_dataset_id:
-"fish_resturants_saudi_jeddah.json":
+"backend/fish_resturants_saudi_jeddah.json":
 {
     "bknd_dataset_id":"122123123",
     "dataset_refresh_Data":"20230619",
 }
-"all_layers_data/122123123.json":{
+"backend/datasets/122123123.json":{
     "google style response and fields"
-    "records_count": 8500,
 }
-5 using all_layers_data builds the response and convert to boxmap ready data, api responds with :
+5 using datasets builds the response and convert to boxmap ready data, api responds with :
 {
   "type": "FeatureCollection",
   "features": [.....],
@@ -52,7 +51,7 @@ JORUNEY
         }
     }
 }
-"all_layers_data/dataset_lyer_matching.json":{
+"backend/dataset_lyer_matching.json":{
     "122123123":["p1335","p1546"]
 }
 
@@ -161,7 +160,7 @@ cREATE cATLOG USING cATLOG
     "as_layers":"True"
   }
 10- bknd finds ctlg, fetches the lyrs and using crossponding dataset it builds the response
-"all_layers_data/dataset_lyer_matching.json":{
+"backend/dataset_lyer_matching.json":{
     "122123123":["p1335","p1546"],
     "459":["p22"],
     "111":["p33"]

@@ -22,11 +22,6 @@ class restype_fetch_acknowlg_id(ResDefault):
     data: str
 
 
-
-
-
-
-
 class card_metadata(BaseModel):
     id: str
     name: str
@@ -43,9 +38,8 @@ class restype_all_cards(ResDefault):
     data: list[card_metadata]
 
 
-
 class Geometry(BaseModel):
-    type: Literal['Point']
+    type: Literal["Point"]
     coordinates: List[float]
 
 
@@ -60,17 +54,19 @@ class boxmapProperties(BaseModel):
 
 
 class Feature(BaseModel):
-    type: Literal['Feature']
+    type: Literal["Feature"]
     properties: dict
     geometry: Geometry
 
+
 class MapData(BaseModel):
-    type: Literal['FeatureCollection']
+    type: Literal["FeatureCollection"]
     features: List[Feature]
 
 
 class ResTypeMapData(ResDefault):
     data: MapData
+
 
 class CityData(BaseModel):
     name: str
@@ -79,6 +75,7 @@ class CityData(BaseModel):
     radius: int
     type: str = None
 
+
 class CountryCityData(BaseModel):
     data: Dict[str, List[CityData]]
 
@@ -86,5 +83,23 @@ class CountryCityData(BaseModel):
 class NearbyCategories(ResDefault):
     data: Dict[str, List[str]]
 
+
 class OldNearbyCategories(ResDefault):
     data: List[str]
+
+
+class ReqCreateLyr(BaseModel):
+    dataset_category: str
+    dataset_country: str
+    dataset_city: str
+
+class DataCreateLyr(BaseModel):
+    type: Literal["FeatureCollection"]
+    features: List[Feature]
+    bknd_dataset_id: str
+    records_count: int
+
+class ResCreateLyr(ResDefault):
+    data: DataCreateLyr
+
+

@@ -36,6 +36,7 @@ import os
 from all_types.myapi_dtypes import LocationReq
 from config_factory import get_conf
 
+METASTORE_PATH = "Backend/metastore"
 CONF = get_conf()
 STORAGE_DIR = 'Backend/storage'
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -64,3 +65,12 @@ async def store_data(location_req: LocationReq, data):
     filename = get_filename(location_req)
     with open(filename, 'w') as file:
         json.dump(data, file)
+
+
+async def search_metastore_for_string(string_search):
+    meta_file_path = os.path.join(METASTORE_PATH, string_search)
+    if os.path.exists(meta_file_path):
+        with open(meta_file_path, 'r') as f:
+            return json.load(f)
+    return None
+
