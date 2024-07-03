@@ -18,7 +18,7 @@ class ResDefault(BaseModel):
     request_id: str
 
 
-class restype_fetch_acknowlg_id(ResDefault):
+class ResAcknowlg(ResDefault):
     data: str
 
 
@@ -93,13 +93,109 @@ class ReqCreateLyr(BaseModel):
     dataset_country: str
     dataset_city: str
 
+
 class DataCreateLyr(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
     bknd_dataset_id: str
     records_count: int
 
+
 class ResCreateLyr(ResDefault):
     data: DataCreateLyr
+
+
+class ReqSavePrdcerLyer(BaseModel):
+    prdcer_layer_name: str
+    prdcer_lyr_id: str
+    bknd_dataset_id: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    user_id: str
+
+
+class UserIdRequest(BaseModel):
+    user_id: str
+
+
+class UserLayerInfo(BaseModel):
+    prdcer_lyr_id: str
+    prdcer_layer_name: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    records_count: int
+    is_zone_lyr: str
+
+
+class UserLayersResponse(ResDefault):
+    data: List[UserLayerInfo]
+
+
+class ReqPrdcerLyrMapData(BaseModel):
+    prdcer_lyr_id: str
+    user_id: str
+
+
+class PrdcerLyrMapData(MapData):
+    prdcer_layer_name: str
+    prdcer_lyr_id: str
+    bknd_dataset_id: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    records_count: int
+    is_zone_lyr: str
+
+
+class ResPrdcerLyrMapData(ResDefault):
+    data: PrdcerLyrMapData
+
+
+class ReqSavePrdcerCtlg(BaseModel):
+    prdcer_ctlg_name: str
+    prdcer_ctlg_id: str
+    subscription_price: str
+    ctlg_description: str
+    total_records: int
+    lyrs: List[str]
+    user_id: str  # Add this field to identify the user
+    thumbnail_url: str  # Add this line
+
+
+class ResSavePrdcerCtlg(ResDefault):
+    data: str
+
+class UserCatalogInfo(BaseModel):
+    prdcer_ctlg_id: str
+    prdcer_ctlg_name: str
+    ctlg_description: str
+    thumbnail_url: str
+    subscription_price: str
+    total_records: int
+    lyrs: List[str]
+
+class UserCatalogsResponse(ResDefault):
+    data: List[UserCatalogInfo]
+
+
+
+class ReqFetchCtlgLyrs(BaseModel):
+    prdcer_ctlg_id: str
+    as_layers: bool
+    user_id: str  # Add this to identify the user
+
+class CtlgLyrInfo(PrdcerLyrMapData):
+    pass
+
+class ResCtlgLyrs(ResDefault):
+    data: List[CtlgLyrInfo]
+
+
+
+
+
+
 
 

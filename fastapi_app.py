@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 import uuid
 from all_types.config_dtypes import ApiCommonConfig
+from all_types.myapi_dtypes import UserCatalogsResponse
 from data_fetcher import (
     get_boxmap_catlog_data,
     fetch_catlog_collection, 
@@ -11,20 +12,30 @@ from data_fetcher import (
     fetch_nearby_categories,
     fetch_layer_collection,
     old_fetch_nearby_categories,
-    fetch_or_create_lyr
+    fetch_or_create_lyr,
+    create_save_prdcer_lyr,
+    fetch_prdcer_lyrs,
+    fetch_prdcer_lyr_map_data,
+    create_save_prdcer_ctlg,
+    fetch_prdcer_ctlgs
       )
 from all_types.myapi_dtypes import (
     LocationReq,
     CatlogId,
     restype_all_cards,
-    restype_fetch_acknowlg_id,
+    ResAcknowlg,
     ResTypeMapData,
     CountryCityData,
     NearbyCategories,
     OldNearbyCategories,
     ReqCreateLyr,
-    ResCreateLyr
+    ResCreateLyr,
+    ReqSavePrdcerLyer,
+    ReqPrdcerLyrMapData,
+    ResPrdcerLyrMapData
 )
+from all_types.myapi_dtypes import UserIdRequest, UserLayersResponse,ReqSavePrdcerCtlg, ResSavePrdcerCtlg
+
 from all_types.myapi_dtypes import MapData
 from typing import Type, Callable, Awaitable, Any, Optional
 from config_factory import get_conf
@@ -162,12 +173,12 @@ async def single_nearby(req:LocationReq):
     )
     return response
 
-@app.get(CONF.fetch_acknowlg_id, response_model=restype_fetch_acknowlg_id)
+@app.get(CONF.fetch_acknowlg_id, response_model=ResAcknowlg)
 async def fetch_acknowlg_id():
     response = await http_handling(
         None,
         None,
-        restype_fetch_acknowlg_id,
+        ResAcknowlg,
         None,
     )
     return response
@@ -238,7 +249,65 @@ async def create_layer(req:ReqCreateLyr):
     )
     return response
 
+@app.post(CONF.save_producer_layer, response_model=ResAcknowlg)
+async def save_producer_layer(req:ReqSavePrdcerLyer):
+    response = await http_handling(
+        req,
+        ReqSavePrdcerLyer,
+        ResAcknowlg,
+        create_save_prdcer_lyr,
+    )
+    return response
 
+
+
+@app.post(CONF.user_layers, response_model=UserLayersResponse)
+async def user_layers(req: UserIdRequest):
+    response = await http_handling(
+        req,
+        UserIdRequest,
+        UserLayersResponse,
+        fetch_prdcer_lyrs
+    )
+    return response
+
+
+
+@app.post(CONF.prdcer_lyr_map_data, response_model=ResPrdcerLyrMapData)
+async def prdcer_lyr_map_data(req: ReqPrdcerLyrMapData):
+    response = await http_handling(
+        req,
+        ReqPrdcerLyrMapData,
+        ResPrdcerLyrMapData,
+        fetch_prdcer_lyr_map_data
+    )
+    return response
+
+
+
+@app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg)
+async def save_producer_catalog(req: ReqSavePrdcerCtlg):
+    response = await http_handling(
+        req,
+        ReqSavePrdcerCtlg,
+        ResSavePrdcerCtlg,
+        create_save_prdcer_ctlg,
+    )
+    return response
+
+
+
+
+
+@app.post(CONF.user_catalogs, response_model=UserCatalogsResponse)
+async def user_catalogs(req: UserIdRequest):
+    response = await http_handling(
+        req,
+        UserIdRequest,
+        UserCatalogsResponse,
+        fetch_prdcer_ctlgs
+    )
+    return response
 
 
 

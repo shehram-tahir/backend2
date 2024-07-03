@@ -20,6 +20,11 @@ class static_ApiConfig:
     nearby_categories: str = "/fastapi/nearby_categories"
     old_nearby_categories: str = "/fastapi/old_nearby_categories"
     create_layer: str = "/fastapi/create_layer"
+    save_producer_layer:str = "/fastapi/save_producer_layer"
+    user_layers: str = "/fastapi/user_layers"
+    prdcer_lyr_map_data: str = "/fastapi/prdcer_lyr_map_data"
+    save_producer_catalog: str = "/fastapi/save_producer_catalog"
+    user_catalogs: str = "/fastapi/user_catalogs"
     google_fields: str = "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
 
 

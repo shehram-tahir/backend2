@@ -1,13 +1,29 @@
 from all_types.google_dtypes import GglResponse
 from all_types.myapi_dtypes import LocationReq, CatlogId
-from all_types.myapi_dtypes import CountryCityData
+from all_types.myapi_dtypes import (
+    CountryCityData,
+    ReqSavePrdcerLyer,
+    UserLayerInfo,
+    UserIdRequest,
+    PrdcerLyrMapData,
+    ReqSavePrdcerCtlg,
+    UserCatalogInfo
+)
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
-from storage import get_data_from_storage, store_data, get_dataset_from_storage,search_metastore_for_string
+from storage import (
+    get_data_from_storage,
+    store_data,
+    get_dataset_from_storage,
+    search_metastore_for_string,
+)
 import asyncio
 import os
 import json
 from fastapi import HTTPException
+import uuid
+import json
+import os
 
 
 async def fetch_nearby(location_req: LocationReq):
@@ -367,48 +383,49 @@ async def fetch_nearby_categories(**kwargs):
     }
     return categories
 
+
 async def old_fetch_nearby_categories(**kwargs):
     categories = [
-            "american_restaurant",
-            "bakery",
-            "bar",
-            "barbecue_restaurant",
-            "brazilian_restaurant",
-            "breakfast_restaurant",
-            "brunch_restaurant",
-            "cafe",
-            "chinese_restaurant",
-            "coffee_shop",
-            "fast_food_restaurant",
-            "french_restaurant",
-            "greek_restaurant",
-            "hamburger_restaurant",
-            "ice_cream_shop",
-            "indian_restaurant",
-            "indonesian_restaurant",
-            "italian_restaurant",
-            "japanese_restaurant",
-            "korean_restaurant",
-            "lebanese_restaurant",
-            "meal_delivery",
-            "meal_takeaway",
-            "mediterranean_restaurant",
-            "mexican_restaurant",
-            "middle_eastern_restaurant",
-            "pizza_restaurant",
-            "ramen_restaurant",
-            "restaurant",
-            "sandwich_shop",
-            "seafood_restaurant",
-            "spanish_restaurant",
-            "steak_house",
-            "sushi_restaurant",
-            "thai_restaurant",
-            "turkish_restaurant",
-            "vegan_restaurant",
-            "vegetarian_restaurant",
-            "vietnamese_restaurant",
-        ]
+        "american_restaurant",
+        "bakery",
+        "bar",
+        "barbecue_restaurant",
+        "brazilian_restaurant",
+        "breakfast_restaurant",
+        "brunch_restaurant",
+        "cafe",
+        "chinese_restaurant",
+        "coffee_shop",
+        "fast_food_restaurant",
+        "french_restaurant",
+        "greek_restaurant",
+        "hamburger_restaurant",
+        "ice_cream_shop",
+        "indian_restaurant",
+        "indonesian_restaurant",
+        "italian_restaurant",
+        "japanese_restaurant",
+        "korean_restaurant",
+        "lebanese_restaurant",
+        "meal_delivery",
+        "meal_takeaway",
+        "mediterranean_restaurant",
+        "mexican_restaurant",
+        "middle_eastern_restaurant",
+        "pizza_restaurant",
+        "ramen_restaurant",
+        "restaurant",
+        "sandwich_shop",
+        "seafood_restaurant",
+        "spanish_restaurant",
+        "steak_house",
+        "sushi_restaurant",
+        "thai_restaurant",
+        "turkish_restaurant",
+        "vegan_restaurant",
+        "vegetarian_restaurant",
+        "vietnamese_restaurant",
+    ]
     return categories
 
 
@@ -423,22 +440,252 @@ async def fetch_or_create_lyr(req):
         dataset_filename = f"{bknd_dataset_id}.json"
         DATASETS_PATH = "Backend/datasets"
         dataset_filepath = os.path.join(DATASETS_PATH, dataset_filename)
-        with open(dataset_filepath, 'r') as f:
+        with open(dataset_filepath, "r") as f:
             dataset = json.load(f)
-        
+
         trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
         trans_dataset["bknd_dataset_id"] = bknd_dataset_id
         trans_dataset["records_count"] = len(trans_dataset["features"])
         return trans_dataset
     else:
-        #code to create layer
+        # code to create layer
         pass
-        
+
+
+async def create_save_prdcer_lyr(req: ReqSavePrdcerLyer):
+    USERS_PATH = "Backend/users"
+    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+
+    user_id = req.user_id
+    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
+
+    # Load or create user data
+    if os.path.exists(user_file_path):
+        with open(user_file_path, "r") as f:
+            user_data = json.load(f)
+    else:
+        user_data = {"prdcer": {"prdcer_lyrs": {}}}
+
+    # Add the new producer layer
+    user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.dict(
+        exclude={"user_id"}
+    )
+
+    # Save updated user data
+    with open(user_file_path, "w") as f:
+        json.dump(user_data, f, indent=2)
+
+    # Update dataset_layer_matching.json
+    if os.path.exists(DATASET_LAYER_MATCHING_PATH):
+        with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
+            dataset_layer_matching = json.load(f)
+    else:
+        dataset_layer_matching = {}
+
+    if req.bknd_dataset_id not in dataset_layer_matching:
+        dataset_layer_matching[req.bknd_dataset_id] = []
+
+    if req.prdcer_lyr_id not in dataset_layer_matching[req.bknd_dataset_id]:
+        dataset_layer_matching[req.bknd_dataset_id].append(req.prdcer_lyr_id)
+
+    with open(DATASET_LAYER_MATCHING_PATH, "w") as f:
+        json.dump(dataset_layer_matching, f, indent=2)
+
+    return "Producer layer created successfully"
+
+
+async def fetch_prdcer_lyrs(req: UserIdRequest) -> list[UserLayerInfo]:
+    user_id = req.user_id
+    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+    DATASETS_PATH = "Backend/datasets"
+    USERS_PATH = "Backend/users"
+    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
+
+    if not os.path.exists(user_file_path):
+        return []  # Return an empty list if the user file doesn't exist
+
+    with open(user_file_path, "r") as f:
+        user_data = json.load(f)
+
+    # Load dataset_layer_matching.json
+    with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
+        dataset_layer_matching = json.load(f)
+
+    user_layers = []
+    for lyr_id, lyr_data in user_data.get("prdcer", {}).get("prdcer_lyrs", {}).items():
+        # Find the corresponding dataset_id
+        dataset_id = None
+        for d_id, d_info in dataset_layer_matching.items():
+            if lyr_id in d_info["prdcer_lyrs"]:
+                dataset_id = d_id
+                break
+
+        if dataset_id:
+            records_count = d_info["records_count"]
+        else:
+            records_count = 0  # Default if no matching dataset is found
+
+        user_layers.append(
+            UserLayerInfo(
+                prdcer_lyr_id=lyr_id,
+                prdcer_layer_name=lyr_data["prdcer_layer_name"],
+                points_color=lyr_data["points_color"],
+                layer_legend=lyr_data["layer_legend"],
+                layer_description=lyr_data["layer_description"],
+                records_count=records_count,
+                is_zone_lyr="false",  # Default to "false" as string
+            )
+        )
+
+    return user_layers
+
+
+async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
+    USERS_PATH = "Backend/users"
+    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+    DATASETS_PATH = "Backend/datasets"
+
+    # Load user data
+    user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
+    if not os.path.exists(user_file_path):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    with open(user_file_path, 'r') as f:
+        user_data = json.load(f)
+
+    if req.prdcer_lyr_id not in user_data.get("prdcer", {}).get("prdcer_lyrs", {}):
+        raise HTTPException(status_code=404, detail="Producer layer not found for this user")
+
+    layer_metadata = user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id]
+
+    # Load dataset_layer_matching.json
+    with open(DATASET_LAYER_MATCHING_PATH, 'r') as f:
+        dataset_layer_matching = json.load(f)
+
+    # Find the corresponding dataset_id
+    dataset_id = None
+    for d_id, d_info in dataset_layer_matching.items():
+        if req.prdcer_lyr_id in d_info["prdcer_lyrs"]:
+            dataset_id = d_id
+            break
+
+    if not dataset_id:
+        raise HTTPException(status_code=404, detail="Dataset not found for this layer")
+
+    # Load the dataset
+    dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
+    with open(dataset_filepath, 'r') as f:
+        dataset = json.load(f)
+
+    # Transform the dataset
+    trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+
+    # Combine the transformed dataset with the layer metadata
+    result = PrdcerLyrMapData(
+        type="FeatureCollection",
+        features=trans_dataset["features"],
+        prdcer_layer_name=layer_metadata["prdcer_layer_name"],
+        prdcer_lyr_id=req.prdcer_lyr_id,
+        bknd_dataset_id=dataset_id,
+        points_color=layer_metadata["points_color"],
+        layer_legend=layer_metadata["layer_legend"],
+        layer_description=layer_metadata["layer_description"],
+        records_count=d_info["records_count"],
+        is_zone_lyr="false"  # Assuming this is always false as per your previous implementation
+    )
+
+    return result
+
+
+async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
+    USERS_PATH = "Backend/users"
+    user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
+
+    # Load or create user data
+    if os.path.exists(user_file_path):
+        with open(user_file_path, 'r') as f:
+            user_data = json.load(f)
+    else:
+        user_data = {"prdcer": {"prdcer_ctlgs": {}}}
+
+    # Ensure the prdcer and prdcer_ctlgs keys exist
+    if "prdcer" not in user_data:
+        user_data["prdcer"] = {}
+    if "prdcer_ctlgs" not in user_data["prdcer"]:
+        user_data["prdcer"]["prdcer_ctlgs"] = {}
+
+    # Add the new producer catalog
+    user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id] = {
+        "prdcer_ctlg_name": req.prdcer_ctlg_name,
+        "prdcer_ctlg_id": req.prdcer_ctlg_id,
+        "subscription_price": req.subscription_price,
+        "ctlg_description": req.ctlg_description,
+        "total_records": req.total_records,
+        "lyrs": req.lyrs,
+        "thumbnail_url": req.thumbnail_url  # Add this line
+    }
+
+    # Save updated user data
+    with open(user_file_path, 'w') as f:
+        json.dump(user_data, f, indent=2)
+
+    return "Producer catalog created successfully"
+
+
+async def fetch_prdcer_ctlgs(req: UserIdRequest) -> list[UserCatalogInfo]:
+    USERS_PATH = "Backend/users"
+    user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
+
+    if not os.path.exists(user_file_path):
+        return []  # Return an empty list if the user file doesn't exist
+
+    with open(user_file_path, 'r') as f:
+        user_data = json.load(f)
+
+    user_catalogs = []
+    for ctlg_id, ctlg_data in user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).items():
+        user_catalogs.append(
+            UserCatalogInfo(
+                prdcer_ctlg_id=ctlg_id,
+                prdcer_ctlg_name=ctlg_data["prdcer_ctlg_name"],
+                ctlg_description=ctlg_data["ctlg_description"],
+                thumbnail_url=ctlg_data.get("thumbnail_url", ""),  # Add a default thumbnail URL if not present
+                subscription_price=ctlg_data["subscription_price"],
+                total_records=ctlg_data["total_records"],
+                lyrs=ctlg_data["lyrs"]
+            )
+        )
+
+    return user_catalogs
 
 
 
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

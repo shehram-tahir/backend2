@@ -1,0 +1,26 @@
+{
+  "prdcer": {
+    "prdcer_lyrs": {
+      "p1335": {
+        "prdcer_layer_name": "my awesome fish layer",
+        "prdcer_lyr_id": "p1335",
+        "bknd_dataset_id": "122123123",
+        "points_color": "green",
+        "layer_legend": "fish resturants",
+        "layer_description": "i made this layer to test stuff"
+      }
+    },
+    "prdcer_ctlgs": {
+      "c80": {
+        "prdcer_ctlg_name": "catalog_gas+fish",
+        "prdcer_ctlg_id": "c80",
+        "subscription_price": "11",
+        "ctlg_description": "my awesome new catalog",
+        "total_records": 8500,
+        "lyrs": [
+          "p1335"
+        ]
+      }
+    }
+  }
+}

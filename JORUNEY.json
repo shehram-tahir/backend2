@@ -12,6 +12,7 @@ JORUNEY
 {
     "bknd_dataset_id":"122123123",
     "dataset_refresh_Data":"20230619",
+    "records_count": 8500,
 }
 "backend/datasets/122123123.json":{
     "google style response and fields"
@@ -23,7 +24,7 @@ JORUNEY
   "bknd_dataset_id":"122123123",
   "records_count": 8500,
 }
-6- user recieves layer and sees it on the map then adds some information to the layer and sends the api:
+6- user recieves layer and sees it on the map then adds some information to the layer and sends to the api:
 "prdcer_layer":{
     "prdcer_layer_name":"my awesome fish layer",
     "prdcer_lyr_id":"p1335",
@@ -31,8 +32,7 @@ JORUNEY
     "points_color":"green",
     "layer_legend":"fish resturants",
     "layer_description":"i made this layer to test stuff",
-    "records_count": 8500,
-    "is_zone_lyr":"False",
+    "user_id":"18954"
 }
 7- api recives this layer information and stores it in that user's json file(represneting his account information)
 "user_18954.json":{
@@ -44,9 +44,7 @@ JORUNEY
                 "bknd_dataset_id":"122123123",
                 "points_color":"green",
                 "layer_legend":"fish resturants",
-                "layer_description":"i made this layer to test stuff",
-                "records_count": 8500,
-                "is_zone_lyr":"False",
+                "layer_description":"i made this layer to test stuff"
               }
         }
     }
@@ -73,7 +71,7 @@ JORUNEY
 
 2- user presses add layer, frontend requests lyrs available to the user(personal only for the moment), frontend sends:
 {
-    "usr_id":"18954"
+    "user_id":"18954"
 }
 3- backend gets the layers available for that user and returns a collection of layers, api sends:
 [
@@ -105,7 +103,7 @@ JORUNEY
     "records_count": 8500,
     "is_zone_lyr":"False",
   }
-6- layer is plotted on the map and the user adds catlog infos
+6- layer is plotted on the map and the user adds catlog infos when the user press save the frontend sends the below catalog to the api
 {
     "prdcer_ctlg_name":"catalog_gas+fish",
     "prdcer_ctlg_id":"c80",
@@ -115,7 +113,7 @@ JORUNEY
     "lyrs":["p1335"]
 }
 
-7- when the user press save, this ctlg is sent to the bknd, bknd stores ctlg in user file(representing his account)
+7-  bknd stores ctlg in user file(representing his account)
 "user_18954.json":{
     "prdcer":{
         "prdcer_ctlgs":{
@@ -131,41 +129,55 @@ JORUNEY
     
 
 cREATE cATLOG USING cATLOG
-8- the user press add catlog, frontend requests all catalog collection
+8- if the user press add catlog instead of add layer, frontend requests all catalog collection in the store from api /fastapi/catlog_collection
+    [{
+        "prdcer_ctlg_id": "c3",
+        "prdcer_ctlg_name": "Saudi Arabia - 3",
+        "ctlg_description": "Database of all Saudi Arabia gas stations points of Interests",
+        "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.pNG",
+        "subscription_price":"99",
+        "total_records": 300,
+        "can_access": 1,
+        "lyrs":["p33"]
+      }
+    ]
+8.1  AND also user catalogs from user profile (CREATE this endpoint)
 [
     {
-      "prdcer_ctlg_id": "c2",
-      "prdcer_ctlg_name": "Saudi Arabia - Real Estate Transactions",
-      "ctlg_description": "Database of real-estate transactions in Saudi Arabia",
+      "prdcer_ctlg_id": "c80",
+      "prdcer_ctlg_name":"catalog_gas+fish",
+      "ctlg_description":"my awesome new catalog",
       "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
-      "subscription_price":"99",
-      "total_records": 20,
-      "can_access": 1,
+      "subscription_price":"11",
+      "total_records": 8500,
+
       "lyrs":["p22"]
-    },
-    {
-      "prdcer_ctlg_id": "c3",
-      "prdcer_ctlg_name": "Saudi Arabia - 3",
-      "ctlg_description": "Database of all Saudi Arabia gas stations points of Interests",
-      "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.pNG",
-      "subscription_price":"99",
-      "total_records": 300,
-      "can_access": 1,
-      "lyrs":["p33"]
-    }
-  ]
+    }]
 9- user choose a catalog and sends to the api:
 {
     "prdcer_ctlg_id": "c3",
     "as_layers":"True"
   }
-10- bknd finds ctlg, fetches the lyrs and using crossponding dataset it builds the response
+10- bknd searches for ctlg in user profile AND store catalogs (Backend/catalogs/store_catalogs.json) , fetches the lyrs and using crossponding dataset it builds the response
+"Backend/catalogs/store_catalogs.json":{
+    "store_catalogs": [
+        {
+            "prdcer_ctlg_id": "c3",
+            "prdcer_ctlg_name": "Saudi Arabia - 3",
+            "ctlg_description": "Database of all Saudi Arabia gas stations points of Interests",
+            "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.pNG",
+            "subscription_price":"99",
+            "total_records": 300,
+            "lyrs":["p33"]
+          }
+    ]
+}
 "backend/dataset_lyer_matching.json":{
     "122123123":["p1335","p1546"],
     "459":["p22"],
     "111":["p33"]
 }
-reponds with multiple layers(only 1 in example below):
+reponds with multiple layers(only 1 in example below because the catalog c3 only has 1 layer):
 [       
     {    
     "type": "FeatureCollection",
