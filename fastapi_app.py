@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 import uuid
 from all_types.config_dtypes import ApiCommonConfig
-from all_types.myapi_dtypes import UserCatalogsResponse
+from all_types.myapi_dtypes import UserCatalogsResponse,ReqFetchCtlgLyrs, ResCtlgLyrs
 from data_fetcher import (
     get_boxmap_catlog_data,
     fetch_catlog_collection, 
@@ -17,7 +17,8 @@ from data_fetcher import (
     fetch_prdcer_lyrs,
     fetch_prdcer_lyr_map_data,
     create_save_prdcer_ctlg,
-    fetch_prdcer_ctlgs
+    fetch_prdcer_ctlgs,
+    fetch_ctlg_lyrs
       )
 from all_types.myapi_dtypes import (
     LocationReq,
@@ -311,6 +312,16 @@ async def user_catalogs(req: UserIdRequest):
 
 
 
+
+@app.post(CONF.fetch_ctlg_lyrs, response_model=ResCtlgLyrs)
+async def fetch_catalog_layers(req: ReqFetchCtlgLyrs):
+    response = await http_handling(
+        req,
+        ReqFetchCtlgLyrs,
+        ResCtlgLyrs,
+        fetch_ctlg_lyrs
+    )
+    return response
 
 
 

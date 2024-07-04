@@ -160,8 +160,8 @@ class ReqSavePrdcerCtlg(BaseModel):
     ctlg_description: str
     total_records: int
     lyrs: List[str]
-    user_id: str  # Add this field to identify the user
-    thumbnail_url: str  # Add this line
+    user_id: str 
+    thumbnail_url: str
 
 
 class ResSavePrdcerCtlg(ResDefault):
@@ -175,6 +175,7 @@ class UserCatalogInfo(BaseModel):
     subscription_price: str
     total_records: int
     lyrs: List[str]
+    ctlg_owner_user_id: str
 
 class UserCatalogsResponse(ResDefault):
     data: List[UserCatalogInfo]
@@ -184,13 +185,11 @@ class UserCatalogsResponse(ResDefault):
 class ReqFetchCtlgLyrs(BaseModel):
     prdcer_ctlg_id: str
     as_layers: bool
-    user_id: str  # Add this to identify the user
+    user_id: str
 
-class CtlgLyrInfo(PrdcerLyrMapData):
-    pass
 
 class ResCtlgLyrs(ResDefault):
-    data: List[CtlgLyrInfo]
+    data: List[PrdcerLyrMapData]
 
 
 

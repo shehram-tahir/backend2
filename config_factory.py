@@ -25,6 +25,7 @@ class static_ApiConfig:
     prdcer_lyr_map_data: str = "/fastapi/prdcer_lyr_map_data"
     save_producer_catalog: str = "/fastapi/save_producer_catalog"
     user_catalogs: str = "/fastapi/user_catalogs"
+    fetch_ctlg_lyrs: str = "/fastapi/fetch_ctlg_lyrs"
     google_fields: str = "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
 
 

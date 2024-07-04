@@ -172,11 +172,18 @@ cREATE cATLOG USING cATLOG
           }
     ]
 }
-"backend/dataset_lyer_matching.json":{
-    "122123123":["p1335","p1546"],
-    "459":["p22"],
-    "111":["p33"]
-}
+"backend/dataset_lyer_matching.json":
+{
+    "122123123": {
+      "records_count": 20,
+      "prdcer_lyrs":["p1335","p1546"]},
+    "459": {
+        "records_count": 8500,
+        "prdcer_lyrs":["p22"]},
+    "111": {
+        "records_count": 300,
+        "prdcer_lyrs":["p33"]},
+  }
 reponds with multiple layers(only 1 in example below because the catalog c3 only has 1 layer):
 [       
     {    
@@ -195,7 +202,7 @@ reponds with multiple layers(only 1 in example below because the catalog c3 only
 11- so now current catlog in frontend is like
 {
     "prdcer_ctlg_name":"catalog_gas+fish",
-    "prdcer_ctlg_id":"c80",
+    "prdcer_ctlg_id":"c999",
     "subscription_price":"11",
     "ctlg_description":"my awesome new catalog",
     "total_records": 8800,
@@ -204,9 +211,13 @@ reponds with multiple layers(only 1 in example below because the catalog c3 only
 12- if the user checks that layer p33 should be a zone layer, frontend sends:
 {
     "lyrs":["p1335","p33"],
-    "lyrs_as_zone(max_2)":["p33"]
+    "lyrs_as_zone(max_2)":[{"p33":"Features."}]
 }
 13- Frontend should cache all the current layers' data points and use response from the api which will be 3 or 6 layers:
+These three or six layers will be used will be created through a data transformation method which will take all the available points except the designated zone layer and
+then take the points from the designated zone layer and apply a radius of 10 to the zone layer point it will add it to either one of the three layers
+If the zone layer point has a value that is at the bottom 1/3 of all the values in that zone layer point it will designate Any point adjacent to that to layer one and if it's in the middle third value in terms of value of the layer zone it will designate it to the middle point and if it's on the higher range of the zone layer values it will designate it to the 3rd layer
+
 [       
     {    
     "type": "FeatureCollection",

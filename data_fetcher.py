@@ -7,7 +7,7 @@ from all_types.myapi_dtypes import (
     UserIdRequest,
     PrdcerLyrMapData,
     ReqSavePrdcerCtlg,
-    UserCatalogInfo
+    UserCatalogInfo,ReqFetchCtlgLyrs
 )
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
@@ -599,6 +599,7 @@ async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     USERS_PATH = "Backend/users"
+    STORE_CATALOGS_PATH = "Backend/catalogs/store_catalogs.json"
     user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
 
     # Load or create user data
@@ -615,15 +616,17 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         user_data["prdcer"]["prdcer_ctlgs"] = {}
 
     # Add the new producer catalog
-    user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id] = {
+    new_catalog = {
         "prdcer_ctlg_name": req.prdcer_ctlg_name,
         "prdcer_ctlg_id": req.prdcer_ctlg_id,
         "subscription_price": req.subscription_price,
         "ctlg_description": req.ctlg_description,
         "total_records": req.total_records,
         "lyrs": req.lyrs,
-        "thumbnail_url": req.thumbnail_url  # Add this line
+        "thumbnail_url": req.thumbnail_url,  # Add this line
+        "ctlg_owner_user_id": req.user_id
     }
+    user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id] = new_catalog
 
     # Save updated user data
     with open(user_file_path, 'w') as f:
@@ -659,7 +662,77 @@ async def fetch_prdcer_ctlgs(req: UserIdRequest) -> list[UserCatalogInfo]:
     return user_catalogs
 
 
+async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
+    USERS_PATH = "Backend/users"
+    STORE_CATALOGS_PATH = "Backend/catalogs/store_catalogs.json"
+    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+    DATASETS_PATH = "Backend/datasets"
 
+    user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
+
+    # Check if catalog exists in user profile
+    if os.path.exists(user_file_path):
+        with open(user_file_path, 'r') as f:
+            user_data = json.load(f)
+        ctlg = user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).get(req.prdcer_ctlg_id)
+    else:
+        ctlg = None
+
+    # If not in user profile, check store catalogs
+    if not ctlg:
+        with open(STORE_CATALOGS_PATH, 'r') as f:
+            store_ctlgs = json.load(f)
+        ctlg = next((ctlg for ctlg in store_ctlgs["store_catalogs"] if ctlg["prdcer_ctlg_id"] == req.prdcer_ctlg_id), None)
+
+    if not ctlg:
+        raise HTTPException(status_code=404, detail="Catalog not found")
+
+    # Load dataset_layer_matching
+    with open(DATASET_LAYER_MATCHING_PATH, 'r') as f:
+        dataset_layer_matching = json.load(f)
+
+    # Load catalog owner's user data
+    ctlg_owner_file_path = os.path.join(USERS_PATH, f"user_{ctlg['ctlg_owner_user_id']}.json")
+    with open(ctlg_owner_file_path, 'r') as f:
+        ctlg_owner_data = json.load(f)
+
+    ctlg_lyrs = []
+    for lyr_id in ctlg["lyrs"]:
+        # Find the corresponding dataset_id
+        dataset_id=None
+        for d_id, lyr_info in dataset_layer_matching.items():
+            if lyr_id in lyr_info["prdcer_lyrs"]:
+                dataset_id=d_id
+                break
+
+
+        # Load the dataset
+        dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
+        with open(dataset_filepath, 'r') as f:
+            dataset = json.load(f)
+
+        # Transform the dataset
+        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+
+        # find the user who owns this catalog,
+        # so we need to have ctlg_owner_user_id to catalog metadata as well as store_catalog
+        # Get layer metadata from user profile or use default values
+        lyr_metadata = ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
+
+        ctlg_lyrs.append(PrdcerLyrMapData(
+            type="FeatureCollection",
+            features=trans_dataset["features"],
+            prdcer_layer_name=lyr_metadata.get("prdcer_layer_name", f"Layer {lyr_id}"),
+            prdcer_lyr_id=lyr_id,
+            bknd_dataset_id=dataset_id,
+            points_color=lyr_metadata.get("points_color", "red"),
+            layer_legend=lyr_metadata.get("layer_legend", ""),
+            layer_description=lyr_metadata.get("layer_description", ""),
+            records_count=len(trans_dataset["features"]),
+            is_zone_lyr="false"
+        ))
+
+    return ctlg_lyrs
 
 
 

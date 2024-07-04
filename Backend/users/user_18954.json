@@ -16,6 +16,7 @@
         "prdcer_ctlg_id": "c80",
         "subscription_price": "11",
         "ctlg_description": "my awesome new catalog",
+        "ctlg_owner_user_id":"18954",
         "total_records": 8500,
         "lyrs": [
           "p1335"
