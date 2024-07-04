@@ -4,6 +4,7 @@ from pydantic import BaseModel, ValidationError
 import uuid
 from all_types.config_dtypes import ApiCommonConfig
 from all_types.myapi_dtypes import UserCatalogsResponse,ReqFetchCtlgLyrs, ResCtlgLyrs
+from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from data_fetcher import (
     get_boxmap_catlog_data,
     fetch_catlog_collection, 
@@ -18,7 +19,8 @@ from data_fetcher import (
     fetch_prdcer_lyr_map_data,
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
-    fetch_ctlg_lyrs
+    fetch_ctlg_lyrs,
+    apply_zone_layers
       )
 from all_types.myapi_dtypes import (
     LocationReq,
@@ -324,6 +326,17 @@ async def fetch_catalog_layers(req: ReqFetchCtlgLyrs):
     return response
 
 
+
+
+@app.post(CONF.apply_zone_layers, response_model=ResApplyZoneLayers)
+async def apply_zone_layers_endpoint(req: ReqApplyZoneLayers):
+    response = await http_handling(
+        req,
+        ReqApplyZoneLayers,
+        ResApplyZoneLayers,
+        apply_zone_layers
+    )
+    return response
 
 
 

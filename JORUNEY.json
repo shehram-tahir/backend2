@@ -211,12 +211,12 @@ reponds with multiple layers(only 1 in example below because the catalog c3 only
 12- if the user checks that layer p33 should be a zone layer, frontend sends:
 {
     "lyrs":["p1335","p33"],
-    "lyrs_as_zone(max_2)":[{"p33":"Features."}]
+    "lyrs_as_zone(max_2)":[{"p33":"Features.Properties.price"}]
 }
 13- Frontend should cache all the current layers' data points and use response from the api which will be 3 or 6 layers:
 These three or six layers will be used will be created through a data transformation method which will take all the available points except the designated zone layer and
 then take the points from the designated zone layer and apply a radius of 10 to the zone layer point it will add it to either one of the three layers
-If the zone layer point has a value that is at the bottom 1/3 of all the values in that zone layer point it will designate Any point adjacent to that to layer one and if it's in the middle third value in terms of value of the layer zone it will designate it to the middle point and if it's on the higher range of the zone layer values it will designate it to the 3rd layer
+If the zone layer point has a Features.Properties.price value that is at the bottom 1/3 of all the values in that zone layer point it will designate Any point adjacent to that to layer one and if it's in the middle third value in terms of value of the layer zone it will designate it to the middle point and if it's on the higher range of the zone layer values it will designate it to the 3rd layer
 
 [       
     {    

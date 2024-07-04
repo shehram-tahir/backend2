@@ -26,6 +26,7 @@ class static_ApiConfig:
     save_producer_catalog: str = "/fastapi/save_producer_catalog"
     user_catalogs: str = "/fastapi/user_catalogs"
     fetch_ctlg_lyrs: str = "/fastapi/fetch_ctlg_lyrs"
+    apply_zone_layers: str = "/fastapi/apply_zone_layers"    
     google_fields: str = "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
 
 

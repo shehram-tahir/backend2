@@ -194,6 +194,18 @@ class ResCtlgLyrs(ResDefault):
 
 
 
+class ZoneLayerInfo(BaseModel):
+    lyr_id: str
+    property_key: str
+
+class ReqApplyZoneLayers(BaseModel):
+
+    user_id: str
+    lyrs: List[str]
+    lyrs_as_zone: List[Dict[str, str]]
+
+class ResApplyZoneLayers(ResDefault):
+    data: List[PrdcerLyrMapData]
 
 
 

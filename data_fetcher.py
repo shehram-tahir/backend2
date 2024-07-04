@@ -7,7 +7,8 @@ from all_types.myapi_dtypes import (
     UserIdRequest,
     PrdcerLyrMapData,
     ReqSavePrdcerCtlg,
-    UserCatalogInfo,ReqFetchCtlgLyrs
+    UserCatalogInfo,ReqFetchCtlgLyrs,
+    ReqApplyZoneLayers
 )
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
@@ -737,36 +738,109 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
 
 
 
+import math
+from all_types.myapi_dtypes import ReqApplyZoneLayers, PrdcerLyrMapData
+from typing import List, Dict
 
+async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
+    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+    DATASETS_PATH = "Backend/datasets"
 
+    # Load dataset_layer_matching
+    with open(DATASET_LAYER_MATCHING_PATH, 'r') as f:
+        dataset_layer_matching = json.load(f)
 
+    transformed_layers = []
+    for layer in req.lyrs_as_zone:
+        layer['lyr_id'] =layer.keys[0]
+        layer['property_key'] = layer.values[0]
+    zone_layers = {layer['lyr_id']: layer['property_key']}
 
+    for lyr_id in req.lyrs:
+        # Find the corresponding dataset_id
+        dataset_id = None
+        for d_id, lyr_info in dataset_layer_matching.items():
+            if lyr_id in lyr_info["prdcer_lyrs"]:
+                dataset_id = d_id
+                break
 
+        if not dataset_id:
+            continue
 
+        # Load the dataset
+        dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
+        with open(dataset_filepath, 'r') as f:
+            dataset = json.load(f)
 
+        # Transform the dataset
+        lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
+        if lyr_id in zone_layers:
+            # Apply zone layer transformation
+            zone_property = zone_layers[lyr_id]
+            zone_transformed = apply_zone_transformation(lyr_data, zone_property, lyr_id)
+            transformed_layers.extend(zone_transformed)
+        else:
+            # Keep non-zone layer as is
+            transformed_layers.append(lyr_data)
 
+    return transformed_layers
 
+def apply_zone_transformation(layer_data: Dict, zone_property: str, lyr_id: str) -> List[PrdcerLyrMapData]:
+    # Extract property values and calculate thresholds
+    property_values = [feature['properties'].get(zone_property, 0) for feature in layer_data['features']]
+    thresholds = calculate_thresholds(property_values)
 
+    # Create three new layers
+    new_layers = [
+        PrdcerLyrMapData(
+            type="FeatureCollection",
+            features=[],
+            prdcer_layer_name=f"{layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
+            prdcer_lyr_id=f"zy{lyr_id}_applied_{i+1}",
+            points_color=color,
+            layer_legend=f"{layer_data.get('layer_legend', 'Layer')} {category}",
+            records_count=0,
+            is_zone_lyr="False",
+            bknd_dataset_id=layer_data.get('bknd_dataset_id', ''),
+            layer_description=layer_data.get('layer_description', '')
+        )
+        for i, (category, color) in enumerate([("low", "grey"), ("medium", "cyan"), ("high", "red")])
+    ]
 
+    # Distribute features to new layers
+    for feature in layer_data['features']:
+        value = feature['properties'].get(zone_property, 0)
+        point = feature['geometry']['coordinates']
+        
+        if is_point_within_buffer(point, layer_data['features'], 10):
+            if value <= thresholds[0]:
+                new_layers[0].features.append(feature)
+            elif value <= thresholds[1]:
+                new_layers[1].features.append(feature)
+            else:
+                new_layers[2].features.append(feature)
 
+    # Update records count
+    for layer in new_layers:
+        layer.records_count = len(layer.features)
 
+    return new_layers
 
+def calculate_thresholds(values):
+    sorted_values = sorted(values)
+    n = len(sorted_values)
+    return [
+        sorted_values[n // 3],
+        sorted_values[2 * n // 3]
+    ]
 
+def is_point_within_buffer(point, features, buffer_distance):
+    for feature in features:
+        other_point = feature['geometry']['coordinates']
+        if calculate_distance(point, other_point) <= buffer_distance:
+            return True
+    return False
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def calculate_distance(point1, point2):
+    return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
