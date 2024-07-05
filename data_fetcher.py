@@ -11,6 +11,8 @@ from all_types.myapi_dtypes import (
     UserCatalogInfo,
     ReqFetchCtlgLyrs,
     ReqApplyZoneLayers,
+    Feature,
+    Geometry
 )
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
@@ -766,9 +768,6 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
     return ctlg_lyrs
 
 
-
-
-
 async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
 
     # Separate zone layers and non-zone layers
@@ -863,7 +862,14 @@ def apply_zone_transformation(
             bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
             layer_description=zone_layer_data.get("layer_description", ""),
         )
-        for i, (category, color) in enumerate([("low", "grey"), ("medium", "cyan"), ("high", "red"), ("non-zone-overlap", "blue")])
+        for i, (category, color) in enumerate(
+            [
+                ("low", "grey"),
+                ("medium", "cyan"),
+                ("high", "red"),
+                ("non-zone-overlap", "blue"),
+            ]
+        )
     ]
 
     # Distribute non-zone points to new layers based on zone layer
@@ -871,18 +877,17 @@ def apply_zone_transformation(
         point_coords = point["geometry"]["coordinates"]
         for zone_feature in zone_layer_data["features"]:
             zone_point = zone_feature["geometry"]["coordinates"]
-            if (calculate_distance_km(point_coords, zone_point) <= 2):
+            if calculate_distance_km(point_coords, zone_point) <= 2:
                 value = zone_feature["properties"].get(zone_property, 0)
                 if value <= thresholds[0]:
-                    new_layers[0].features.append(point)
+                    new_layers[0].features.append(create_feature(point))
                 elif value <= thresholds[1]:
-                    new_layers[1].features.append(point)
+                    new_layers[1].features.append(create_feature(point))
                 else:
-                    new_layers[2].features.append(point)
+                    new_layers[2].features.append(create_feature(point))
                 break  # Stop checking other zone points once we've found a match
             else:
-                new_layers[3].features.append(point)
-                
+                new_layers[3].features.append(create_feature(point))
 
     # Update records count
     for layer in new_layers:
@@ -890,6 +895,15 @@ def apply_zone_transformation(
 
     return new_layers
 
+def create_feature(point):
+    return Feature(
+        type=point["type"],
+        properties=point["properties"],
+        geometry=Geometry(
+            type="Point",
+            coordinates=point["geometry"]["coordinates"]
+        )
+    )
 
 def calculate_thresholds(values):
     sorted_values = sorted(values)
@@ -908,16 +922,19 @@ def calculate_distance_km(point1, point2):
     R = 6371
 
     # Convert latitude and longitude to radians
-    lat1, lon1 = math.radians(point1[0]), math.radians(point1[1])
-    lat2, lon2 = math.radians(point2[0]), math.radians(point2[1])
+    lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
+    lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
 
     # Differences in coordinates
     dlat = lat2 - lat1
     dlon = lon2 - lon1
 
     # Haversine formula
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     # Calculate the distance
     distance = R * c
