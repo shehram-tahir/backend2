@@ -1,5 +1,6 @@
 from all_types.google_dtypes import GglResponse
 from all_types.myapi_dtypes import LocationReq, CatlogId
+from all_types.myapi_dtypes import ReqApplyZoneLayers, PrdcerLyrMapData
 from all_types.myapi_dtypes import (
     CountryCityData,
     ReqSavePrdcerLyer,
@@ -7,8 +8,9 @@ from all_types.myapi_dtypes import (
     UserIdRequest,
     PrdcerLyrMapData,
     ReqSavePrdcerCtlg,
-    UserCatalogInfo,ReqFetchCtlgLyrs,
-    ReqApplyZoneLayers
+    UserCatalogInfo,
+    ReqFetchCtlgLyrs,
+    ReqApplyZoneLayers,
 )
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
@@ -18,6 +20,11 @@ from storage import (
     get_dataset_from_storage,
     search_metastore_for_string,
 )
+import math
+import json
+import os
+
+from typing import List, Dict
 import asyncio
 import os
 import json
@@ -25,6 +32,7 @@ from fastapi import HTTPException
 import uuid
 import json
 import os
+import numpy as np
 
 
 async def fetch_nearby(location_req: LocationReq):
@@ -551,16 +559,18 @@ async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
     if not os.path.exists(user_file_path):
         raise HTTPException(status_code=404, detail="User not found")
 
-    with open(user_file_path, 'r') as f:
+    with open(user_file_path, "r") as f:
         user_data = json.load(f)
 
     if req.prdcer_lyr_id not in user_data.get("prdcer", {}).get("prdcer_lyrs", {}):
-        raise HTTPException(status_code=404, detail="Producer layer not found for this user")
+        raise HTTPException(
+            status_code=404, detail="Producer layer not found for this user"
+        )
 
     layer_metadata = user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id]
 
     # Load dataset_layer_matching.json
-    with open(DATASET_LAYER_MATCHING_PATH, 'r') as f:
+    with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
         dataset_layer_matching = json.load(f)
 
     # Find the corresponding dataset_id
@@ -575,7 +585,7 @@ async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
 
     # Load the dataset
     dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
-    with open(dataset_filepath, 'r') as f:
+    with open(dataset_filepath, "r") as f:
         dataset = json.load(f)
 
     # Transform the dataset
@@ -592,7 +602,7 @@ async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
         layer_legend=layer_metadata["layer_legend"],
         layer_description=layer_metadata["layer_description"],
         records_count=d_info["records_count"],
-        is_zone_lyr="false"  # Assuming this is always false as per your previous implementation
+        is_zone_lyr="false",  # Assuming this is always false as per your previous implementation
     )
 
     return result
@@ -605,7 +615,7 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
 
     # Load or create user data
     if os.path.exists(user_file_path):
-        with open(user_file_path, 'r') as f:
+        with open(user_file_path, "r") as f:
             user_data = json.load(f)
     else:
         user_data = {"prdcer": {"prdcer_ctlgs": {}}}
@@ -625,12 +635,12 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         "total_records": req.total_records,
         "lyrs": req.lyrs,
         "thumbnail_url": req.thumbnail_url,  # Add this line
-        "ctlg_owner_user_id": req.user_id
+        "ctlg_owner_user_id": req.user_id,
     }
     user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id] = new_catalog
 
     # Save updated user data
-    with open(user_file_path, 'w') as f:
+    with open(user_file_path, "w") as f:
         json.dump(user_data, f, indent=2)
 
     return "Producer catalog created successfully"
@@ -643,20 +653,24 @@ async def fetch_prdcer_ctlgs(req: UserIdRequest) -> list[UserCatalogInfo]:
     if not os.path.exists(user_file_path):
         return []  # Return an empty list if the user file doesn't exist
 
-    with open(user_file_path, 'r') as f:
+    with open(user_file_path, "r") as f:
         user_data = json.load(f)
 
     user_catalogs = []
-    for ctlg_id, ctlg_data in user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).items():
+    for ctlg_id, ctlg_data in (
+        user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).items()
+    ):
         user_catalogs.append(
             UserCatalogInfo(
                 prdcer_ctlg_id=ctlg_id,
                 prdcer_ctlg_name=ctlg_data["prdcer_ctlg_name"],
                 ctlg_description=ctlg_data["ctlg_description"],
-                thumbnail_url=ctlg_data.get("thumbnail_url", ""),  # Add a default thumbnail URL if not present
+                thumbnail_url=ctlg_data.get(
+                    "thumbnail_url", ""
+                ),  # Add a default thumbnail URL if not present
                 subscription_price=ctlg_data["subscription_price"],
                 total_records=ctlg_data["total_records"],
-                lyrs=ctlg_data["lyrs"]
+                lyrs=ctlg_data["lyrs"],
             )
         )
 
@@ -673,43 +687,53 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
 
     # Check if catalog exists in user profile
     if os.path.exists(user_file_path):
-        with open(user_file_path, 'r') as f:
+        with open(user_file_path, "r") as f:
             user_data = json.load(f)
-        ctlg = user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).get(req.prdcer_ctlg_id)
+        ctlg = (
+            user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).get(req.prdcer_ctlg_id)
+        )
     else:
         ctlg = None
 
     # If not in user profile, check store catalogs
     if not ctlg:
-        with open(STORE_CATALOGS_PATH, 'r') as f:
+        with open(STORE_CATALOGS_PATH, "r") as f:
             store_ctlgs = json.load(f)
-        ctlg = next((ctlg for ctlg in store_ctlgs["store_catalogs"] if ctlg["prdcer_ctlg_id"] == req.prdcer_ctlg_id), None)
+        ctlg = next(
+            (
+                ctlg
+                for ctlg in store_ctlgs["store_catalogs"]
+                if ctlg["prdcer_ctlg_id"] == req.prdcer_ctlg_id
+            ),
+            None,
+        )
 
     if not ctlg:
         raise HTTPException(status_code=404, detail="Catalog not found")
 
     # Load dataset_layer_matching
-    with open(DATASET_LAYER_MATCHING_PATH, 'r') as f:
+    with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
         dataset_layer_matching = json.load(f)
 
     # Load catalog owner's user data
-    ctlg_owner_file_path = os.path.join(USERS_PATH, f"user_{ctlg['ctlg_owner_user_id']}.json")
-    with open(ctlg_owner_file_path, 'r') as f:
+    ctlg_owner_file_path = os.path.join(
+        USERS_PATH, f"user_{ctlg['ctlg_owner_user_id']}.json"
+    )
+    with open(ctlg_owner_file_path, "r") as f:
         ctlg_owner_data = json.load(f)
 
     ctlg_lyrs = []
     for lyr_id in ctlg["lyrs"]:
         # Find the corresponding dataset_id
-        dataset_id=None
+        dataset_id = None
         for d_id, lyr_info in dataset_layer_matching.items():
             if lyr_id in lyr_info["prdcer_lyrs"]:
-                dataset_id=d_id
+                dataset_id = d_id
                 break
-
 
         # Load the dataset
         dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
-        with open(dataset_filepath, 'r') as f:
+        with open(dataset_filepath, "r") as f:
             dataset = json.load(f)
 
         # Transform the dataset
@@ -718,108 +742,147 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
         # find the user who owns this catalog,
         # so we need to have ctlg_owner_user_id to catalog metadata as well as store_catalog
         # Get layer metadata from user profile or use default values
-        lyr_metadata = ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
+        lyr_metadata = (
+            ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
+        )
 
-        ctlg_lyrs.append(PrdcerLyrMapData(
-            type="FeatureCollection",
-            features=trans_dataset["features"],
-            prdcer_layer_name=lyr_metadata.get("prdcer_layer_name", f"Layer {lyr_id}"),
-            prdcer_lyr_id=lyr_id,
-            bknd_dataset_id=dataset_id,
-            points_color=lyr_metadata.get("points_color", "red"),
-            layer_legend=lyr_metadata.get("layer_legend", ""),
-            layer_description=lyr_metadata.get("layer_description", ""),
-            records_count=len(trans_dataset["features"]),
-            is_zone_lyr="false"
-        ))
+        ctlg_lyrs.append(
+            PrdcerLyrMapData(
+                type="FeatureCollection",
+                features=trans_dataset["features"],
+                prdcer_layer_name=lyr_metadata.get(
+                    "prdcer_layer_name", f"Layer {lyr_id}"
+                ),
+                prdcer_lyr_id=lyr_id,
+                bknd_dataset_id=dataset_id,
+                points_color=lyr_metadata.get("points_color", "red"),
+                layer_legend=lyr_metadata.get("layer_legend", ""),
+                layer_description=lyr_metadata.get("layer_description", ""),
+                records_count=len(trans_dataset["features"]),
+                is_zone_lyr="false",
+            )
+        )
 
     return ctlg_lyrs
 
 
 
 
-import math
-from all_types.myapi_dtypes import ReqApplyZoneLayers, PrdcerLyrMapData
-from typing import List, Dict
 
 async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
+
+    # Separate zone layers and non-zone layers
+    non_zone_layers = req.lyrs.copy()
+    zone_layers = []
+    for layer in req.lyrs_as_zone:
+        zone_lyr_id = list(layer.keys())[0]
+        zone_property_key = list(layer.values())[0]
+        zone_layers.append(zone_lyr_id)
+        non_zone_layers.remove(zone_lyr_id)
+
+    # Get all data points for non-zone layers
+    non_zone_data = []
+    for lyr_id in non_zone_layers:
+        dataset_id = find_dataset_id(lyr_id)
+        if dataset_id:
+            dataset = load_dataset(dataset_id)
+            lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+            non_zone_data.extend(lyr_data["features"])
+
+    # Get all data points for zone layers
+    zone_data = {}
+    for lyr_id in zone_layers:
+        dataset_id = find_dataset_id(lyr_id)
+        if dataset_id:
+            dataset = load_dataset(dataset_id)
+            lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+            zone_data[lyr_id] = lyr_data
+
+    # Apply transformation for each zone layer
+    transformed_layers = []
+    for layer in req.lyrs_as_zone:
+        zone_lyr_id = list(layer.keys())[0]
+        zone_property_key = list(layer.values())[0]
+        zone_transformed = apply_zone_transformation(
+            zone_data[zone_lyr_id], non_zone_data, zone_property_key, zone_lyr_id
+        )
+        transformed_layers.extend(zone_transformed)
+
+    return transformed_layers
+
+
+def find_dataset_id(lyr_id: str) -> str:
     DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
     DATASETS_PATH = "Backend/datasets"
 
     # Load dataset_layer_matching
-    with open(DATASET_LAYER_MATCHING_PATH, 'r') as f:
+    with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
         dataset_layer_matching = json.load(f)
 
-    transformed_layers = []
-    for layer in req.lyrs_as_zone:
-        layer['lyr_id'] =layer.keys[0]
-        layer['property_key'] = layer.values[0]
-    zone_layers = {layer['lyr_id']: layer['property_key']}
+    for d_id, lyr_info in dataset_layer_matching.items():
+        if lyr_id in lyr_info["prdcer_lyrs"]:
+            return d_id
+    return None
 
-    for lyr_id in req.lyrs:
-        # Find the corresponding dataset_id
-        dataset_id = None
-        for d_id, lyr_info in dataset_layer_matching.items():
-            if lyr_id in lyr_info["prdcer_lyrs"]:
-                dataset_id = d_id
-                break
 
-        if not dataset_id:
-            continue
+def load_dataset(dataset_id: str) -> Dict:
+    DATASETS_PATH = "Backend/datasets"
 
-        # Load the dataset
-        dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
-        with open(dataset_filepath, 'r') as f:
-            dataset = json.load(f)
+    dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
+    with open(dataset_filepath, "r") as f:
+        return json.load(f)
 
-        # Transform the dataset
-        lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
-        if lyr_id in zone_layers:
-            # Apply zone layer transformation
-            zone_property = zone_layers[lyr_id]
-            zone_transformed = apply_zone_transformation(lyr_data, zone_property, lyr_id)
-            transformed_layers.extend(zone_transformed)
-        else:
-            # Keep non-zone layer as is
-            transformed_layers.append(lyr_data)
-
-    return transformed_layers
-
-def apply_zone_transformation(layer_data: Dict, zone_property: str, lyr_id: str) -> List[PrdcerLyrMapData]:
+def apply_zone_transformation(
+    zone_layer_data: Dict, non_zone_points: List, zone_property: str, zone_lyr_id: str
+) -> List[PrdcerLyrMapData]:
     # Extract property values and calculate thresholds
-    property_values = [feature['properties'].get(zone_property, 0) for feature in layer_data['features']]
+    zone_property = zone_property.split("features.properties.")[-1]
+    property_values = [
+        feature["properties"].get(zone_property, 9191919191)
+        for feature in zone_layer_data["features"]
+    ]  # TODO this is about the slowest thing probably
+    # Convert the list to a NumPy array
+    arr = np.array(property_values)
+    avg = np.mean(arr[arr != 9191919191.0])
+    new_arr = np.where(arr == 9191919191.0, avg, arr)
+    property_values = new_arr.tolist()
     thresholds = calculate_thresholds(property_values)
 
-    # Create three new layers
+    # Create 4 new layers
     new_layers = [
         PrdcerLyrMapData(
             type="FeatureCollection",
             features=[],
-            prdcer_layer_name=f"{layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
-            prdcer_lyr_id=f"zy{lyr_id}_applied_{i+1}",
+            prdcer_layer_name=f"{zone_layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
+            prdcer_lyr_id=f"zy{zone_lyr_id}_applied_{i+1}",
             points_color=color,
-            layer_legend=f"{layer_data.get('layer_legend', 'Layer')} {category}",
+            layer_legend=f"{zone_layer_data.get('layer_legend', 'Layer')} {category} {zone_property}",
             records_count=0,
             is_zone_lyr="False",
-            bknd_dataset_id=layer_data.get('bknd_dataset_id', ''),
-            layer_description=layer_data.get('layer_description', '')
+            bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
+            layer_description=zone_layer_data.get("layer_description", ""),
         )
-        for i, (category, color) in enumerate([("low", "grey"), ("medium", "cyan"), ("high", "red")])
+        for i, (category, color) in enumerate([("low", "grey"), ("medium", "cyan"), ("high", "red"), ("non-zone-overlap", "blue")])
     ]
 
-    # Distribute features to new layers
-    for feature in layer_data['features']:
-        value = feature['properties'].get(zone_property, 0)
-        point = feature['geometry']['coordinates']
-        
-        if is_point_within_buffer(point, layer_data['features'], 10):
-            if value <= thresholds[0]:
-                new_layers[0].features.append(feature)
-            elif value <= thresholds[1]:
-                new_layers[1].features.append(feature)
+    # Distribute non-zone points to new layers based on zone layer
+    for point in non_zone_points:
+        point_coords = point["geometry"]["coordinates"]
+        for zone_feature in zone_layer_data["features"]:
+            zone_point = zone_feature["geometry"]["coordinates"]
+            if (calculate_distance_km(point_coords, zone_point) <= 2):
+                value = zone_feature["properties"].get(zone_property, 0)
+                if value <= thresholds[0]:
+                    new_layers[0].features.append(point)
+                elif value <= thresholds[1]:
+                    new_layers[1].features.append(point)
+                else:
+                    new_layers[2].features.append(point)
+                break  # Stop checking other zone points once we've found a match
             else:
-                new_layers[2].features.append(feature)
+                new_layers[3].features.append(point)
+                
 
     # Update records count
     for layer in new_layers:
@@ -827,20 +890,36 @@ def apply_zone_transformation(layer_data: Dict, zone_property: str, lyr_id: str)
 
     return new_layers
 
+
 def calculate_thresholds(values):
     sorted_values = sorted(values)
     n = len(sorted_values)
-    return [
-        sorted_values[n // 3],
-        sorted_values[2 * n // 3]
-    ]
+    return [sorted_values[n // 3], sorted_values[2 * n // 3]]
 
-def is_point_within_buffer(point, features, buffer_distance):
-    for feature in features:
-        other_point = feature['geometry']['coordinates']
-        if calculate_distance(point, other_point) <= buffer_distance:
-            return True
-    return False
 
-def calculate_distance(point1, point2):
-    return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
+# def calculate_distance_km(point1, point2):
+#     # point1 = [39.2398597, 21.5111573]
+#     # point2 = [39.2147296, 21.634539099999998]
+#     return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+
+def calculate_distance_km(point1, point2):
+    # Earth's radius in kilometers
+    R = 6371
+
+    # Convert latitude and longitude to radians
+    lat1, lon1 = math.radians(point1[0]), math.radians(point1[1])
+    lat2, lon2 = math.radians(point2[0]), math.radians(point2[1])
+
+    # Differences in coordinates
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    # Haversine formula
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+    # Calculate the distance
+    distance = R * c
+
+    return distance

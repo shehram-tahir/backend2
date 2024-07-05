@@ -1,603 +1,410 @@
 [
     {
-        "id": "ChIJCev-QjTNwxURKN1YDTM1qdM",
+        "id": "ChIJ1xtdfevWwxURPO35BsKus6c",
         "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
+            "school",
             "point_of_interest",
             "establishment"
         ],
-        "formattedAddress": "Abi Dharr Alghifari St, An Naseem, Jeddah 23236, Saudi Arabia",
+        "formattedAddress": "6247 - \u062d\u064a - 2908\u060c 6247 2908 \u0627\u0644\u0637\u0631\u064a\u0642 \u0627\u0644\u062f\u0627\u0626\u0631\u064a - \u062d\u064a\u060c Bryman, Jeddah 23641, Saudi Arabia",
         "location": {
-            "latitude": 21.5111573,
-            "longitude": 39.2398597
+            "latitude": 21.634539099999998,
+            "longitude": 39.2147296
+        },
+        "rating": 3.6,
+        "userRatingCount": 1213,
+        "displayName": {
+            "text": "North Jeddah Driving School",
+            "languageCode": "en"
+        }
+    },
+    {
+        "id": "ChIJNeWIOuzQwxURdeeUgpI-QnE",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "Abdullah bin Safwan, Ar Rabwah, Jeddah 23446, Saudi Arabia",
+        "location": {
+            "latitude": 21.5922569,
+            "longitude": 39.1803859
         },
         "rating": 4.1,
-        "userRatingCount": 16295,
+        "userRatingCount": 469,
         "displayName": {
-            "text": "The Economic Hall",
+            "text": "Knights of Knowledge International Schools",
             "languageCode": "en"
         },
-        "delivery": false,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
+        "primaryType": "school"
     },
     {
-        "id": "ChIJ5eWg48fWwxURimvhI-l2mKw",
+        "id": "ChIJb7E-hOTQwxUR4ZXyMe-H4OA",
         "types": [
-            "department_store",
-            "supermarket",
-            "grocery_store",
-            "bakery",
-            "store",
-            "food",
+            "school",
+            "mosque",
+            "place_of_worship",
             "point_of_interest",
             "establishment"
         ],
-        "formattedAddress": "Ibrahim Mohamed Abdel Wahab St, \u0627\u0644\u0645\u0631\u0648\u0629\u060c \u062c\u062f\u0629 23545, Saudi Arabia",
+        "formattedAddress": "7043\u060c 5163 \u0627\u0644\u062d\u0628\u0627\u0628 \u0628\u0646 \u0627\u0644\u0645\u0646\u0630\u0631\u060c \u062d\u064a \u0627\u0644\u0631\u0628\u0648\u0629\u060c Jeddah 23448, Saudi Arabia",
         "location": {
-            "latitude": 21.620400699999998,
-            "longitude": 39.215772799999996
+            "latitude": 21.5890475,
+            "longitude": 39.1905054
         },
-        "rating": 4.2,
-        "userRatingCount": 20186,
+        "rating": 4.7,
+        "userRatingCount": 483,
         "displayName": {
-            "text": "LuLu Hypermarket - Marwah",
+            "text": "Sharbatli mosque",
             "languageCode": "en"
         },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
+        "primaryType": "school"
     },
     {
-        "id": "ChIJQVehbUHRwxURxEnCBJgw30I",
+        "id": "ChIJJw6KpdvRwxURTmX1RdGgPXE",
         "types": [
-            "grocery_store",
-            "store",
-            "food",
+            "school",
             "point_of_interest",
             "establishment"
         ],
-        "formattedAddress": "7294 Ibn Zarqun, \u062d\u064a \u0627\u0644\u0635\u0641\u0627, Jeddah 23455, Saudi Arabia",
+        "formattedAddress": "Al Faisaliyyah, Jeddah 23445, Saudi Arabia",
         "location": {
-            "latitude": 21.591327200000002,
-            "longitude": 39.220444799999996
+            "latitude": 21.584230899999998,
+            "longitude": 39.1868858
         },
-        "rating": 4.1,
-        "userRatingCount": 2389,
+        "rating": 3.7,
+        "userRatingCount": 65,
         "displayName": {
-            "text": "\u062d\u0644\u0642\u0629 \u0627\u0644\u062e\u0636\u0627\u0631 \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647",
+            "text": "Jeddah International Academy-JIA",
             "languageCode": "en"
         },
-        "delivery": true,
-        "primaryType": "grocery_store"
+        "primaryType": "school"
     },
     {
-        "id": "ChIJHbxraszNwxURqEm8evoew_s",
+        "id": "ChIJHxXb_WjRwxUR-6bUcxQkp0U",
         "types": [
-            "cell_phone_store",
-            "supermarket",
-            "grocery_store",
-            "furniture_store",
-            "home_improvement_store",
-            "home_goods_store",
-            "clothing_store",
-            "store",
-            "food",
+            "school",
             "point_of_interest",
             "establishment"
         ],
-        "formattedAddress": "Abdel Malek Bin Dthar St, \u0627\u0644\u0627\u0645\u064a\u0631 \u0641\u0648\u0627\u0632 \u0627\u0644\u062c\u0646\u0648\u0628\u064a\u060c \u062c\u062f\u0629 22431, Saudi Arabia",
+        "formattedAddress": "H6MF+PV3, Ahmad Hazzazi, Al-Safa, Jeddah 23454, Saudi Arabia",
         "location": {
-            "latitude": 21.4384248,
-            "longitude": 39.27968
-        },
-        "rating": 4.3,
-        "userRatingCount": 21594,
-        "displayName": {
-            "text": "LuLu Hypermarket - Amir Fawaz",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
-    },
-    {
-        "id": "ChIJjZ3Rl9DWwxURRVoowuolMhw",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "bakery",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Hira St, Al Marwah, Jeddah 23543, Saudi Arabia",
-        "location": {
-            "latitude": 21.622322999999998,
-            "longitude": 39.202501000000005
-        },
-        "rating": 4.2,
-        "userRatingCount": 13587,
-        "displayName": {
-            "text": "Manuel Market - Mandarin Mall - \u0645\u0627\u0646\u0648\u064a\u0644 \u0645\u0627\u0631\u0643\u062a",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
-    },
-    {
-        "id": "ChIJl43pbuLPwxURkgoBzI5IeQY",
-        "types": [
-            "cell_phone_store",
-            "supermarket",
-            "grocery_store",
-            "furniture_store",
-            "home_improvement_store",
-            "home_goods_store",
-            "clothing_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "G58J+PJ, Al Sharafeyah, Jeddah 23214, Saudi Arabia",
-        "location": {
-            "latitude": 21.5168537,
-            "longitude": 39.181426699999996
-        },
-        "rating": 4.3,
-        "userRatingCount": 3153,
-        "displayName": {
-            "text": "Lulu Hypermarket - Madeena Road",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
-    },
-    {
-        "id": "ChIJ82jgddLTwxURueAa4dX04N4",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "3767\u060c Al Waha, Jeddah 23354, Saudi Arabia",
-        "location": {
-            "latitude": 21.5641516,
-            "longitude": 39.247864
-        },
-        "rating": 3.8,
-        "userRatingCount": 3013,
-        "displayName": {
-            "text": "\u0647\u0627\u064a\u0628\u0631 \u0645\u0627\u0631\u0643\u062a \u0632\u0627\u062f \u0645\u0627\u0631\u062a",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
-    },
-    {
-        "id": "ChIJQYN67bPZwxURHRtf-4dZwvg",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Prince Sultan Branch Rd, Al Mohammadiyyah, Jeddah 23616, Saudi Arabia",
-        "location": {
-            "latitude": 21.6337917,
-            "longitude": 39.1313374
-        },
-        "rating": 4,
-        "userRatingCount": 956,
-        "displayName": {
-            "text": "Tamimi Markets | \u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u062a\u0645\u064a\u0645\u064a",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJd_t5LirRwxURGiwbRhbN2Gc",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Prince Mutaib bin Abdulaziz Rd, Al Marwah, Jeddah 23541, Saudi Arabia",
-        "location": {
-            "latitude": 21.609695100000003,
-            "longitude": 39.198242799999996
-        },
-        "rating": 4.2,
-        "userRatingCount": 11506,
-        "displayName": {
-            "text": "HyperPanda Al Marwah",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJJ3JQlaF9wRURMGSSBM4CdSw",
-        "types": [
-            "cell_phone_store",
-            "supermarket",
-            "grocery_store",
-            "furniture_store",
-            "home_improvement_store",
-            "home_goods_store",
-            "clothing_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Al Hamadaniyah District, Jeddah 23761, Saudi Arabia",
-        "location": {
-            "latitude": 21.7559897,
-            "longitude": 39.2062558
-        },
-        "rating": 4.2,
-        "userRatingCount": 4458,
-        "displayName": {
-            "text": "Lulu Hypermarket - Hamdaniya",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
-    },
-    {
-        "id": "ChIJeZ9x5InQwxURGjDuA-Y2PME",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "H5M9+3F, Al Bawadi, Jeddah 23443, Saudi Arabia",
-        "location": {
-            "latitude": 21.5826875,
-            "longitude": 39.168687500000004
-        },
-        "rating": 4.3,
-        "userRatingCount": 9790,
-        "displayName": {
-            "text": "Hyper Panda",
-            "languageCode": "en"
-        },
-        "takeout": false,
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJc5S8ZQPQwxUR0pQFz1q07lY",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "G5X7+J63, Abd Al Rahman Al Toubaishi, Al Andalus, Jeddah 23326, Saudi Arabia",
-        "location": {
-            "latitude": 21.549003,
-            "longitude": 39.163035
-        },
-        "rating": 4.3,
-        "userRatingCount": 6517,
-        "displayName": {
-            "text": "Danube",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJo39FunrQwxUR7HvL0syv44U",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "\u0642\u0627\u0633\u0645 \u0632\u064a\u0646\u0629\u060c Zainal, Jeddah 23434, Saudi Arabia",
-        "location": {
-            "latitude": 21.5749647,
-            "longitude": 39.1636526
-        },
-        "rating": 4.2,
-        "priceLevel": "PRICE_LEVEL_MODERATE",
-        "userRatingCount": 4937,
-        "displayName": {
-            "text": "Panda Supermarket",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJ07Fbi3fRwxURxcoDXr2yckg",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "4952 \u0627\u062d\u0645\u062f \u0627\u0644\u0639\u0633\u0643\u0644\u0627\u0646\u0649\u060c \u062d\u064a \u0627\u0644\u0635\u0641\u0627\u060c \u062c\u062f\u0629 23453 6634\u060c Al-Safa, Jeddah 23453, Saudi Arabia",
-        "location": {
-            "latitude": 21.567884199999998,
-            "longitude": 39.226861899999996
-        },
-        "rating": 4.4,
-        "userRatingCount": 7279,
-        "displayName": {
-            "text": "Danube",
-            "languageCode": "en"
-        },
-        "takeout": true,
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJGawy0oPawxUR-D6Csb60h2U",
-        "types": [
-            "supermarket",
-            "shopping_mall",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Saqer Qouraish, As Salamah, Jeddah 23436, Saudi Arabia",
-        "location": {
-            "latitude": 21.5824951,
-            "longitude": 39.152450099999996
-        },
-        "rating": 4.1,
-        "userRatingCount": 7039,
-        "displayName": {
-            "text": "Refaat Shopping Center",
-            "languageCode": "en"
-        },
-        "takeout": true,
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
-    },
-    {
-        "id": "ChIJBVkugwfawxURkBfw1rc2Zqg",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Madinah Road, Al Naeem, Jeddah 23526, Saudi Arabia",
-        "location": {
-            "latitude": 21.618941,
-            "longitude": 39.1537794
-        },
-        "rating": 4.3,
-        "userRatingCount": 8380,
-        "displayName": {
-            "text": "Danube",
-            "languageCode": "en"
-        },
-        "takeout": true,
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJNxIF8bx7wRURwY_OL4Dds7Y",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "Q6G7+88M, Al-Salehiyah, Jeddah 23763, Saudi Arabia",
-        "location": {
-            "latitude": 21.7758125,
-            "longitude": 39.2133125
-        },
-        "rating": 4.1,
-        "userRatingCount": 1449,
-        "displayName": {
-            "text": "\u0645\u062a\u0627\u062c\u0631 \u0645\u0646\u0627\u0641\u0633",
-            "languageCode": "ar"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJazZyokHawxURqiQdcBMyGYo",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "\u0634\u0627\u0631\u0639 \u062d\u0631\u0627\u0621\u060c \u0627\u0644\u0646\u0647\u0636\u0629\u060c\u060c An Nahdah, Jeddah 23523, Saudi Arabia",
-        "location": {
-            "latitude": 21.6093588,
-            "longitude": 39.131472599999995
-        },
-        "rating": 4.3,
-        "userRatingCount": 9552,
-        "displayName": {
-            "text": "Danube",
-            "languageCode": "en"
-        },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
-    },
-    {
-        "id": "ChIJebyFHWB8wRURCQi5wHuqgSg",
-        "types": [
-            "supermarket",
-            "grocery_store",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "formattedAddress": "\u0634\u0627\u0631\u0639 \u0627\u0644\u062d\u0645\u062f\u0627\u0646\u064a\u0629\u060c\u060c Al Hamadaniyyah, Jeddah 23761, Saudi Arabia",
-        "location": {
-            "latitude": 21.7553782,
-            "longitude": 39.1958747
+            "latitude": 21.5842541,
+            "longitude": 39.224667499999995
         },
         "rating": 3.9,
-        "userRatingCount": 4793,
+        "userRatingCount": 91,
         "displayName": {
-            "text": "Hyper Panda",
+            "text": "\u0645\u062f\u0627\u0631\u0633 \u0627\u0644\u0633\u0627\u062d\u0644 \u0627\u0644\u0623\u0647\u0644\u064a\u0629",
             "languageCode": "en"
         },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsCashOnly": false
-        }
+        "primaryType": "school"
     },
     {
-        "id": "ChIJz1BKL5HbwxURosk03DMe6YM",
+        "id": "ChIJv9xUNQXRwxUR1HWVfTuEHEA",
         "types": [
-            "shoe_store",
-            "supermarket",
-            "grocery_store",
-            "wholesaler",
-            "furniture_store",
-            "home_improvement_store",
-            "home_goods_store",
-            "clothing_store",
-            "store",
-            "food",
+            "school",
             "point_of_interest",
             "establishment"
         ],
-        "formattedAddress": "\u0633\u0648\u0642 \u062c\u0648\u0644\u062f \u0645\u0648\u0631 \u0645\u0648\u0644\u060c \u0634\u0627\u0631\u0639 \u0627\u062d\u0645\u062f \u0627\u0644\u0639\u0637\u0627\u0633\u060c \u062d\u064a \u0627\u0644\u0632\u0647\u0631\u0627\u0621 \u060c\u060c Al Zahra, Jeddah 23425, Saudi Arabia",
+        "formattedAddress": "3324 Jabal Al Qasabah, Al-Safa, District, Jeddah 23452, Saudi Arabia",
         "location": {
-            "latitude": 21.5830088,
-            "longitude": 39.1291355
+            "latitude": 21.582730899999998,
+            "longitude": 39.2047861
         },
-        "rating": 4.2,
-        "userRatingCount": 1538,
+        "rating": 3.5,
+        "userRatingCount": 112,
         "displayName": {
-            "text": "Mira Mart",
+            "text": "\u0645\u062f\u0627\u0631\u0633 \u0623\u0643\u0627\u062f\u064a\u0645\u064a\u0629 \u0627\u0644\u0645\u0639\u0627\u0631\u0641 \u0627\u0644\u0627\u0647\u0644\u064a\u0629 \u0644\u0644\u0628\u0646\u0627\u062a",
             "languageCode": "en"
         },
-        "delivery": true,
-        "primaryType": "supermarket",
-        "paymentOptions": {
-            "acceptsCreditCards": true,
-            "acceptsDebitCards": true,
-            "acceptsCashOnly": false,
-            "acceptsNfc": true
-        }
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJmVhQDnLRwxURWStJUnBn4P0",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "H6HC+3F6, Zaki Moubarak, Al-Safa, Jeddah 23454, Saudi Arabia",
+        "location": {
+            "latitude": 21.5776593,
+            "longitude": 39.2211502
+        },
+        "rating": 3.8,
+        "userRatingCount": 117,
+        "displayName": {
+            "text": "Omar Ibn AlKhattab Secondary School",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJK8Hl3yLRwxURHvs7tFA3Y6Q",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "Ar Rabwah, Jeddah 23448, Saudi Arabia",
+        "location": {
+            "latitude": 21.5888579,
+            "longitude": 39.191624399999995
+        },
+        "rating": 4.4,
+        "userRatingCount": 180,
+        "displayName": {
+            "text": "\u0645\u0631\u0643\u0632 \u0642\u0631\u0629 \u0639\u064a\u0646 \u0644\u0636\u064a\u0627\u0641\u0629 \u0627\u0644\u0623\u0637\u0641\u0627\u0644",
+            "languageCode": "ar"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJKZnnVgvRwxURtKFb67g6NEg",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "H6F8+MGR, Abu Muslim Al Muradi, Al-Safa, Jeddah 23453, Saudi Arabia",
+        "location": {
+            "latitude": 21.574228599999998,
+            "longitude": 39.216273199999996
+        },
+        "rating": 3.5,
+        "userRatingCount": 134,
+        "displayName": {
+            "text": "Bra'em Alwatan School",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJYWe0X-PTwxUR__uD2tTw-EU",
+        "types": [
+            "primary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "Al Samer, Jeddah 23462, Saudi Arabia",
+        "location": {
+            "latitude": 21.5905625,
+            "longitude": 39.2424375
+        },
+        "rating": 4.1,
+        "userRatingCount": 89,
+        "displayName": {
+            "text": "Maan bin Udai Primary School for Boys",
+            "languageCode": "en"
+        },
+        "primaryType": "primary_school"
+    },
+    {
+        "id": "ChIJecXHE-XQwxUR7CQYzCN_yZU",
+        "types": [
+            "primary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "\u062d\u064a \u0627\u0644\u0631\u0628\u0648\u0629\u060c, 7062 \u0627\u0628\u0646 \u062e\u0636\u0631, \u062d\u064a \u0627\u0644\u0631\u0628\u0648\u0629\u060c \u062c\u062f\u0629 23448, Saudi Arabia",
+        "location": {
+            "latitude": 21.615847799999997,
+            "longitude": 39.189760299999996
+        },
+        "rating": 3.3,
+        "userRatingCount": 67,
+        "displayName": {
+            "text": "119th Elementary School",
+            "languageCode": "en"
+        },
+        "primaryType": "primary_school"
+    },
+    {
+        "id": "ChIJOcadGdPRwxUR9rc0fJRTUjc",
+        "types": [
+            "secondary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "\u0627\u0644\u0646\u0632\u0647\u0629\u060c\u060c J5CC+826\u060c \u0627\u0644\u0646\u0632\u0647\u0629\u060c\u060c An Nuzhah, Jeddah 23534\u060c, Saudi Arabia",
+        "location": {
+            "latitude": 21.6207811,
+            "longitude": 39.1700184
+        },
+        "rating": 4.8,
+        "userRatingCount": 5,
+        "displayName": {
+            "text": "\u062d\u064a \u0627\u0644\u0631\u0648\u064a\u0633",
+            "languageCode": "ar"
+        },
+        "primaryType": "secondary_school"
+    },
+    {
+        "id": "ChIJF3_fTFnRwxURu4bKHq4goxY",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "As Samir District, 6787, 3259 \u0627\u0644\u0637\u0641\u064a\u0644 \u0628\u0646 \u0627\u0644\u062d\u0627\u0631\u062b\u060c \u062d\u064a \u0627\u0644\u0633\u0627\u0645\u0631\u060c \u062c\u062f\u0629 23462, Saudi Arabia",
+        "location": {
+            "latitude": 21.589664499999998,
+            "longitude": 39.2331837
+        },
+        "rating": 3.5,
+        "userRatingCount": 63,
+        "displayName": {
+            "text": "Dawwd ibn Aroah Althagafi Primary School",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJyZ0NlwbRwxUR3OiBLi5qLYk",
+        "types": [
+            "secondary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "H6H3+236, Jabal An Nadian, Al-Safa, Jeddah 23451, Saudi Arabia",
+        "location": {
+            "latitude": 21.577545,
+            "longitude": 39.2026337
+        },
+        "rating": 3.9,
+        "userRatingCount": 108,
+        "displayName": {
+            "text": "Ali bin Abi Talib High School",
+            "languageCode": "en"
+        },
+        "primaryType": "secondary_school"
+    },
+    {
+        "id": "ChIJn1zZIMLWwxUR6Qn4XBBYleM",
+        "types": [
+            "primary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "Al Marwah District, 9218 \u0645\u062d\u0645\u062f \u0627\u0644\u062a\u0644\u0645\u0633\u0627\u0646\u0649, \u0627\u0644\u0645\u0631\u0648\u0629\u060c 5022, \u062c\u062f\u0629 23544, Saudi Arabia",
+        "location": {
+            "latitude": 21.6289659,
+            "longitude": 39.2112082
+        },
+        "rating": 4,
+        "userRatingCount": 118,
+        "displayName": {
+            "text": "Madinati Alsageerah International School",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJ4-vxgdfWwxURbCX2nKtxKM0",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "\u062d\u064a, 3698 Urwah Ibn Awrad, Al Marwah, District, Jeddah 23544, Saudi Arabia",
+        "location": {
+            "latitude": 21.6243049,
+            "longitude": 39.1984478
+        },
+        "rating": 3.1,
+        "userRatingCount": 62,
+        "displayName": {
+            "text": "95th Secondary School",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJF3AZ7HvRwxURMssgyklH90s",
+        "types": [
+            "primary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "JDSC7800\u060c 7800 \u0627\u0644\u0623\u0642\u064a\u0648\u0646\u0649\u060c 2890\u060c \u062d\u064a \u0627\u0644\u0635\u0641\u0627\u060c\u060c \u0627\u0644\u0635\u0641\u0627\u060c\u060c Al-Safa, Jeddah 23452\u060c, Saudi Arabia",
+        "location": {
+            "latitude": 21.5959461,
+            "longitude": 39.200916899999996
+        },
+        "rating": 3.3,
+        "userRatingCount": 44,
+        "displayName": {
+            "text": "\u0645\u062f\u0631\u0633\u0629 \u0627\u0644\u062e\u0646\u0633\u0627\u0621 \u0648\u0627\u0644\u0634\u0647\u062f\u0627\u0621 \u0644\u062a\u062d\u0641\u064a\u0638 \u0627\u0644\u0642\u0631\u0622\u0646",
+            "languageCode": "ar"
+        },
+        "primaryType": "primary_school"
+    },
+    {
+        "id": "ChIJb2gEnt3QwxURGtZlTmDwheI",
+        "types": [
+            "primary_school",
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "JDBC4957\u060c 4957 \u0633\u0648\u064a\u062f \u0628\u0646 \u0632\u064a\u062f\u060c 8069\u060c \u062d\u064a \u0627\u0644\u0631\u0628\u0648\u0629\u060c Jeddah 23449, Saudi Arabia",
+        "location": {
+            "latitude": 21.5982874,
+            "longitude": 39.1884192
+        },
+        "rating": 3.6,
+        "userRatingCount": 43,
+        "displayName": {
+            "text": "126th Elementary School",
+            "languageCode": "en"
+        },
+        "primaryType": "primary_school"
+    },
+    {
+        "id": "ChIJfzbyRS7RwxURgDNFSYFm6M4",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "JDMB7308\u060c 7308\u060c 3200 \u0641\u062e\u0631 \u0627\u0644\u062f\u064a\u0646 \u0627\u0644\u0639\u0631\u0627\u0642\u064a\u060c \u062d\u064a \u0627\u0644\u0645\u0631\u0648\u0629\u060c Jeddah 23541, Saudi Arabia",
+        "location": {
+            "latitude": 21.611748,
+            "longitude": 39.1942647
+        },
+        "rating": 3.4,
+        "userRatingCount": 38,
+        "displayName": {
+            "text": "Saad Bin Alrabea Primary School (Males)",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
+    },
+    {
+        "id": "ChIJdbXP0dbRwxURSKGmMgAHLdY",
+        "types": [
+            "school",
+            "point_of_interest",
+            "establishment"
+        ],
+        "formattedAddress": "H7V2+H4G, Al Samer, Jeddah 23466\u060c Al Samer, Saleh bin Ibrahim Alzohari\u060c Jeddah 21351, Saudi Arabia",
+        "location": {
+            "latitude": 21.593838200000004,
+            "longitude": 39.2503173
+        },
+        "rating": 4.2,
+        "userRatingCount": 156,
+        "displayName": {
+            "text": "New Alwurood International school",
+            "languageCode": "en"
+        },
+        "primaryType": "school"
     }
 ]

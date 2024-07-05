@@ -60,6 +60,9 @@ async def fetch_from_google_maps_api(req: LocationReq):
 
     if response.status_code == 200:
         results = response.json().get("places","")
+# import json
+# with open("Backend/datasets/111.json", "w") as file:
+#     json.dump(results, file, indent=4)
         return results
     else:
         print("Error:", response.status_code)
