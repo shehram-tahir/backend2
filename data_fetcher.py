@@ -12,7 +12,8 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqApplyZoneLayers,
     Feature,
-    Geometry
+    Geometry,
+    ReqPrdcerLyrMapData
 )
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
@@ -37,7 +38,19 @@ import os
 import numpy as np
 
 
+USERS_PATH = "Backend/users"
+STORE_CATALOGS_PATH = "Backend/catalogs/store_catalogs.json"
+DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+DATASETS_PATH = "Backend/datasets"
+USER_LAYER_MATCHING_PATH = "Backend/user_layer_matching.json"
+
 async def fetch_nearby(location_req: LocationReq):
+    """
+    This function fetches nearby points of interest (POIs) based on a given location request.
+    It first tries to retrieve the data from storage. If the data isn't found in storage,
+    it fetches the data from the Google Maps API after a short delay. The fetched data is
+    then stored for future use before being returned.
+    """
     # Try to get data from storage
     data = await get_data_from_storage(location_req)
     if not data:
@@ -50,6 +63,12 @@ async def fetch_nearby(location_req: LocationReq):
 
 
 async def get_catalogue_dataset(catalogue_dataset_id: str):
+    """
+    Retrieves a specific catalogue dataset from storage based on the provided ID.
+    If the dataset is not found, it returns an empty dictionary. This function
+    acts as a wrapper around the storage retrieval mechanism.
+    """
+
     data = await get_dataset_from_storage(catalogue_dataset_id)
     if not data:
         data = {}
@@ -57,6 +76,13 @@ async def get_catalogue_dataset(catalogue_dataset_id: str):
 
 
 async def fetch_catlog_collection(**kwargs):
+    """
+    Generates and returns a collection of catalog metadata. This function creates
+    a list of predefined catalog entries and then adds 20 more dummy entries.
+    Each entry contains information such as ID, name, description, thumbnail URL,
+    and access permissions. This is likely used for testing or as placeholder data.
+    """
+
     metadata = [
         {
             "id": "1",
@@ -123,6 +149,12 @@ async def fetch_catlog_collection(**kwargs):
 
 
 async def fetch_layer_collection(**kwargs):
+    """
+    Similar to fetch_catlog_collection, this function returns a collection of layer
+    metadata. It provides a smaller, fixed set of layer entries. Each entry includes
+    details like ID, name, description, and access permissions.
+    """
+
     metadata = [
         {
             "id": "2",
@@ -148,18 +180,37 @@ async def fetch_layer_collection(**kwargs):
 
 
 async def get_boxmap_catlog_data(req: CatlogId):
+    """
+    This function retrieves catalog data for a specific catalog ID and transforms
+    it into a format suitable for box mapping. It uses the get_catalogue_dataset
+    function to fetch the raw data, then applies a transformation using the
+    MapBoxConnector to convert it into the required format.
+    """
+
     response_data: GglResponse = await get_catalogue_dataset(req.catalogue_dataset_id)
     trans_data = await MapBoxConnector.ggl_to_boxmap(response_data)
     return trans_data
 
 
 async def nearby_boxmap(req):
+    """
+    Fetches nearby data based on the provided request and transforms it into
+    a format suitable for box mapping. It uses the fetch_nearby function to get
+    the raw data, then applies a transformation using the MapBoxConnector.
+    """
+
     response_data = await fetch_nearby(req)
     trans_data = await MapBoxConnector.new_ggl_to_boxmap(response_data)
     return trans_data
 
 
 async def fetch_country_city_data(**kwargs):
+    """
+    Returns a predefined set of country and city data. The data is structured
+    as a dictionary where keys are country names and values are lists of cities
+    with their coordinates and radii. This appears to be sample data for
+    testing or demonstration purposes.
+    """
     data = {
         "country1": [
             {"name": "city1", "lat": 37.7937, "lng": -122.3965, "radius": 1000},
@@ -177,6 +228,12 @@ async def fetch_country_city_data(**kwargs):
 
 
 async def fetch_nearby_categories(**kwargs):
+    """
+    Provides a comprehensive list of nearby place categories, organized into
+    broader categories. This function returns a large, predefined dictionary
+    of categories and subcategories, covering various aspects of urban life
+    such as automotive, culture, education, entertainment, and more.
+    """
     categories = {
         "Automotive": [
             "car_dealer",
@@ -396,6 +453,12 @@ async def fetch_nearby_categories(**kwargs):
 
 
 async def old_fetch_nearby_categories(**kwargs):
+    """
+    Returns an older, simplified version of nearby categories. Unlike the newer
+    version, this function provides a flat list of category names, primarily
+    focused on food and drink establishments.
+    """
+
     categories = [
         "american_restaurant",
         "bakery",
@@ -441,6 +504,13 @@ async def old_fetch_nearby_categories(**kwargs):
 
 
 async def fetch_or_create_lyr(req):
+    """
+    This function attempts to fetch an existing layer based on the provided
+    request parameters. If the layer exists, it loads the data, transforms it,
+    and returns it. If the layer doesn't exist, it's supposed to create a new
+    layer, but this part is not implemented in the provided code.
+    """
+
     dataset_category = req.dataset_category
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
@@ -448,11 +518,7 @@ async def fetch_or_create_lyr(req):
     existing_layer = await search_metastore_for_string(layer_filename)
     if existing_layer:
         bknd_dataset_id = existing_layer["bknd_dataset_id"]
-        dataset_filename = f"{bknd_dataset_id}.json"
-        DATASETS_PATH = "Backend/datasets"
-        dataset_filepath = os.path.join(DATASETS_PATH, dataset_filename)
-        with open(dataset_filepath, "r") as f:
-            dataset = json.load(f)
+        dataset = load_dataset(bknd_dataset_id)
 
         trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
         trans_dataset["bknd_dataset_id"] = bknd_dataset_id
@@ -464,8 +530,12 @@ async def fetch_or_create_lyr(req):
 
 
 async def create_save_prdcer_lyr(req: ReqSavePrdcerLyer):
-    USERS_PATH = "Backend/users"
-    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
+    """
+    Creates and saves a new producer layer. This function updates both the user's
+    data file and the dataset-layer matching file. It adds the new layer to the
+    user's profile and updates the dataset-layer relationship. This ensures that
+    the new layer is properly linked to both the user and the relevant dataset.
+    """
 
     user_id = req.user_id
     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
@@ -486,12 +556,10 @@ async def create_save_prdcer_lyr(req: ReqSavePrdcerLyer):
     with open(user_file_path, "w") as f:
         json.dump(user_data, f, indent=2)
 
-    # Update dataset_layer_matching.json
+    # Update_dataset_layer_matching.json
     if os.path.exists(DATASET_LAYER_MATCHING_PATH):
         with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
             dataset_layer_matching = json.load(f)
-    else:
-        dataset_layer_matching = {}
 
     if req.bknd_dataset_id not in dataset_layer_matching:
         dataset_layer_matching[req.bknd_dataset_id] = []
@@ -506,10 +574,14 @@ async def create_save_prdcer_lyr(req: ReqSavePrdcerLyer):
 
 
 async def fetch_prdcer_lyrs(req: UserIdRequest) -> list[UserLayerInfo]:
+    """
+    Retrieves all producer layers associated with a specific user. It reads the
+    user's data file and the dataset-layer matching file to compile a list of
+    all layers owned by the user, including metadata like layer name, color,
+    and record count.
+    """
     user_id = req.user_id
-    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
-    DATASETS_PATH = "Backend/datasets"
-    USERS_PATH = "Backend/users"
+
     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
 
     if not os.path.exists(user_file_path):
@@ -525,6 +597,7 @@ async def fetch_prdcer_lyrs(req: UserIdRequest) -> list[UserLayerInfo]:
     user_layers = []
     for lyr_id, lyr_data in user_data.get("prdcer", {}).get("prdcer_lyrs", {}).items():
         # Find the corresponding dataset_id
+        
         dataset_id = None
         for d_id, d_info in dataset_layer_matching.items():
             if lyr_id in d_info["prdcer_lyrs"]:
@@ -550,26 +623,25 @@ async def fetch_prdcer_lyrs(req: UserIdRequest) -> list[UserLayerInfo]:
 
     return user_layers
 
-
-async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
-    USERS_PATH = "Backend/users"
-    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
-    DATASETS_PATH = "Backend/datasets"
-
+async def fetch_prdcer_lyr_map_data(req: ReqPrdcerLyrMapData):
+    """
+    Fetches detailed map data for a specific producer layer. This function
+    retrieves the layer metadata from the user's profile, finds the associated
+    dataset, loads and transforms the dataset, and combines it with the layer
+    metadata to create a comprehensive map data object.
+    """
+    # Load user_layer_matching.json
+    layer_owner_id = fetch_layer_owner(req.prdcer_lyr_id)
+    
     # Load user data
-    user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
-    if not os.path.exists(user_file_path):
-        raise HTTPException(status_code=404, detail="User not found")
+    layer_owner_data = load_user_data(layer_owner_id)
 
-    with open(user_file_path, "r") as f:
-        user_data = json.load(f)
-
-    if req.prdcer_lyr_id not in user_data.get("prdcer", {}).get("prdcer_lyrs", {}):
+    if req.prdcer_lyr_id not in layer_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}):
         raise HTTPException(
             status_code=404, detail="Producer layer not found for this user"
         )
 
-    layer_metadata = user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id]
+    layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id]
 
     # Load dataset_layer_matching.json
     with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
@@ -586,9 +658,7 @@ async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
         raise HTTPException(status_code=404, detail="Dataset not found for this layer")
 
     # Load the dataset
-    dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
-    with open(dataset_filepath, "r") as f:
-        dataset = json.load(f)
+    dataset = load_dataset(dataset_id)
 
     # Transform the dataset
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
@@ -609,10 +679,34 @@ async def fetch_prdcer_lyr_map_data(req: PrdcerLyrMapData):
 
     return result
 
+def fetch_layer_owner(prdcer_lyr_id:str):
+    with open(USER_LAYER_MATCHING_PATH, "r") as f:
+        user_layer_matching = json.load(f)
+    # Find the owner of the requested layer
+    layer_owner_id = user_layer_matching.get(prdcer_lyr_id)
+    if not layer_owner_id:
+        raise HTTPException(status_code=404, detail="Layer owner not found")
+    return layer_owner_id
+
+def load_user_data(user_id:str):
+    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
+    if not os.path.exists(user_file_path):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    with open(user_file_path, "r") as f:
+        user_data = json.load(f)
+    return user_data
+
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
-    USERS_PATH = "Backend/users"
-    STORE_CATALOGS_PATH = "Backend/catalogs/store_catalogs.json"
+    """
+    Creates and saves a new producer catalog. This function updates the user's
+    data file with the new catalog information. It ensures that the catalog
+    is properly associated with the user and contains all necessary metadata.
+    """
+
+
+
     user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
 
     # Load or create user data
@@ -649,7 +743,13 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
 
 
 async def fetch_prdcer_ctlgs(req: UserIdRequest) -> list[UserCatalogInfo]:
-    USERS_PATH = "Backend/users"
+    """
+    Retrieves all producer catalogs associated with a specific user. It reads
+    the user's data file and compiles a list of all catalogs owned by the user,
+    including metadata like catalog name, description, and associated layers.
+    """
+
+
     user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
 
     if not os.path.exists(user_file_path):
@@ -680,10 +780,12 @@ async def fetch_prdcer_ctlgs(req: UserIdRequest) -> list[UserCatalogInfo]:
 
 
 async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
-    USERS_PATH = "Backend/users"
-    STORE_CATALOGS_PATH = "Backend/catalogs/store_catalogs.json"
-    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
-    DATASETS_PATH = "Backend/datasets"
+    """
+    Fetches all layers associated with a specific catalog. This function first
+    locates the catalog (either in the user's profile or in store catalogs),
+    then retrieves and transforms the data for each layer in the catalog. It
+    compiles these layers into a list of map data objects.
+    """
 
     user_file_path = os.path.join(USERS_PATH, f"user_{req.user_id}.json")
 
@@ -734,9 +836,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
                 break
 
         # Load the dataset
-        dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
-        with open(dataset_filepath, "r") as f:
-            dataset = json.load(f)
+        dataset = load_dataset(dataset_id)
 
         # Transform the dataset
         trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
@@ -769,6 +869,14 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
 
 
 async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
+    """
+    Applies zone layer transformations to a set of layers. This complex function
+    separates zone and non-zone layers, fetches data for all layers, and then
+    applies zone transformations. It creates new layers based on the zone
+    properties, effectively segmenting the non-zone points into categories
+    based on their proximity to zone points and the values of the zone property.
+    """
+
 
     # Separate zone layers and non-zone layers
     non_zone_layers = req.lyrs.copy()
@@ -811,30 +919,40 @@ async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
 
 
 def find_dataset_id(lyr_id: str) -> str:
-    DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
-    DATASETS_PATH = "Backend/datasets"
+    """
+    Searches for the dataset ID associated with a given layer ID. This function
+    reads the dataset-layer matching file and iterates through it to find the
+    corresponding dataset for a given layer.
+    """
 
     # Load dataset_layer_matching
     with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
         dataset_layer_matching = json.load(f)
-
+    d_id = None
     for d_id, lyr_info in dataset_layer_matching.items():
         if lyr_id in lyr_info["prdcer_lyrs"]:
             return d_id
-    return None
+    return d_id
 
 
 def load_dataset(dataset_id: str) -> Dict:
-    DATASETS_PATH = "Backend/datasets"
-
+    """
+    Loads a dataset from file based on its ID.
+    
+    """
     dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
     with open(dataset_filepath, "r") as f:
         return json.load(f)
 
 
-def apply_zone_transformation(
-    zone_layer_data: Dict, non_zone_points: List, zone_property: str, zone_lyr_id: str
-) -> List[PrdcerLyrMapData]:
+def apply_zone_transformation(zone_layer_data: Dict, non_zone_points: List, zone_property: str, zone_lyr_id: str) -> List[PrdcerLyrMapData]:
+    """
+    This function applies zone transformations to a set of points. It first
+    calculates thresholds based on the zone property values. Then, it creates
+    new layers and distributes non-zone points into these layers based on their
+    proximity to zone points and the thresholds. This results in a segmentation
+    of points into different categories (low, medium, high, and non-overlapping).
+    """
     # Extract property values and calculate thresholds
     zone_property = zone_property.split("features.properties.")[-1]
     property_values = [
@@ -895,29 +1013,38 @@ def apply_zone_transformation(
 
     return new_layers
 
+
+
 def create_feature(point):
+    """
+    Converts a point dictionary into a Feature object. This function is used
+    to ensure that all points are in the correct format for geospatial operations.
+    """
+
+
     return Feature(
         type=point["type"],
         properties=point["properties"],
-        geometry=Geometry(
-            type="Point",
-            coordinates=point["geometry"]["coordinates"]
-        )
+        geometry=Geometry(type="Point", coordinates=point["geometry"]["coordinates"]),
     )
 
+
 def calculate_thresholds(values):
+    """
+    Calculates threshold values to divide a set of values into three categories.
+    It sorts the values and returns two threshold points that divide the data
+    into thirds.
+    """
     sorted_values = sorted(values)
     n = len(sorted_values)
     return [sorted_values[n // 3], sorted_values[2 * n // 3]]
 
 
-# def calculate_distance_km(point1, point2):
-#     # point1 = [39.2398597, 21.5111573]
-#     # point2 = [39.2147296, 21.634539099999998]
-#     return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
-
-
 def calculate_distance_km(point1, point2):
+    """
+    Calculates the distance between two points in kilometers using the Haversine formula.
+
+    """
     # Earth's radius in kilometers
     R = 6371
 
