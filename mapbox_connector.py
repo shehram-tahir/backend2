@@ -1,5 +1,6 @@
 from all_types.google_dtypes import GglResponse
 from all_types.myapi_dtypes import MapData
+from fastapi import HTTPException
 
 class MapBoxConnector:
     @classmethod
@@ -39,6 +40,11 @@ class MapBoxConnector:
     @classmethod
     async def new_ggl_to_boxmap(self, ggl_api_resp) -> MapData:
         features = []
+
+        if ggl_api_resp is None:
+            raise HTTPException(
+            status_code=404, detail="no data"
+        ) 
 
         for place in ggl_api_resp:
             lng = place.get('location', {}).get('longitude', 0)

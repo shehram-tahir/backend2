@@ -3,8 +3,6 @@
     "prdcer_lyrs": {
       "p1335": {
         "prdcer_layer_name": "my awesome fish layer",
-        "prdcer_lyr_id": "p1335",
-        "bknd_dataset_id": "122123123",
         "points_color": "green",
         "layer_legend": "fish resturants",
         "layer_description": "i made this layer to test stuff"

@@ -1,3 +1,6 @@
 /__pycache__
 **/*desktop.ini
 secrets*
+**/venv
+pc_venv/
+**/.idea/

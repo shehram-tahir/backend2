@@ -211,7 +211,7 @@ reponds with multiple layers(only 1 in example below because the catalog c3 only
 12- if the user checks that layer p33 should be a zone layer, frontend sends:
 {
     "lyrs":["p1335","p33"],
-    "lyrs_as_zone(max_2)":[{"p33":"Features.Properties.price"}]
+    "lyrs_as_zone(max_2)":[{"p33":"features.properties.rating"}]
 }
 13- Frontend should cache all the current layers' data points and use response from the api which will be 3 or 6 layers:
 These three or six layers will be used will be created through a data transformation method which will take all the available points except the designated zone layer and

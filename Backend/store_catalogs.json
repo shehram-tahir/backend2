@@ -1,7 +1,6 @@
 {
-    "store_catalogs": [
-        {
-            "prdcer_ctlg_id": "c3",
+    "store_catalogs": {
+        "c3":{
             "prdcer_ctlg_name": "Saudi Arabia - 3",
             "ctlg_description": "Database of all Saudi Arabia gas stations points of Interests",
             "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.pNG",
@@ -10,5 +9,5 @@
             "total_records": 300,
             "lyrs":["p33"]
           }
-    ]
+    }
 }

@@ -1,6 +1,6 @@
 import requests
 
-from all_types.myapi_dtypes import LocationReq
+from all_types.myapi_dtypes import ReqLocation
 from config_factory import get_conf
 
 CONF = get_conf()
@@ -33,7 +33,7 @@ CONF = get_conf()
 
 
 
-async def fetch_from_google_maps_api(req: LocationReq):
+async def fetch_from_google_maps_api(req: ReqLocation):
     lat, lng, radius, place_type = req.lat, req.lng, req.radius, req.type
 
     

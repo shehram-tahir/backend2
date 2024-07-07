@@ -1,0 +1,39 @@
+{
+  "user_id": "0000",
+  "username": "temp_user",
+  "email": "temp@email",
+  "prdcer": {
+    "prdcer_lyrs": {
+      "2131615": {
+        "prdcer_layer_name": "something_new",
+        "prdcer_lyr_id": "2131615",
+        "bknd_dataset_id": "f373121e-b0d7-4029-8ebd-c66ddd497d0a",
+        "points_color": "red",
+        "layer_legend": "ssss",
+        "layer_description": "sxssxsxsxssxsxsxsxs"
+      },
+      "5d16164": {
+        "prdcer_layer_name": "something_new",
+        "prdcer_lyr_id": "5d16164",
+        "bknd_dataset_id": "f373121e-b0d7-4029-8ebd-c66ddd497d0a",
+        "points_color": "red",
+        "layer_legend": "ssss",
+        "layer_description": "sxssxsxsxssxsxsxsxs"
+      }
+    },
+    "prdcer_ctlgs": {
+      "c8888888": {
+        "prdcer_ctlg_name": "dadasd",
+        "prdcer_ctlg_id": "c8888888",
+        "subscription_price": "asd",
+        "ctlg_description": "striadasdng",
+        "total_records": 0,
+        "lyrs": [
+          "5d16164"
+        ],
+        "thumbnail_url": "ads",
+        "ctlg_owner_user_id": "654631548"
+      }
+    }
+  }
+}
