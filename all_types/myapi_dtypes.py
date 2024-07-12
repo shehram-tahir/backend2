@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar, Generic, Literal
+from typing import Dict, List, TypeVar, Generic, Literal, Any
 
 from pydantic import BaseModel
 
@@ -139,9 +139,9 @@ class ReqApplyZoneLayers(BaseModel):
 
 
 class ReqCreateUserProfile(BaseModel):
-    user_id: str
     username: str
     email: str
+    password: str
 
 
 class ReqFetchCtlgLyrs(BaseModel):
@@ -161,6 +161,20 @@ class ReqSavePrdcerCtlg(BaseModel):
     thumbnail_url: str
 
 
+class ReqUserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class ReqUserProfile(BaseModel):
+    user_id: str
+
+
+class ReqUserProfileWithToken(BaseModel):
+    request_body: ReqUserProfile
+    access_token: str
+
+
 T = TypeVar('T')
 U = TypeVar('U')
 
@@ -171,19 +185,11 @@ class ResponseModel(BaseModel, Generic[T]):
     data: T
 
 
-class RequestModel(BaseModel, Generic[U]):
-    message: str
-    request_info: Dict
-    request_body: U
-
-
-
-# Refactored response models
 ResAllCards = ResponseModel[List[card_metadata]]
 ResUserLayers = ResponseModel[List[LayerInfo]]
 ResCtlgLyrs = ResponseModel[List[PrdcerLyrMapData]]
 ResApplyZoneLayers = ResponseModel[List[PrdcerLyrMapData]]
-ResCreateUserProfile = ResponseModel[str]
+ResCreateUserProfile = ResponseModel[Dict[str, str]]
 ResAcknowlg = ResponseModel[str]
 ResSavePrdcerCtlg = ResponseModel[str]
 ResTypeMapData = ResponseModel[MapData]
@@ -193,15 +199,10 @@ ResPrdcerLyrMapData = ResponseModel[PrdcerLyrMapData]
 ResCreateLyr = ResponseModel[DataCreateLyr]
 ResOldNearbyCategories = ResponseModel[List[str]]
 ResUserCatalogs = ResponseModel[List[UserCatalogInfo]]
+ResToken = ResponseModel[Dict[str, str]]
+ResUserProfile = ResponseModel[Dict[str, Any]]
 
-# # Refactored request models
-# ReqLocation = RequestModel[ReqLocation]
-# ReqCatalogId = RequestModel[ReqCatalogId]
-# ReqUserId = RequestModel[ReqUserId]
-# ReqPrdcerLyrMapData = RequestModel[ReqPrdcerLyrMapData]
-# ReqCreateLyr = RequestModel[ReqCreateLyr]
-# ReqSavePrdcerLyer = RequestModel[ReqSavePrdcerLyer]
-# ReqApplyZoneLayers = RequestModel[ReqApplyZoneLayers]
-# ReqCreateUserProfile = RequestModel[ReqCreateUserProfile]
-# ReqFetchCtlgLyrs = RequestModel[ReqFetchCtlgLyrs]
-# ReqSavePrdcerCtlg = RequestModel[ReqSavePrdcerCtlg]
+class RequestModel(BaseModel, Generic[U]):
+    message: str
+    request_info: Dict
+    request_body: U

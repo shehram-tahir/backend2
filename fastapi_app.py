@@ -1,9 +1,11 @@
 import uuid
 from typing import Awaitable
 from typing import Optional, Callable, Any, Type, TypeVar
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from auth import decode_access_token
+from fastapi import Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, ValidationError
 
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
@@ -23,7 +25,12 @@ from all_types.myapi_dtypes import (
     ResPrdcerLyrMapData,
     ReqCreateUserProfile,
     ResCreateUserProfile,
-    RequestModel
+    RequestModel,
+    ResToken,
+    ReqUserLogin,
+    ReqUserProfile,
+    ResUserProfile,
+    ReqUserProfileWithToken
 )
 from all_types.myapi_dtypes import (
     ReqUserId,
@@ -48,6 +55,8 @@ from data_fetcher import (
     fetch_ctlg_lyrs,
     apply_zone_layers,
     create_user_profile,
+    login_user,
+    get_user_profile
 )
 from storage import fetch_country_city_data, fetch_nearby_categories
 
@@ -121,6 +130,8 @@ T = TypeVar('T', bound=BaseModel)
 U = TypeVar('U', bound=BaseModel)
 
 
+
+
 async def http_handling(
         req: Optional[T],
         input_type: Optional[Type[T]],
@@ -129,8 +140,26 @@ async def http_handling(
 ):
     output = ""
 
-
     if req is not None:
+        # Verify access token if it exists
+        if hasattr(req, 'access_token'):
+            try:
+                payload = decode_access_token(req.access_token)
+                token_user_id = payload.get("sub")
+
+                # Check if the token user_id matches the requested user_id
+                if hasattr(req.request_body, 'user_id') and token_user_id != req.request_body.user_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You can only access your own profile",
+                    )
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid access token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
         req = req.request_body
         try:
             input_type.model_validate(req)
@@ -315,6 +344,34 @@ async def apply_zone_layers_endpoint(req: RequestModel[ReqApplyZoneLayers]):
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
 async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
     response = await http_handling(
-        req, ReqCreateUserProfile, ResCreateUserProfile, create_user_profile
+        req,
+        ReqCreateUserProfile,
+        ResCreateUserProfile,
+        create_user_profile
+    )
+    return response
+
+
+@app.post(CONF.login, response_model=ResToken)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    req = ReqUserLogin(username=form_data.username, password=form_data.password)
+    wrapped_req = RequestModel(message="Login request", request_info={},
+                               request_body=req)  # test that we are not losing info
+    response = await http_handling(
+        wrapped_req,
+        ReqUserLogin,
+        ResToken,
+        login_user
+    )
+    return response
+
+
+@app.post(CONF.user_profile, response_model=ResUserProfile)
+async def get_user_profile_endpoint(req: ReqUserProfileWithToken):
+    response = await http_handling(
+        req,
+        ReqUserProfile,
+        ResUserProfile,
+        get_user_profile
     )
     return response

@@ -3,8 +3,7 @@ import uuid
 
 import numpy as np
 from fastapi import HTTPException
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
-from geopy.geocoders import Nominatim
+from fastapi import status
 
 from all_types.myapi_dtypes import ReqLocation, ReqCatalogId, Feature, Geometry
 from all_types.myapi_dtypes import (
@@ -18,10 +17,15 @@ from all_types.myapi_dtypes import (
     ReqApplyZoneLayers,
     ReqPrdcerLyrMapData,
     ReqCreateUserProfile,
-    MapData
+    MapData,
+    ReqUserLogin,
+    ReqUserProfile
 )
+from auth import authenticate_user, create_access_token
+from auth import get_password_hash
 from google_api_connector import fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
+from storage import generate_user_id
 from storage import (
     get_data_from_storage,
     store_data,
@@ -35,12 +39,12 @@ from storage import (
     update_user_layer_matching,
     fetch_user_catalogs,
     update_user_profile,
-    load_dataset_layer_matching, fetch_user_layers, create_new_user,
-    load_store_catalogs,
+    load_dataset_layer_matching, fetch_user_layers, load_store_catalogs,
     save_dataset,
     update_metastore,
-fetch_country_city_data
+    fetch_country_city_data
 )
+from storage import is_username_or_email_taken, add_user_to_info
 
 
 async def fetch_ggl_nearby(location_req: ReqLocation):
@@ -57,7 +61,7 @@ async def fetch_ggl_nearby(location_req: ReqLocation):
     if not dataset:
         # If data is not in storage, fetch from Google Maps API
         dataset = await fetch_from_google_maps_api(location_req)
-        
+
         if dataset is not None:
             # Store the fetched data in storage
             await store_data(location_req, dataset)
@@ -462,7 +466,7 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> list[UserCatalogInfo]:
                 subscription_price=ctlg_data["subscription_price"],
                 total_records=ctlg_data["total_records"],
                 lyrs=ctlg_data["lyrs"],
-                ctlg_owner_user_id = ctlg_data["ctlg_owner_user_id"]
+                ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"]
             )
         )
 
@@ -695,13 +699,51 @@ def calculate_distance_km(point1, point2):
     return distance
 
 
-async def create_user_profile(req: ReqCreateUserProfile) -> str:
-    """
-    
-    """
-    create_new_user(req.user_id, req.username, req.email)
+async def create_user_profile(req: ReqCreateUserProfile) -> dict[str, str]:
+    if is_username_or_email_taken(req.username, req.email):
+        raise HTTPException(status_code=400, detail="Username or email already taken")
 
-    return "User profile created successfully"
+    user_id = generate_user_id()
+    hashed_password = get_password_hash(req.password)
+
+    user_data = {
+        "user_id": user_id,
+        "username": req.username,
+        "email": req.email,
+        "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}}
+    }
+
+    update_user_profile(user_id, user_data)
+    add_user_to_info(user_id, req.username, req.email, hashed_password)
+
+    return {"user_id": user_id, "message": "User profile created successfully"}
+
+
+async def login_user(req: ReqUserLogin):
+    user = authenticate_user(req.username, req.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(data={"sub": user['user_id']})
+    return {"access_token": access_token, "token_type": "bearer", "user_id": user['user_id']}
+
+
+async def get_user_profile(req: ReqUserProfile) -> dict:
+    user_data = load_user_profile(req.user_id)
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Filter out sensitive information
+    return {
+        "user_id": user_data["user_id"],
+        "username": user_data["username"],
+        "email": user_data["email"],
+        # Add any other non-sensitive fields you want to include
+    }
 
 
 def create_feature(point) -> Feature:

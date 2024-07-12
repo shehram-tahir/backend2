@@ -27,7 +27,9 @@ class static_ApiConfig:
     user_catalogs: str = "/fastapi/user_catalogs"
     fetch_ctlg_lyrs: str = "/fastapi/fetch_ctlg_lyrs"
     apply_zone_layers: str = "/fastapi/apply_zone_layers"    
-    create_user_profile: str = "/fastapi/create_user_profile"    
+    create_user_profile: str = "/fastapi/create_user_profile"   
+    login:str = "/fastapi/login" 
+    user_profile: str =  "/fastapi/user_profile" 
     google_fields: str = "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
 
 

@@ -1,7 +1,8 @@
 import json
 import os
+import uuid
 from datetime import datetime
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, Optional
 
 from fastapi import HTTPException
 
@@ -15,6 +16,7 @@ DATASETS_PATH = "Backend/datasets"
 USER_LAYER_MATCHING_PATH = "Backend/user_layer_matching.json"
 METASTORE_PATH = "Backend/layer_category_country_city_matching"
 STORAGE_DIR = "Backend/storage"
+USERS_INFO_PATH = "Backend/users_info.json"
 
 CONF = get_conf()
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -136,7 +138,7 @@ def load_user_profile(user_id: str) -> Dict:
     return user_data
 
 
-def update_dataset_layer_matching(prdcer_lyr_id: str, bknd_dataset_id: str,records_count:int=9191919):
+def update_dataset_layer_matching(prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919):
     if os.path.exists(DATASET_LAYER_MATCHING_PATH):
         with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
             dataset_layer_matching = json.load(f)
@@ -146,10 +148,10 @@ def update_dataset_layer_matching(prdcer_lyr_id: str, bknd_dataset_id: str,recor
             "records_count": records_count,
             "prdcer_lyrs": []
         }
-    
+
     if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
         dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(prdcer_lyr_id)
-    
+
     # Update records_count if it has changed
     dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
 
@@ -167,7 +169,7 @@ def update_user_layer_matching(layer_id, layer_owner_id):
         f.truncate()
 
 
-def update_user_profile(user_id,user_data):
+def update_user_profile(user_id, user_data):
     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
     with open(user_file_path, "w") as f:
         json.dump(user_data, f, indent=2)
@@ -224,6 +226,7 @@ def update_metastore(ccc_filename: str, bknd_dataset_id: str):
         with open(f"{METASTORE_PATH}/{ccc_filename}", 'w') as f:
             json.dump(metastore_data, f)
 
+
 def get_country_code(country_name: str) -> str:
     country_codes = {
         "United Arab Emirates": "AE",
@@ -268,3 +271,46 @@ async def fetch_nearby_categories(**_):
     with open('Backend/google_categories.json', 'r') as f:
         categories = json.load(f)
     return categories
+
+
+def generate_user_id() -> str:
+    return str(uuid.uuid4())
+
+
+def load_users_info() -> Dict:
+    if os.path.exists(USERS_INFO_PATH):
+        with open(USERS_INFO_PATH, 'r') as f:
+            return json.load(f)
+    return {"users": []}
+
+
+def save_users_info(users_info: Dict):
+    with open(USERS_INFO_PATH, 'w') as f:
+        json.dump(users_info, f, indent=2)
+
+
+def is_username_or_email_taken(username: str, email: str) -> bool:
+    users_info = load_users_info()
+    for user in users_info["users"]:
+        if user["username"] == username or user["email"] == email:
+            return True
+    return False
+
+
+def add_user_to_info(user_id: str, username: str, email: str, hashed_password: str):
+    users_info = load_users_info()
+    users_info["users"].append({
+        "user_id": user_id,
+        "username": username,
+        "email": email,
+        "hashed_password": hashed_password
+    })
+    save_users_info(users_info)
+
+
+def get_user_by_username(username: str) -> Optional[Dict]:
+    users_info = load_users_info()
+    for user in users_info["users"]:
+        if user["username"] == username:
+            return user
+    return None

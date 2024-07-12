@@ -1,0 +1,10 @@
+{
+  "users": [
+    {
+      "user_id": "2bb2957b-a95d-4e07-b9e3-99e54a4c719a",
+      "username": "dadasd",
+      "email": "asdad@gmail.com",
+      "hashed_password": "$2b$12$1e22nNy1FxrGI6cNTdG/JeibKZmb6rFAvzxGgfPdwC6TjBUUFxsdm"
+    }
+  ]
+}
