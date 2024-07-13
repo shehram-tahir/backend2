@@ -273,8 +273,27 @@ async def fetch_nearby_categories(**_):
     return categories
 
 
+def generate_layer_id() -> str:
+    return "l" + str(uuid.uuid4())
+
+
+
 def generate_user_id() -> str:
-    return str(uuid.uuid4())
+    file_path = "Backend/users_info.json"
+
+    # Read existing user IDs from the file
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            existing_ids = set(user['user_id'] for user in data.get('users', []))
+    except FileNotFoundError:
+        existing_ids = set()
+
+    # Generate a new ID and check if it already exists
+    while True:
+        new_id = str(uuid.uuid4())
+        if new_id not in existing_ids:
+            return new_id
 
 
 def load_users_info() -> Dict:

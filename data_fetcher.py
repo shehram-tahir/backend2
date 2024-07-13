@@ -44,7 +44,7 @@ from storage import (
     update_metastore,
     fetch_country_city_data
 )
-from storage import is_username_or_email_taken, add_user_to_info
+from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
 
 
 async def fetch_ggl_nearby(location_req: ReqLocation):
@@ -314,6 +314,7 @@ async def fetch_country_city_category_map_data(req):
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
     trans_dataset["records_count"] = len(trans_dataset["features"])
+    trans_dataset["prdcer_lyr_id"] = generate_layer_id()
     return trans_dataset
 
 
