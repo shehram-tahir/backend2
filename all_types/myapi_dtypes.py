@@ -55,6 +55,7 @@ class DataCreateLyr(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
     bknd_dataset_id: str
+    prdcer_lyr_id: str
     records_count: int
 
 
