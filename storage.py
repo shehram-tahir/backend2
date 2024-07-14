@@ -128,13 +128,12 @@ def load_user_profile(user_id: str) -> Dict:
     Loads user data from a file based on the user ID.
     """
     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
-    if not os.path.exists(user_file_path):
-        # create a new user profile
-        create_new_user("0000", "temp_user", "temp@email")
-        user_file_path = os.path.join(USERS_PATH, f"user_0000.json")
+    try:
+        with open(user_file_path, "r") as f:
+            user_data = json.load(f)
+    except:
+        raise HTTPException(status_code=400, detail="User profile already exists")
 
-    with open(user_file_path, "r") as f:
-        user_data = json.load(f)
     return user_data
 
 

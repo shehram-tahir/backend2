@@ -1,0 +1,31 @@
+{
+  "user_id": "1845e047-9632-4243-aadf-041bfb7a7f1f",
+  "username": "rwerwerwer",
+  "email": "werwerwer@gmail.com",
+  "prdcer": {
+    "prdcer_lyrs": {
+      "lb461d2aa-8c11-489c-9eff-ee8b83478b24": {
+        "prdcer_layer_name": "asdasdasdasd",
+        "prdcer_lyr_id": "lb461d2aa-8c11-489c-9eff-ee8b83478b24",
+        "bknd_dataset_id": "a339b5ef-61ff-4cce-9ac3-78b19ff87c2f",
+        "points_color": "string",
+        "layer_legend": "string",
+        "layer_description": "string"
+      }
+    },
+    "prdcer_ctlgs": {
+      "c90": {
+        "prdcer_ctlg_name": "asdasd",
+        "prdcer_ctlg_id": "c90",
+        "subscription_price": "99",
+        "ctlg_description": "asdasdasd",
+        "total_records": 0,
+        "lyrs": [
+          "lb461d2aa-8c11-489c-9eff-ee8b83478b24"
+        ],
+        "thumbnail_url": "string",
+        "ctlg_owner_user_id": "1845e047-9632-4243-aadf-041bfb7a7f1f"
+      }
+    }
+  }
+}

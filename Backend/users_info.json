@@ -5,6 +5,18 @@
       "username": "dadasd",
       "email": "asdad@gmail.com",
       "hashed_password": "$2b$12$1e22nNy1FxrGI6cNTdG/JeibKZmb6rFAvzxGgfPdwC6TjBUUFxsdm"
+    },
+    {
+      "user_id": "ec6cd2a6-0c7b-4d8b-829e-12b77a6ecac2",
+      "username": "asdasd",
+      "email": "asda@gmail.com",
+      "hashed_password": "$2b$12$YAfi9FlTOtXbPid3XoDvPOsF8JcZDPuUU26aIOhI6dTIqHeL8OlSC"
+    },
+    {
+      "user_id": "1845e047-9632-4243-aadf-041bfb7a7f1f",
+      "username": "rwerwerwer",
+      "email": "werwerwer@gmail.com",
+      "hashed_password": "$2b$12$ZZHVQksuk6fKC160QKfJB.IV3cwv68DceSEb/Agy2o7essnPLl9ni"
     }
   ]
 }

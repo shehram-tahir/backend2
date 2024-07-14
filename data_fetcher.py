@@ -334,7 +334,7 @@ async def save_lyr(req: ReqSavePrdcerLyer):
     )
 
     # Save updated user data
-    update_user_profile(user_data, req.user_id)
+    update_user_profile(req.user_id, user_data)
     update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
     update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
 
@@ -501,41 +501,45 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
     ctlg_owner_data = load_user_profile(ctlg['ctlg_owner_user_id'])
 
     ctlg_lyrs_map_data = []
-    for lyr_id in ctlg["lyrs"]:
-        # Find the corresponding dataset_id
-        dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
+    try:
+        for lyr_id in ctlg["lyrs"]:
+            # Find the corresponding dataset_id
+            dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
 
-        # Load the dataset
-        dataset = load_dataset(dataset_id)
+            # Load the dataset
+            dataset = load_dataset(dataset_id)
 
-        # Transform the dataset
-        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+            # Transform the dataset
+            trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
-        # find the user who owns this catalog,
-        # so we need to have ctlg_owner_user_id to catalog metadata as well as store_catalog
-        # Get layer metadata from user profile or use default values
-        lyr_metadata = (
-            ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
-        )
-
-        ctlg_lyrs_map_data.append(
-            PrdcerLyrMapData(
-                type="FeatureCollection",
-                features=trans_dataset["features"],
-                prdcer_layer_name=lyr_metadata.get(
-                    "prdcer_layer_name", f"Layer {lyr_id}"
-                ),
-                prdcer_lyr_id=lyr_id,
-                bknd_dataset_id=dataset_id,
-                points_color=lyr_metadata.get("points_color", "red"),
-                layer_legend=lyr_metadata.get("layer_legend", ""),
-                layer_description=lyr_metadata.get("layer_description", ""),
-                records_count=len(trans_dataset["features"]),
-                is_zone_lyr="false",
+            # find the user who owns this catalog,
+            # so we need to have ctlg_owner_user_id to catalog metadata as well as store_catalog
+            # Get layer metadata from user profile or use default values
+            lyr_metadata = (
+                ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
             )
-        )
 
-    return ctlg_lyrs_map_data
+            ctlg_lyrs_map_data.append(
+                PrdcerLyrMapData(
+                    type="FeatureCollection",
+                    features=trans_dataset["features"],
+                    prdcer_layer_name=lyr_metadata.get(
+                        "prdcer_layer_name", f"Layer {lyr_id}"
+                    ),
+                    prdcer_lyr_id=lyr_id,
+                    bknd_dataset_id=dataset_id,
+                    points_color=lyr_metadata.get("points_color", "red"),
+                    layer_legend=lyr_metadata.get("layer_legend", ""),
+                    layer_description=lyr_metadata.get("layer_description", ""),
+                    records_count=len(trans_dataset["features"]),
+                    is_zone_lyr="false",
+                )
+            )
+
+        return ctlg_lyrs_map_data
+    except:
+        raise HTTPException(status_code=404, detail="Dataset not found for this layer")
+
 
 
 async def apply_zone_layers(req: ReqApplyZoneLayers) -> list[PrdcerLyrMapData]:
