@@ -8,6 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, ValidationError
 
+from fastapi import HTTPException, status
+from pydantic import ValidationError
+import uuid
+import logging
+from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
+from fastapi.responses import JSONResponse
+logger = logging.getLogger(__name__)
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from all_types.myapi_dtypes import (
     ReqLocation,
@@ -59,6 +66,8 @@ from data_fetcher import (
     get_user_profile
 )
 from storage import fetch_country_city_data, fetch_nearby_categories
+T = TypeVar('T', bound=BaseModel)
+U = TypeVar('U', bound=BaseModel)
 
 CONF = get_conf()
 
@@ -126,10 +135,6 @@ async def ws_handling(
         print(f"WebSocket disconnected: {request_id}")
 
 
-T = TypeVar('T', bound=BaseModel)
-U = TypeVar('U', bound=BaseModel)
-
-
 
 
 async def http_handling(
@@ -138,48 +143,81 @@ async def http_handling(
         output_type: Type[U],
         custom_function: Optional[Callable[..., Awaitable[Any]]],
 ):
-    output = ""
-
-    if req is not None:
-        # Verify access token if it exists
-        if hasattr(req, 'access_token'):
-            try:
-                payload = decode_access_token(req.access_token)
-                token_user_id = payload.get("sub")
-
-                # Check if the token user_id matches the requested user_id
-                if hasattr(req.request_body, 'user_id') and token_user_id != req.request_body.user_id:
+    try:
+        output = ""
+        if req is not None:
+            # Verify access token if it exists
+            if hasattr(req, 'access_token'):
+                try:
+                    payload = decode_access_token(req.access_token)
+                    token_user_id = payload.get("sub")
+                    # Check if the token user_id matches the requested user_id
+                    if hasattr(req.request_body, 'user_id') and token_user_id != req.request_body.user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only access your own profile",
+                        )
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"Token validation error: {str(e)}")
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="You can only access your own profile",
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid access token",
+                        headers={"WWW-Authenticate": "Bearer"},
                     )
-            except:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid access token",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
 
-        req = req.request_body
+            req = req.request_body
+            try:
+                input_type.model_validate(req)
+            except ValidationError as e:
+                logger.error(f"Request validation error: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid request body: {str(e)}"
+                ) from e
+
+        if custom_function is not None:
+            try:
+                output = await custom_function(req=req)
+            except Exception as e:
+                logger.error(f"Custom function error: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="An error occurred while processing your request"
+                ) from e
+
+        request_id = "req-" + str(uuid.uuid4())
+        
         try:
-            input_type.model_validate(req)
+            res_body = output_type(
+                message="Request received",
+                request_id=request_id,
+                data=output,
+            )
         except ValidationError as e:
+            logger.error(f"Response validation error: {str(e)}")
             raise HTTPException(
-                status_code=400, detail=f"Invalid request body with error: {e}"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occurred while constructing the response"
             ) from e
 
-    if custom_function is not None:
-        output = await custom_function(req=req)
+        return res_body
 
-    request_id = "req-" + str(uuid.uuid4())
-
-    res_body = output_type(
-        message="Request received",
-        request_id=request_id,
-        data=output,
-    )
-
-    return res_body
+    except HTTPException as http_exc:
+        # Log the exception and return it directly
+        logger.error(f"HTTP exception: {http_exc.detail}")
+        return JSONResponse(
+            status_code=http_exc.status_code,
+            content={"detail": http_exc.detail}
+        )
+    except Exception as e:
+        # Catch any other unexpected exceptions
+        logger.critical(f"Unexpected error in http_handling: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "An unexpected error occurred"}
+        )
 
 
 @app.post(CONF.http_catlog_data, response_model=ResTypeMapData)
