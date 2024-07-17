@@ -408,11 +408,12 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     is properly associated with the user and contains all necessary metadata.
     """
     user_data = load_user_profile(req.user_id)
-
+    
+    new_ctlg_id= str(uuid.uuid4()) 
     # Add the new producer catalog
     new_catalog = {
         "prdcer_ctlg_name": req.prdcer_ctlg_name,
-        "prdcer_ctlg_id": req.prdcer_ctlg_id,
+        "prdcer_ctlg_id": new_ctlg_id,
         "subscription_price": req.subscription_price,
         "ctlg_description": req.ctlg_description,
         "total_records": req.total_records,
@@ -425,7 +426,7 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     # Save updated user data
     update_user_profile(req.user_id, user_data)
 
-    return "Producer catalog created successfully"
+    return new_ctlg_id
 
 
 async def fetch_prdcer_ctlgs(req: ReqUserId) -> list[UserCatalogInfo]:

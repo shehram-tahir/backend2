@@ -158,7 +158,6 @@ class LyrInfoInCtlgSave(BaseModel):
 
 class ReqSavePrdcerCtlg(BaseModel):
     prdcer_ctlg_name: str
-    prdcer_ctlg_id: str
     subscription_price: str
     ctlg_description: str
     total_records: int
