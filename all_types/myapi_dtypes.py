@@ -1,6 +1,6 @@
 from typing import Dict, List, TypeVar, Generic, Literal, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # class ResDefault(BaseModel):
@@ -151,13 +151,21 @@ class ReqFetchCtlgLyrs(BaseModel):
     user_id: str
 
 
+class LyrInfoInCtlgSave(BaseModel):
+    layer_id:str
+    points_color: str = Field(..., description="Color name for the layer points, e.g., 'red'")
+
+
 class ReqSavePrdcerCtlg(BaseModel):
     prdcer_ctlg_name: str
     prdcer_ctlg_id: str
     subscription_price: str
     ctlg_description: str
     total_records: int
-    lyrs: List[str]
+    lyrs: List[LyrInfoInCtlgSave] = Field(
+        ...,
+        description="list of layer objects."
+    )
     user_id: str
     thumbnail_url: str
 
