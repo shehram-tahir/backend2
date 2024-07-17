@@ -94,25 +94,16 @@ async def fetch_catlog_collection(**_):
 
     metadata = [
         {
-            "id": "1",
-            "name": "Saudi Arabia - gas stations poi data",
-            "description": "Database of all Saudi Arabia gas stations Points of Interests",
-            "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
-            "catalog_link": "https://example.com/catalog2.jpg",
-            "records_number": 10,
-            "can_access": True,
-        },
-        {
             "id": "2",
             "name": "Saudi Arabia - Real Estate Transactions",
             "description": "Database of real-estate transactions in Saudi Arabia",
             "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
             "catalog_link": "https://example.com/catalog2.jpg",
             "records_number": 20,
-            "can_access": False,
+            "can_access": True,
         },
         {
-            "id": "5218f0ef-c4db-4441-81e2-83ce413a9645",
+            "id": "55",
             "name": "Saudi Arabia - gas stations poi data",
             "description": "Database of all Saudi Arabia gas stations Points of Interests",
             "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.PNG",
@@ -121,27 +112,18 @@ async def fetch_catlog_collection(**_):
             "can_access": False,
         },
         {
-            "id": "3e5ee589-25e6-4cae-8aec-3ed3cdecef94",
+            "id": "55",
             "name": "Saudi Arabia - Restaurants, Cafes and Bakeries",
             "description": "Focusing on the restaurants, cafes and bakeries in KSA",
             "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/sau_bak_res.PNG",
             "catalog_link": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/sau_bak_res.PNG",
             "records_number": 132383,
-            "can_access": True,
-        },
-        {
-            "id": "c4eb5d56-4fcf-4095-8037-4c84894fd014",
-            "name": "Saudi Arabia - Real Estate Transactions",
-            "description": "Database of real-estate transactions in Saudi Arabia",
-            "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
-            "catalog_link": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
-            "records_number": 179141,
             "can_access": False,
-        },
+        }
     ]
 
     # Add 20 more dummy entries
-    for i in range(3, 23):
+    for i in range(3, 4):
         metadata.append(
             {
                 "id": str(i),
@@ -150,7 +132,7 @@ async def fetch_catlog_collection(**_):
                 "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/sample_image.png",
                 "catalog_link": "https://example.com/sample_image.jpg",
                 "records_number": i * 100,
-                "can_access": i % 2 == 0,
+                "can_access": True,
             }
         )
 
