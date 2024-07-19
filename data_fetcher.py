@@ -19,7 +19,8 @@ from all_types.myapi_dtypes import (
     ReqCreateUserProfile,
     MapData,
     ReqUserLogin,
-    ReqUserProfile
+    ReqUserProfile,
+    ReqCreateLyr
 )
 from auth import authenticate_user, create_access_token
 from auth import get_password_hash
@@ -42,7 +43,8 @@ from storage import (
     load_dataset_layer_matching, fetch_user_layers, load_store_catalogs,
     save_dataset,
     update_metastore,
-    fetch_country_city_data
+    fetch_country_city_data,
+    convert_to_serializable
 )
 from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
 
@@ -246,23 +248,26 @@ async def old_fetch_nearby_categories(**_):
     return categories
 
 
-async def fetch_country_city_category_map_data(req):
+async def fetch_country_city_category_map_data(req: ReqCreateLyr):
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,
     and returns it. If the layer doesn't exist, it creates a new layer by
     fetching data from Google Maps API.
     """
-    dataset_category = req.dataset_category
+    dataset_category = req.dataset_categoryz
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
+    page_token = req.page_token
     ccc_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
     existing_layer = await search_metastore_for_string(ccc_filename)
 
     if existing_layer:
         bknd_dataset_id = existing_layer["bknd_dataset_id"]
         dataset = load_dataset(bknd_dataset_id)
-    else:
+
+    if page_token:
+        existing_dataset = []
         # Fetch country and city data
         country_city_data = await fetch_country_city_data()
 
@@ -285,13 +290,19 @@ async def fetch_country_city_category_map_data(req):
             lat=city_data["lat"],
             lng=city_data["lng"],
             radius=1000,
-            type=dataset_category
+            type=dataset_category,
+            page_token=page_token
         )
 
         # Fetch data from Google Maps API
         dataset, bknd_dataset_id = await fetch_ggl_nearby(new_dataset_req)
         # Update metastore
         update_metastore(ccc_filename, bknd_dataset_id)
+
+        # Append new data to existing dataset
+        existing_dataset.extend(dataset)
+        # Save updated dataset
+        save_dataset(bknd_dataset_id, existing_dataset)
 
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
@@ -421,10 +432,11 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         "thumbnail_url": req.thumbnail_url,  # Add this line
         "ctlg_owner_user_id": req.user_id,
     }
-    user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id] = new_catalog
+    user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog
 
     # Save updated user data
-    update_user_profile(req.user_id, user_data)
+    serializable_user_data = convert_to_serializable(user_data)
+    update_user_profile(req.user_id, serializable_user_data)
 
     return new_ctlg_id
 

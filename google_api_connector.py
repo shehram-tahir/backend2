@@ -32,17 +32,14 @@ CONF = get_conf()
 #     return output_data
 
 
-
 async def fetch_from_google_maps_api(req: ReqLocation):
-    lat, lng, radius, place_type = req.lat, req.lng, req.radius, req.type
+    lat, lng, radius, place_type, page_token = req.lat, req.lng, req.radius, req.type, req.page_token
 
-    
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,
         "X-Goog-FieldMask": CONF.google_fields
     }
-
     data = {
         "includedTypes": [place_type],
         "locationRestriction": {
@@ -56,13 +53,19 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         }
     }
 
-    response = requests.post(CONF.nearby_search, headers=headers, json=data)
+    if page_token:
+        data["pageToken"] = page_token
 
+    response = requests.post(CONF.nearby_search, headers=headers, json=data)
     if response.status_code == 200:
-        results = response.json().get("places","")
+        response_data = response.json()
+        results = response_data.get("places", [])
+        next_page_token = response_data.get("nextPageToken")
+        return results, next_page_token
+    else:
+        print("Error:", response.status_code)
+        return [], None
+
 # import json
 # with open("Backend/datasets/111.json", "w") as file:
 #     json.dump(results, file, indent=4)
-        return results
-    else:
-        print("Error:", response.status_code)

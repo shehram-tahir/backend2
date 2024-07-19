@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar, Generic, Literal, Any
+from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -102,6 +102,7 @@ class ReqLocation(BaseModel):
     lng: float
     radius: int
     type: str
+    page_token: Optional[str] = None
 
 
 class ReqCatalogId(BaseModel):
@@ -121,6 +122,9 @@ class ReqCreateLyr(BaseModel):
     dataset_category: str
     dataset_country: str
     dataset_city: str
+    page_token: Optional[str] = None
+
+
 
 
 class ReqSavePrdcerLyer(BaseModel):

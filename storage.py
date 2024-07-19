@@ -3,9 +3,11 @@ import os
 import uuid
 from datetime import datetime
 from typing import Dict, Union, Tuple, Optional
-
+from pydantic import BaseModel
+from typing import Any
+import json
+from datetime import datetime, date
 from fastapi import HTTPException
-
 from all_types.myapi_dtypes import ReqLocation
 from config_factory import get_conf
 
@@ -20,6 +22,54 @@ USERS_INFO_PATH = "Backend/users_info.json"
 
 CONF = get_conf()
 os.makedirs(STORAGE_DIR, exist_ok=True)
+
+
+
+
+def to_serializable(obj: Any) -> Any:
+    """
+    Convert a Pydantic model or any other object to a JSON-serializable format.
+    
+    Args:
+    obj (Any): The object to convert.
+    
+    Returns:
+    Any: A JSON-serializable representation of the object.
+    """
+    if isinstance(obj, dict):
+        return {k: to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [to_serializable(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(to_serializable(item) for item in obj)
+    elif isinstance(obj, BaseModel):
+        return to_serializable(obj.dict(by_alias=True))
+    elif isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif hasattr(obj, '__dict__'):
+        return to_serializable(obj.__dict__)
+    else:
+        return obj
+
+def convert_to_serializable(obj: Any) -> Any:
+    """
+    Convert an object to a JSON-serializable format and verify serializability.
+    
+    Args:
+    obj (Any): The object to convert.
+    
+    Returns:
+    Any: A JSON-serializable representation of the object.
+    
+    Raises:
+    ValueError: If the object cannot be serialized to JSON.
+    """
+    serializable_obj = to_serializable(obj)
+    try:
+        json.dumps(serializable_obj)
+        return serializable_obj
+    except (TypeError, OverflowError, ValueError) as e:
+        raise ValueError(f"Object is not JSON serializable: {str(e)}")
 
 
 def get_filename(location_req: ReqLocation) -> str:
