@@ -57,6 +57,7 @@ class DataCreateLyr(BaseModel):
     bknd_dataset_id: str
     prdcer_lyr_id: str
     records_count: int
+    next_page_token: Optional[str] = None
 
 
 class LayerInfo(BaseModel):

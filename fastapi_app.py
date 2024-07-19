@@ -297,15 +297,15 @@ async def nearby_categories():
     return response
 
 
-@app.get(CONF.old_nearby_categories, response_model=ResOldNearbyCategories)
-async def old_nearby_categories():
-    response = await http_handling(
-        None,
-        None,
-        ResOldNearbyCategories,
-        old_fetch_nearby_categories,
-    )
-    return response
+# @app.get(CONF.old_nearby_categories, response_model=ResOldNearbyCategories)
+# async def old_nearby_categories():
+#     response = await http_handling(
+#         None,
+#         None,
+#         ResOldNearbyCategories,
+#         old_fetch_nearby_categories,
+#     )
+#     return response
 
 
 @app.post(CONF.create_layer, response_model=ResCreateLyr)

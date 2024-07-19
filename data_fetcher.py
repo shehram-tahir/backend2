@@ -20,7 +20,8 @@ from all_types.myapi_dtypes import (
     MapData,
     ReqUserLogin,
     ReqUserProfile,
-    ReqCreateLyr
+    ReqCreateLyr,
+    ResCreateLyr
 )
 from auth import authenticate_user, create_access_token
 from auth import get_password_hash
@@ -62,7 +63,7 @@ async def fetch_ggl_nearby(location_req: ReqLocation):
     dataset = await get_data_from_storage(location_req)
     if not dataset:
         # If data is not in storage, fetch from Google Maps API
-        dataset = await fetch_from_google_maps_api(location_req)
+        dataset, next_page_token = await fetch_from_google_maps_api(location_req)
 
         if dataset is not None:
             # Store the fetched data in storage
@@ -72,7 +73,7 @@ async def fetch_ggl_nearby(location_req: ReqLocation):
             # Save the new dataset
             save_dataset(bknd_dataset_id, dataset)
 
-    return dataset, bknd_dataset_id
+    return dataset, bknd_dataset_id, next_page_token
 
 
 async def get_catalogue_dataset(catalogue_dataset_id: str):
@@ -192,7 +193,7 @@ async def nearby_boxmap(req):
     the raw data, then applies a transformation using the MapBoxConnector.
     """
 
-    response_data, _ = await fetch_ggl_nearby(req)
+    response_data, _, _ = await fetch_ggl_nearby(req)
     trans_data = await MapBoxConnector.new_ggl_to_boxmap(response_data)
     return trans_data
 
@@ -248,25 +249,37 @@ async def old_fetch_nearby_categories(**_):
     return categories
 
 
-async def fetch_country_city_category_map_data(req: ReqCreateLyr):
+async def fetch_country_city_category_map_data(req: ReqCreateLyr) ->ResCreateLyr:
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,
     and returns it. If the layer doesn't exist, it creates a new layer by
     fetching data from Google Maps API.
     """
-    dataset_category = req.dataset_categoryz
+    next_page_token = None
+    dataset_category = req.dataset_category
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
     page_token = req.page_token
     ccc_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
     existing_layer = await search_metastore_for_string(ccc_filename)
 
+    # first check if there is a dataset already
+        # if yes load it
+    # check if page_token
+        # if page_token is None:
+            # return      trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+                    #     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
+                    #     trans_dataset["records_count"] = len(trans_dataset["features"])
+                    #     trans_dataset["prdcer_lyr_id"] = generate_layer_id()
+        # if page token is not None:
+
+
     if existing_layer:
         bknd_dataset_id = existing_layer["bknd_dataset_id"]
         dataset = load_dataset(bknd_dataset_id)
 
-    if page_token:
+    if not existing_layer or page_token is not None:
         existing_dataset = []
         # Fetch country and city data
         country_city_data = await fetch_country_city_data()
@@ -289,13 +302,13 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr):
         new_dataset_req = ReqLocation(
             lat=city_data["lat"],
             lng=city_data["lng"],
-            radius=1000,
+            radius=50000,
             type=dataset_category,
             page_token=page_token
         )
 
         # Fetch data from Google Maps API
-        dataset, bknd_dataset_id = await fetch_ggl_nearby(new_dataset_req)
+        dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(new_dataset_req)
         # Update metastore
         update_metastore(ccc_filename, bknd_dataset_id)
 
@@ -308,6 +321,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr):
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
     trans_dataset["records_count"] = len(trans_dataset["features"])
     trans_dataset["prdcer_lyr_id"] = generate_layer_id()
+    trans_dataset["next_page_token"] = next_page_token
     return trans_dataset
 
 
