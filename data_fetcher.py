@@ -25,7 +25,7 @@ from all_types.myapi_dtypes import (
 )
 from auth import authenticate_user, create_access_token
 from auth import get_password_hash
-from google_api_connector import fetch_from_google_maps_api
+from google_api_connector import fetch_from_google_maps_api, old_fetch_from_google_maps_api
 from mapbox_connector import MapBoxConnector
 from storage import generate_user_id
 from storage import (
@@ -45,7 +45,7 @@ from storage import (
     save_dataset,
     update_metastore,
     fetch_country_city_data,
-    convert_to_serializable
+    convert_to_serializable,
 )
 from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
 
@@ -59,11 +59,14 @@ async def fetch_ggl_nearby(location_req: ReqLocation):
     """
     bknd_dataset_id = None
     dataset = None
+    next_page_token= None
     # Try to get data from storage
     dataset = await get_data_from_storage(location_req)
+
     if not dataset:
         # If data is not in storage, fetch from Google Maps API
-        dataset, next_page_token = await fetch_from_google_maps_api(location_req)
+        # dataset, next_page_token = await fetch_from_google_maps_api(location_req)
+        dataset, next_page_token = await old_fetch_from_google_maps_api(location_req)
 
         if dataset is not None:
             # Store the fetched data in storage
