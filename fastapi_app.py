@@ -7,14 +7,14 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, stat
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, ValidationError
-
+from logging_wrapper import log_and_validate
 from fastapi import HTTPException, status
 from pydantic import ValidationError
 import uuid
 import logging
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
 from fastapi.responses import JSONResponse
-logger = logging.getLogger(__name__)
+
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from all_types.myapi_dtypes import (
     ReqLocation,
@@ -66,6 +66,10 @@ from data_fetcher import (
     get_user_profile
 )
 from storage import fetch_country_city_data, fetch_nearby_categories
+
+
+logger = logging.getLogger(__name__)
+
 T = TypeVar('T', bound=BaseModel)
 U = TypeVar('U', bound=BaseModel)
 
@@ -136,7 +140,7 @@ async def ws_handling(
 
 
 
-
+@log_and_validate(logger)
 async def http_handling(
         req: Optional[T],
         input_type: Optional[Type[T]],
@@ -180,12 +184,15 @@ async def http_handling(
         if custom_function is not None:
             try:
                 output = await custom_function(req=req)
+            except HTTPException as http_exc:
+                # If it's already an HTTPException, just re-raise it
+                raise
             except Exception as e:
-                logger.error(f"Custom function error: {str(e)}")
+                # For any other type of exception, wrap it in an HTTPException
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="An error occurred while processing your request"
-                ) from e
+                    detail=f"An unexpected error occurred: {str(e)}"
+                )
 
         request_id = "req-" + str(uuid.uuid4())
         

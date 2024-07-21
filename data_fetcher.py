@@ -1,10 +1,10 @@
 import math
 import uuid
-
 import numpy as np
+import logging
 from fastapi import HTTPException
 from fastapi import status
-
+from logging_wrapper import log_and_validate
 from all_types.myapi_dtypes import ReqLocation, ReqCatalogId, Feature, Geometry
 from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
@@ -21,11 +21,14 @@ from all_types.myapi_dtypes import (
     ReqUserLogin,
     ReqUserProfile,
     ReqCreateLyr,
-    ResCreateLyr
+    ResCreateLyr,
 )
 from auth import authenticate_user, create_access_token
 from auth import get_password_hash
-from google_api_connector import fetch_from_google_maps_api, old_fetch_from_google_maps_api
+from google_api_connector import (
+    fetch_from_google_maps_api,
+    old_fetch_from_google_maps_api,
+)
 from mapbox_connector import MapBoxConnector
 from storage import generate_user_id
 from storage import (
@@ -41,13 +44,27 @@ from storage import (
     update_user_layer_matching,
     fetch_user_catalogs,
     update_user_profile,
-    load_dataset_layer_matching, fetch_user_layers, load_store_catalogs,
+    load_dataset_layer_matching,
+    fetch_user_layers,
+    load_store_catalogs,
     save_dataset,
     update_metastore,
     fetch_country_city_data,
     convert_to_serializable,
 )
 from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
+
+from fastapi import HTTPException
+from typing import List, Dict, Any
+from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 
 async def fetch_ggl_nearby(location_req: ReqLocation):
@@ -59,7 +76,7 @@ async def fetch_ggl_nearby(location_req: ReqLocation):
     """
     bknd_dataset_id = None
     dataset = None
-    next_page_token= None
+    next_page_token = None
     # Try to get data from storage
     dataset = await get_data_from_storage(location_req)
 
@@ -125,7 +142,7 @@ async def fetch_catlog_collection(**_):
             "catalog_link": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/sau_bak_res.PNG",
             "records_number": 132383,
             "can_access": False,
-        }
+        },
     ]
 
     # Add 20 more dummy entries
@@ -252,7 +269,7 @@ async def old_fetch_nearby_categories(**_):
     return categories
 
 
-async def fetch_country_city_category_map_data(req: ReqCreateLyr) ->ResCreateLyr:
+async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLyr:
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,
@@ -268,15 +285,14 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) ->ResCreateLyr
     existing_layer = await search_metastore_for_string(ccc_filename)
 
     # first check if there is a dataset already
-        # if yes load it
+    # if yes load it
     # check if page_token
-        # if page_token is None:
-            # return      trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-                    #     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
-                    #     trans_dataset["records_count"] = len(trans_dataset["features"])
-                    #     trans_dataset["prdcer_lyr_id"] = generate_layer_id()
-        # if page token is not None:
-
+    # if page_token is None:
+    # return      trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+    #     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
+    #     trans_dataset["records_count"] = len(trans_dataset["features"])
+    #     trans_dataset["prdcer_lyr_id"] = generate_layer_id()
+    # if page token is not None:
 
     if existing_layer:
         bknd_dataset_id = existing_layer["bknd_dataset_id"]
@@ -299,7 +315,9 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) ->ResCreateLyr
                     break
 
         if not city_data:
-            raise HTTPException(status_code=404, detail="City not found in the specified country")
+            raise HTTPException(
+                status_code=404, detail="City not found in the specified country"
+            )
 
         # Create new dataset request
         new_dataset_req = ReqLocation(
@@ -307,11 +325,13 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) ->ResCreateLyr
             lng=city_data["lng"],
             radius=50000,
             type=dataset_category,
-            page_token=page_token
+            page_token=page_token,
         )
 
         # Fetch data from Google Maps API
-        dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(new_dataset_req)
+        dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
+            new_dataset_req
+        )
         # Update metastore
         update_metastore(ccc_filename, bknd_dataset_id)
 
@@ -328,149 +348,166 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) ->ResCreateLyr
     return trans_dataset
 
 
-async def save_lyr(req: ReqSavePrdcerLyer):
-    """
-    Creates and saves a new producer layer. This function updates both the user's
-    data file and the dataset-layer matching file. It adds the new layer to the
-    user's profile and updates the dataset-layer relationship. This ensures that
-    the new layer is properly linked to both the user and the relevant dataset.
-    """
+async def save_lyr(req: ReqSavePrdcerLyer) -> str:
+    try:
+        user_data = load_user_profile(req.user_id)
+    except FileNotFoundError:
+        logger.error(f"User profile not found for user_id: {req.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found"
+        )
 
-    user_data = load_user_profile(req.user_id)
+    try:
+        # Add the new layer to user profile
+        user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.dict(
+            exclude={"user_id"}
+        )
 
-    # Add the new layer to user profile
-    user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.dict(
-        exclude={"user_id"}
-    )
-
-    # Save updated user data
-    update_user_profile(req.user_id, user_data)
-    update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
-    update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
+        # Save updated user data
+        update_user_profile(req.user_id, user_data)
+        update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
+        update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
+    except KeyError:
+        logger.error(f"Invalid user data structure for user_id: {req.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user data structure",
+        )
 
     return "Producer layer created successfully"
 
 
-async def fetch_user_lyrs(req: ReqUserId) -> list[LayerInfo]:
+@preserve_validate_decorator
+@log_and_validate(logger, validate_output=True, output_model=List[LayerInfo])
+async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     """
     Retrieves all producer layers associated with a specific user. It reads the
     user's data file and the dataset-layer matching file to compile a list of
     all layers owned by the user, including metadata like layer name, color,
     and record count.
     """
+    try:
+        # Load dataset_layer_matching.json
+        dataset_layer_matching = load_dataset_layer_matching()
+    except FileNotFoundError:
+        logger.error("Dataset-layer matching file not found")
+        raise HTTPException(
+            status_code=500, detail="Dataset-layer matching data not available"
+        )
 
-    # Load dataset_layer_matching.json
-    dataset_layer_matching = load_dataset_layer_matching()
+    try:
+        user_layers = fetch_user_layers(req.user_id)
+    except FileNotFoundError:
+        logger.error(f"User layers not found for user_id: {req.user_id}")
+        raise HTTPException(status_code=404, detail="User layers not found")
 
-    user_layers = fetch_user_layers(req.user_id)
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():
-        dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
-        records_count = dataset_info["records_count"]
+        try:
+            dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
+            records_count = dataset_info["records_count"]
 
-        user_layers_metadata.append(
-            LayerInfo(
-                prdcer_lyr_id=lyr_id,
-                prdcer_layer_name=lyr_data["prdcer_layer_name"],
-                points_color=lyr_data["points_color"],
-                layer_legend=lyr_data["layer_legend"],
-                layer_description=lyr_data["layer_description"],
-                records_count=records_count,
-                is_zone_lyr="false",  # Default to "false" as string
+            user_layers_metadata.append(
+                LayerInfo(
+                    prdcer_lyr_id=lyr_id,
+                    prdcer_layer_name=lyr_data["prdcer_layer_name"],
+                    points_color=lyr_data["points_color"],
+                    layer_legend=lyr_data["layer_legend"],
+                    layer_description=lyr_data["layer_description"],
+                    records_count=records_count,
+                    is_zone_lyr="false",  # Default to "false" as string
+                )
             )
+        except KeyError as e:
+            logger.error(f"Missing key in layer data: {str(e)}")
+            # Continue to next layer instead of failing the entire request
+            continue
+
+    if not user_layers_metadata:
+        raise HTTPException(
+            status_code=404, detail="No valid layers found for the user"
         )
 
     return user_layers_metadata
 
 
-async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData):
+async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
     """
-    Fetches detailed map data for a specific producer layer. This function
-    retrieves the layer metadata from the user's profile, finds the associated
-    dataset, loads and transforms the dataset, and combines it with the layer
-    metadata to create a comprehensive map data object.
+    Fetches detailed map data for a specific producer layer.
     """
-    # Load user_layer_matching.json
-    layer_owner_id = fetch_layer_owner(req.prdcer_lyr_id)
-
-    # Load user data
-    layer_owner_data = load_user_profile(layer_owner_id)
-
     try:
-        layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id]
-    except KeyError:
-        raise HTTPException(
-            status_code=404, detail="Producer layer not found for this user"
+        layer_owner_id = fetch_layer_owner(req.prdcer_lyr_id)
+        layer_owner_data = load_user_profile(layer_owner_id)
+
+        try:
+            layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
+                req.prdcer_lyr_id
+            ]
+        except KeyError:
+            raise HTTPException(
+                status_code=404, detail="Producer layer not found for this user"
+            )
+
+        dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
+        dataset = load_dataset(dataset_id)
+        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+
+        return PrdcerLyrMapData(
+            type="FeatureCollection",
+            features=trans_dataset["features"],
+            prdcer_layer_name=layer_metadata["prdcer_layer_name"],
+            prdcer_lyr_id=req.prdcer_lyr_id,
+            bknd_dataset_id=dataset_id,
+            points_color=layer_metadata["points_color"],
+            layer_legend=layer_metadata["layer_legend"],
+            layer_description=layer_metadata["layer_description"],
+            records_count=dataset_info["records_count"],
+            is_zone_lyr="false",
         )
-
-    # Find the corresponding dataset_id
-    dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
-
-    # Load the dataset
-    dataset = load_dataset(dataset_id)
-
-    # Transform the dataset
-    trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-
-    # Combine the transformed dataset with the layer metadata
-    result = PrdcerLyrMapData(
-        type="FeatureCollection",
-        features=trans_dataset["features"],
-        prdcer_layer_name=layer_metadata["prdcer_layer_name"],
-        prdcer_lyr_id=req.prdcer_lyr_id,
-        bknd_dataset_id=dataset_id,
-        points_color=layer_metadata["points_color"],
-        layer_legend=layer_metadata["layer_legend"],
-        layer_description=layer_metadata["layer_description"],
-        records_count=dataset_info["records_count"],
-        is_zone_lyr="false",  # Assuming this is always false as per your previous implementation
-    )
-
-    return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     """
-    Creates and saves a new producer catalog. This function updates the user's
-    data file with the new catalog information. It ensures that the catalog
-    is properly associated with the user and contains all necessary metadata.
+    Creates and saves a new producer catalog.
     """
-    user_data = load_user_profile(req.user_id)
-    
-    new_ctlg_id= str(uuid.uuid4()) 
-    # Add the new producer catalog
-    new_catalog = {
-        "prdcer_ctlg_name": req.prdcer_ctlg_name,
-        "prdcer_ctlg_id": new_ctlg_id,
-        "subscription_price": req.subscription_price,
-        "ctlg_description": req.ctlg_description,
-        "total_records": req.total_records,
-        "lyrs": req.lyrs,
-        "thumbnail_url": req.thumbnail_url,  # Add this line
-        "ctlg_owner_user_id": req.user_id,
-    }
-    user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog
+    try:
+        user_data = load_user_profile(req.user_id)
 
-    # Save updated user data
-    serializable_user_data = convert_to_serializable(user_data)
-    update_user_profile(req.user_id, serializable_user_data)
+        new_ctlg_id = str(uuid.uuid4())
+        new_catalog = {
+            "prdcer_ctlg_name": req.prdcer_ctlg_name,
+            "prdcer_ctlg_id": new_ctlg_id,
+            "subscription_price": req.subscription_price,
+            "ctlg_description": req.ctlg_description,
+            "total_records": req.total_records,
+            "lyrs": req.lyrs,
+            "thumbnail_url": req.thumbnail_url,
+            "ctlg_owner_user_id": req.user_id,
+        }
+        user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog
 
-    return new_ctlg_id
+        serializable_user_data = convert_to_serializable(user_data)
+        update_user_profile(req.user_id, serializable_user_data)
+
+        return new_ctlg_id
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while creating catalog: {str(e)}",
+        )
 
 
-async def fetch_prdcer_ctlgs(req: ReqUserId) -> list[UserCatalogInfo]:
+async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
     """
-    Retrieves all producer catalogs associated with a specific user. It reads
-    the user's data file and compiles a list of all catalogs owned by the user,
-    including metadata like catalog name, description, and associated layers.
+    Retrieves all producer catalogs associated with a specific user.
     """
-
-    user_catalogs = fetch_user_catalogs(req.user_id)
-    # TODO maybe improve the below
-    returned_user_catalogs = []
-    for ctlg_id, ctlg_data in (user_catalogs.items()
-    ):
-        returned_user_catalogs.append(
+    try:
+        user_catalogs = fetch_user_catalogs(req.user_id)
+        return [
             UserCatalogInfo(
                 prdcer_ctlg_id=ctlg_id,
                 prdcer_ctlg_name=ctlg_data["prdcer_ctlg_name"],
@@ -479,54 +516,52 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> list[UserCatalogInfo]:
                 subscription_price=ctlg_data["subscription_price"],
                 total_records=ctlg_data["total_records"],
                 lyrs=ctlg_data["lyrs"],
-                ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"]
+                ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"],
             )
+            for ctlg_id, ctlg_data in user_catalogs.items()
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while fetching catalogs: {str(e)}",
         )
 
-    return returned_user_catalogs
 
-
-async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
+async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
     """
-    Fetches all layers associated with a specific catalog. This function first
-    locates the catalog (either in the user's profile or in store catalogs),
-    then retrieves and transforms the data for each layer in the catalog. It
-    compiles these layers into a list of map data objects.
+    Fetches all layers associated with a specific catalog.
     """
-
-    user_data = load_user_profile(req.user_id)
-
-    # Check if catalog exists in user profile
-    ctlg = {}
     try:
-        ctlg = user_data.get("prdcer", {}).get("prdcer_ctlgs", {}).get(req.prdcer_ctlg_id)
-    except KeyError:
-        store_ctlgs = load_store_catalogs()
-        for ctlg_key, ctlg_info in store_ctlgs.items():
-            if ctlg_key == req.prdcer_ctlg_id:
-                ctlg = ctlg_info
+        user_data = load_user_profile(req.user_id)
+        ctlg = (
+            user_data.get("prdcer", {})
+            .get("prdcer_ctlgs", {})
+            .get(req.prdcer_ctlg_id, {})
+        )
 
-    # Load dataset_layer_matching
-    dataset_layer_matching = load_dataset_layer_matching()
+        if not ctlg:
+            store_ctlgs = load_store_catalogs()
+            ctlg = next(
+                (
+                    ctlg_info
+                    for ctlg_key, ctlg_info in store_ctlgs.items()
+                    if ctlg_key == req.prdcer_ctlg_id
+                ),
+                {},
+            )
 
-    # Load catalog owner's user data
-    ctlg_owner_data = load_user_profile(ctlg['ctlg_owner_user_id'])
+        if not ctlg:
+            raise HTTPException(status_code=404, detail="Catalog not found")
 
-    ctlg_lyrs_map_data = []
-    try:
+        dataset_layer_matching = load_dataset_layer_matching()
+        ctlg_owner_data = load_user_profile(ctlg["ctlg_owner_user_id"])
+
+        ctlg_lyrs_map_data = []
         for lyr_id in ctlg["lyrs"]:
-            # Find the corresponding dataset_id
             dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
-
-            # Load the dataset
             dataset = load_dataset(dataset_id)
-
-            # Transform the dataset
             trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
-            # find the user who owns this catalog,
-            # so we need to have ctlg_owner_user_id to catalog metadata as well as store_catalog
-            # Get layer metadata from user profile or use default values
             lyr_metadata = (
                 ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
             )
@@ -549,228 +584,250 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> list[PrdcerLyrMapData]:
             )
 
         return ctlg_lyrs_map_data
-    except:
-        raise HTTPException(status_code=404, detail="Dataset not found for this layer")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-
-async def apply_zone_layers(req: ReqApplyZoneLayers) -> list[PrdcerLyrMapData]:
+async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
     """
-    Applies zone layer transformations to a set of layers. This complex function
-    separates zone and non-zone layers, fetches data for all layers, and then
-    applies zone transformations. It creates new layers based on the zone
-    properties, effectively segmenting the non-zone points into categories
-    based on their proximity to zone points and the values of the zone property.
+    Applies zone layer transformations to a set of layers.
     """
+    try:
+        non_zone_layers = req.lyrs.copy()
+        zone_layers = []
+        for layer in req.lyrs_as_zone:
+            zone_lyr_id = list(layer.keys())[0]
+            zone_layers.append(zone_lyr_id)
+            non_zone_layers.remove(zone_lyr_id)
 
-    # Separate zone layers and non-zone layers
-    non_zone_layers = req.lyrs.copy()
-    zone_layers = []
-    for layer in req.lyrs_as_zone:
-        zone_lyr_id = list(layer.keys())[0]
-        zone_property_key = list(layer.values())[0]
-        zone_layers.append(zone_lyr_id)
-        non_zone_layers.remove(zone_lyr_id)
+        dataset_layer_matching = load_dataset_layer_matching()
 
-    dataset_layer_matching = load_dataset_layer_matching()
+        non_zone_data = []
+        for lyr_id in non_zone_layers:
+            dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
+            if dataset_id:
+                dataset = load_dataset(dataset_id)
+                lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+                non_zone_data.extend(lyr_data["features"])
 
-    # Get all data points for non-zone layers
-    non_zone_data = []
-    for lyr_id in non_zone_layers:
-        dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
-        if dataset_id:
-            dataset = load_dataset(dataset_id)
-            lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-            non_zone_data.extend(lyr_data["features"])
+        zone_data = {}
+        for lyr_id in zone_layers:
+            dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
+            if dataset_id:
+                dataset = load_dataset(dataset_id)
+                lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+                zone_data[lyr_id] = lyr_data
 
-    # Get all data points for zone layers
-    zone_data = {}
-    for lyr_id in zone_layers:
-        dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
-        if dataset_id:
-            dataset = load_dataset(dataset_id)
-            lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-            zone_data[lyr_id] = lyr_data
+        transformed_layers = []
+        for layer in req.lyrs_as_zone:
+            zone_lyr_id = list(layer.keys())[0]
+            zone_property_key = list(layer.values())[0]
+            zone_transformed = apply_zone_transformation(
+                zone_data[zone_lyr_id], non_zone_data, zone_property_key, zone_lyr_id
+            )
+            transformed_layers.extend(zone_transformed)
 
-    # Apply transformation for each zone layer
-    transformed_layers = []
-    for layer in req.lyrs_as_zone:
-        zone_lyr_id = list(layer.keys())[0]
-        zone_property_key = list(layer.values())[0]
-        zone_transformed = apply_zone_transformation(
-            zone_data[zone_lyr_id], non_zone_data, zone_property_key, zone_lyr_id
-        )
-        transformed_layers.extend(zone_transformed)
-
-    return transformed_layers
+        return transformed_layers
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
 def apply_zone_transformation(
-        zone_layer_data: MapData, non_zone_points: list, zone_property: str, zone_lyr_id: str
-) -> list[PrdcerLyrMapData]:
+    zone_layer_data: Dict[str, Any],
+    non_zone_points: List[Dict[str, Any]],
+    zone_property: str,
+    zone_lyr_id: str,
+) -> List[PrdcerLyrMapData]:
     """
-    This function applies zone transformations to a set of points. It first
-    calculates thresholds based on the zone property values. Then, it creates
-    new layers and distributes non-zone points into these layers based on their
-    proximity to zone points and the thresholds. This results in a segmentation
-    of points into different categories (low, medium, high, and non-overlapping).
+    This function applies zone transformations to a set of points.
     """
-    # Extract property values and calculate thresholds
-    zone_property = zone_property.split("features.properties.")[-1]
-    property_values = [
-        feature["properties"].get(zone_property, 9191919191)
-        for feature in zone_layer_data["features"]
-    ]  # TODO this is about the slowest thing probably
-    # Convert the list to a NumPy array
-    arr = np.array(property_values)
-    avg = np.mean(arr[arr != 9191919191.0])
-    new_arr = np.where(arr == 9191919191.0, avg, arr)
-    property_values = new_arr.tolist()
-    thresholds = calculate_thresholds(property_values)
+    try:
+        zone_property = zone_property.split("features.properties.")[-1]
+        property_values = [
+            feature["properties"].get(zone_property, 9191919191)
+            for feature in zone_layer_data["features"]
+        ]
+        arr = np.array(property_values)
+        avg = np.mean(arr[arr != 9191919191.0])
+        new_arr = np.where(arr == 9191919191.0, avg, arr)
+        property_values = new_arr.tolist()
+        thresholds = calculate_thresholds(property_values)
 
-    # Create 4 new layers
-    new_layers = [
-        PrdcerLyrMapData(
-            type="FeatureCollection",
-            features=[],
-            prdcer_layer_name=f"{zone_layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
-            prdcer_lyr_id=f"zy{zone_lyr_id}_applied_{i + 1}",
-            points_color=color,
-            layer_legend=f"{zone_layer_data.get('layer_legend', 'Layer')} {category} {zone_property}",
-            records_count=0,
-            is_zone_lyr="False",
-            bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
-            layer_description=zone_layer_data.get("layer_description", ""),
-        )
-        for i, (category, color) in enumerate(
-            [
-                ("low", "grey"),
-                ("medium", "cyan"),
-                ("high", "red"),
-                ("non-zone-overlap", "blue"),
-            ]
-        )
-    ]
+        new_layers = [
+            PrdcerLyrMapData(
+                type="FeatureCollection",
+                features=[],
+                prdcer_layer_name=f"{zone_layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
+                prdcer_lyr_id=f"zy{zone_lyr_id}_applied_{i + 1}",
+                points_color=color,
+                layer_legend=f"{zone_layer_data.get('layer_legend', 'Layer')} {category} {zone_property}",
+                records_count=0,
+                is_zone_lyr="False",
+                bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
+                layer_description=zone_layer_data.get("layer_description", ""),
+            )
+            for i, (category, color) in enumerate(
+                [
+                    ("low", "grey"),
+                    ("medium", "cyan"),
+                    ("high", "red"),
+                    ("non-zone-overlap", "blue"),
+                ]
+            )
+        ]
 
-    # Distribute non-zone points to new layers based on zone layer
-    for point in non_zone_points:
-        point_coords = point["geometry"]["coordinates"]
-        for zone_feature in zone_layer_data["features"]:
-            zone_point = zone_feature["geometry"]["coordinates"]
-            if calculate_distance_km(point_coords, zone_point) <= 2:
-                value = zone_feature["properties"].get(zone_property, 0)
-                if value <= thresholds[0]:
-                    new_layers[0].features.append(create_feature(point))
-                elif value <= thresholds[1]:
-                    new_layers[1].features.append(create_feature(point))
+        for point in non_zone_points:
+            point_coords = point["geometry"]["coordinates"]
+            for zone_feature in zone_layer_data["features"]:
+                zone_point = zone_feature["geometry"]["coordinates"]
+                if calculate_distance_km(point_coords, zone_point) <= 2:
+                    value = zone_feature["properties"].get(zone_property, 0)
+                    if value <= thresholds[0]:
+                        new_layers[0].features.append(create_feature(point))
+                    elif value <= thresholds[1]:
+                        new_layers[1].features.append(create_feature(point))
+                    else:
+                        new_layers[2].features.append(create_feature(point))
+                    break
                 else:
-                    new_layers[2].features.append(create_feature(point))
-                break  # Stop checking other zone points once we've found a match
-            else:
-                new_layers[3].features.append(create_feature(point))
+                    new_layers[3].features.append(create_feature(point))
 
-    # Update records count
-    for layer in new_layers:
-        layer.records_count = len(layer.features)
+        for layer in new_layers:
+            layer.records_count = len(layer.features)
 
-    return new_layers
+        return new_layers
+    except Exception as e:
+        raise ValueError(f"Error in apply_zone_transformation: {str(e)}")
 
 
-def calculate_thresholds(values):
+def calculate_thresholds(values: List[float]) -> List[float]:
     """
     Calculates threshold values to divide a set of values into three categories.
-    It sorts the values and returns two threshold points that divide the data
-    into thirds.
     """
-    sorted_values = sorted(values)
-    n = len(sorted_values)
-    return [sorted_values[n // 3], sorted_values[2 * n // 3]]
+    try:
+        sorted_values = sorted(values)
+        n = len(sorted_values)
+        return [sorted_values[n // 3], sorted_values[2 * n // 3]]
+    except Exception as e:
+        raise ValueError(f"Error in calculate_thresholds: {str(e)}")
 
 
-def calculate_distance_km(point1, point2):
+def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
     """
     Calculates the distance between two points in kilometers using the Haversine formula.
-
     """
-    # Earth's radius in kilometers
-    R = 6371
-
-    # Convert latitude and longitude to radians
-    lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
-    lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
-
-    # Differences in coordinates
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-
-    # Haversine formula
-    a = (
+    try:
+        R = 6371
+        lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
+        lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = (
             math.sin(dlat / 2) ** 2
             + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    # Calculate the distance
-    distance = R * c
-
-    return distance
-
-
-async def create_user_profile(req: ReqCreateUserProfile) -> dict[str, str]:
-    if is_username_or_email_taken(req.username, req.email):
-        raise HTTPException(status_code=400, detail="Username or email already taken")
-
-    user_id = generate_user_id()
-    hashed_password = get_password_hash(req.password)
-
-    user_data = {
-        "user_id": user_id,
-        "username": req.username,
-        "email": req.email,
-        "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}}
-    }
-
-    update_user_profile(user_id, user_data)
-    add_user_to_info(user_id, req.username, req.email, hashed_password)
-
-    return {"user_id": user_id, "message": "User profile created successfully"}
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        distance = R * c
+        return distance
+    except Exception as e:
+        raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
-async def login_user(req: ReqUserLogin):
-    user = authenticate_user(req.username, req.password)
-    if not user:
+async def login_user(req: ReqUserLogin) -> Dict[str, str]:
+    try:
+        user = authenticate_user(req.username, req.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        access_token = create_access_token(data={"sub": user["user_id"]})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user_id": user["user_id"],
+        }
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during login: {str(e)}",
         )
 
-    access_token = create_access_token(data={"sub": user['user_id']})
-    return {"access_token": access_token, "token_type": "bearer", "user_id": user['user_id']}
 
 
-async def get_user_profile(req: ReqUserProfile) -> dict:
-    user_data = load_user_profile(req.user_id)
-    if not user_data:
-        raise HTTPException(status_code=404, detail="User not found")
+async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
+    try:
+        if is_username_or_email_taken(req.username, req.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username or email already taken",
+            )
+        user_id = generate_user_id()
+        hashed_password = get_password_hash(req.password)
 
-    # Filter out sensitive information
-    return {
-        "user_id": user_data["user_id"],
-        "username": user_data["username"],
-        "email": user_data["email"],
-        # Add any other non-sensitive fields you want to include
-    }
+        user_data = {
+            "user_id": user_id,
+            "username": req.username,
+            "email": req.email,
+            "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}},
+        }
+
+        update_user_profile(user_id, user_data)
+        add_user_to_info(user_id, req.username, req.email, hashed_password)
+
+        return {"user_id": user_id, "message": "User profile created successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating user profile: {str(e)}",
+        )
 
 
-def create_feature(point) -> Feature:
+async def get_user_profile(req: ReqUserProfile) -> Dict[str, Any]:
+    try:
+        user_data = load_user_profile(req.user_id)
+        if not user_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        return {
+            "user_id": user_data["user_id"],
+            "username": user_data["username"],
+            "email": user_data["email"],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching user profile: {str(e)}",
+        )
+
+
+def create_feature(point: Dict[str, Any]) -> Feature:
     """
     Converts a point dictionary into a Feature object. This function is used
     to ensure that all points are in the correct format for geospatial operations.
     """
+    try:
+        return Feature(
+            type=point["type"],
+            properties=point["properties"],
+            geometry=Geometry(
+                type="Point", coordinates=point["geometry"]["coordinates"]
+            ),
+        )
+    except KeyError as e:
+        raise ValueError(f"Invalid point data: missing key {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Error creating feature: {str(e)}")
 
-    return Feature(
-        type=point["type"],
-        properties=point["properties"],
-        geometry=Geometry(type="Point", coordinates=point["geometry"]["coordinates"]),
-    )
+
+# Apply the decorator to all functions in this module
+apply_decorator_to_module(logger)(__name__)
+

@@ -9,7 +9,7 @@
             "args": [
                 "fastapi_app:app",
                 "--reload",
-                "--host", "127.0.0.1",
+                "--host", "localhost",
                 "--port", "7000"
             ],
             "jinja": true
