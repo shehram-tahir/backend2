@@ -30,7 +30,7 @@ from google_api_connector import (
     old_fetch_from_google_maps_api,
 )
 from mapbox_connector import MapBoxConnector
-from storage import generate_user_id
+from storage import generate_user_id, load_categories, load_country_city
 from storage import (
     get_data_from_storage,
     store_data,
@@ -49,7 +49,6 @@ from storage import (
     load_store_catalogs,
     save_dataset,
     update_metastore,
-    fetch_country_city_data,
     convert_to_serializable,
 )
 from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
@@ -218,55 +217,65 @@ async def nearby_boxmap(req):
     return trans_data
 
 
-async def old_fetch_nearby_categories(**_):
+# async def old_fetch_nearby_categories(**_):
+#     """
+#     Returns an older, simplified version of nearby categories. Unlike the newer
+#     version, this function provides a flat list of category names, primarily
+#     focused on food and drink establishments.
+#     """
+
+#     categories = [
+#         "american_restaurant",
+#         "bakery",
+#         "bar",
+#         "barbecue_restaurant",
+#         "brazilian_restaurant",
+#         "breakfast_restaurant",
+#         "brunch_restaurant",
+#         "cafe",
+#         "chinese_restaurant",
+#         "coffee_shop",
+#         "fast_food_restaurant",
+#         "french_restaurant",
+#         "greek_restaurant",
+#         "hamburger_restaurant",
+#         "ice_cream_shop",
+#         "indian_restaurant",
+#         "indonesian_restaurant",
+#         "italian_restaurant",
+#         "japanese_restaurant",
+#         "korean_restaurant",
+#         "lebanese_restaurant",
+#         "meal_delivery",
+#         "meal_takeaway",
+#         "mediterranean_restaurant",
+#         "mexican_restaurant",
+#         "middle_eastern_restaurant",
+#         "pizza_restaurant",
+#         "ramen_restaurant",
+#         "restaurant",
+#         "sandwich_shop",
+#         "seafood_restaurant",
+#         "spanish_restaurant",
+#         "steak_house",
+#         "sushi_restaurant",
+#         "thai_restaurant",
+#         "turkish_restaurant",
+#         "vegan_restaurant",
+#         "vegetarian_restaurant",
+#         "vietnamese_restaurant",
+#     ]
+#     return categories
+
+
+async def fetch_country_city_data(req: ReqCreateLyr) -> Dict[str, List[Dict[str, float]]]:
     """
-    Returns an older, simplified version of nearby categories. Unlike the newer
-    version, this function provides a flat list of category names, primarily
-    focused on food and drink establishments.
+    Returns a set of country and city data for United Arab Emirates, Saudi Arabia, and Canada.
+    The data is structured as a dictionary where keys are country names and values are lists of cities.
     """
 
-    categories = [
-        "american_restaurant",
-        "bakery",
-        "bar",
-        "barbecue_restaurant",
-        "brazilian_restaurant",
-        "breakfast_restaurant",
-        "brunch_restaurant",
-        "cafe",
-        "chinese_restaurant",
-        "coffee_shop",
-        "fast_food_restaurant",
-        "french_restaurant",
-        "greek_restaurant",
-        "hamburger_restaurant",
-        "ice_cream_shop",
-        "indian_restaurant",
-        "indonesian_restaurant",
-        "italian_restaurant",
-        "japanese_restaurant",
-        "korean_restaurant",
-        "lebanese_restaurant",
-        "meal_delivery",
-        "meal_takeaway",
-        "mediterranean_restaurant",
-        "mexican_restaurant",
-        "middle_eastern_restaurant",
-        "pizza_restaurant",
-        "ramen_restaurant",
-        "restaurant",
-        "sandwich_shop",
-        "seafood_restaurant",
-        "spanish_restaurant",
-        "steak_house",
-        "sushi_restaurant",
-        "thai_restaurant",
-        "turkish_restaurant",
-        "vegan_restaurant",
-        "vegetarian_restaurant",
-        "vietnamese_restaurant",
-    ]
-    return categories
+    data = load_country_city()
+    return data
 
 
 async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLyr:
@@ -301,7 +310,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     if not existing_layer or page_token is not None:
         existing_dataset = []
         # Fetch country and city data
-        country_city_data = await fetch_country_city_data()
+        country_city_data = await fetch_country_city_data('')
 
         # Find the city data
         city_data = None
@@ -507,7 +516,10 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
     """
     try:
         user_catalogs = fetch_user_catalogs(req.user_id)
-        return [
+        validated_catalogs = []
+
+        for ctlg_id, ctlg_data in user_catalogs.items():
+            validated_catalogs.append(
             UserCatalogInfo(
                 prdcer_ctlg_id=ctlg_id,
                 prdcer_ctlg_name=ctlg_data["prdcer_ctlg_name"],
@@ -518,8 +530,8 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
                 lyrs=ctlg_data["lyrs"],
                 ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"],
             )
-            for ctlg_id, ctlg_data in user_catalogs.items()
-        ]
+            ) 
+        return validated_catalogs
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -557,7 +569,8 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         ctlg_owner_data = load_user_profile(ctlg["ctlg_owner_user_id"])
 
         ctlg_lyrs_map_data = []
-        for lyr_id in ctlg["lyrs"]:
+        for lyr_info in ctlg["lyrs"]:
+            lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
             dataset = load_dataset(dataset_id)
             trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
@@ -828,6 +841,18 @@ def create_feature(point: Dict[str, Any]) -> Feature:
         raise ValueError(f"Error creating feature: {str(e)}")
 
 
+
+
+async def fetch_nearby_categories(req: None) -> Dict:
+    """
+    Provides a comprehensive list of nearby place categories, organized into
+    broader categories. This function returns a large, predefined dictionary
+    of categories and subcategories, covering various aspects of urban life
+    such as automotive, culture, education, entertainment, and more.
+    """
+    return load_categories()
+
+
+
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)
-

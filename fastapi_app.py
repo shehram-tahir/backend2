@@ -48,11 +48,11 @@ from all_types.myapi_dtypes import (
 from all_types.myapi_dtypes import ResUserCatalogs, ReqFetchCtlgLyrs, ResCtlgLyrs
 from config_factory import get_conf
 from data_fetcher import (
+    fetch_country_city_data,
     get_boxmap_catlog_data,
     fetch_catlog_collection,
     nearby_boxmap,
     fetch_layer_collection,
-    old_fetch_nearby_categories,
     fetch_country_city_category_map_data,
     save_lyr,
     fetch_user_lyrs,
@@ -65,7 +65,7 @@ from data_fetcher import (
     login_user,
     get_user_profile
 )
-from storage import fetch_country_city_data, fetch_nearby_categories
+from data_fetcher import fetch_nearby_categories
 
 
 logger = logging.getLogger(__name__)

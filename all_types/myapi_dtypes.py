@@ -60,6 +60,20 @@ class DataCreateLyr(BaseModel):
     next_page_token: Optional[str] = None
 
 
+
+
+
+class ReqSavePrdcerLyer(BaseModel):
+    prdcer_layer_name: str
+    prdcer_lyr_id: str
+    bknd_dataset_id: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    user_id: str
+
+
+
 class LayerInfo(BaseModel):
     prdcer_lyr_id: str
     prdcer_layer_name: str
@@ -80,6 +94,21 @@ class PrdcerLyrMapData(MapData):
     records_count: int
     is_zone_lyr: str
 
+class LyrInfoInCtlgSave(BaseModel):
+    layer_id:str
+    points_color: str = Field(..., description="Color name for the layer points, e.g., 'red'")
+
+class ReqSavePrdcerCtlg(BaseModel):
+    prdcer_ctlg_name: str
+    subscription_price: str
+    ctlg_description: str
+    total_records: int
+    lyrs: List[LyrInfoInCtlgSave] = Field(
+        ...,
+        description="list of layer objects."
+    )
+    user_id: str
+    thumbnail_url: str
 
 class UserCatalogInfo(BaseModel):
     prdcer_ctlg_id: str
@@ -88,7 +117,10 @@ class UserCatalogInfo(BaseModel):
     thumbnail_url: str
     subscription_price: str
     total_records: int
-    lyrs: List[str]
+    lyrs: List[LyrInfoInCtlgSave] = Field(
+        ...,
+        description="list of layer objects."
+    )
     ctlg_owner_user_id: str
 
 
@@ -128,15 +160,6 @@ class ReqCreateLyr(BaseModel):
 
 
 
-class ReqSavePrdcerLyer(BaseModel):
-    prdcer_layer_name: str
-    prdcer_lyr_id: str
-    bknd_dataset_id: str
-    points_color: str
-    layer_legend: str
-    layer_description: str
-    user_id: str
-
 
 class ReqApplyZoneLayers(BaseModel):
     user_id: str
@@ -156,22 +179,7 @@ class ReqFetchCtlgLyrs(BaseModel):
     user_id: str
 
 
-class LyrInfoInCtlgSave(BaseModel):
-    layer_id:str
-    points_color: str = Field(..., description="Color name for the layer points, e.g., 'red'")
 
-
-class ReqSavePrdcerCtlg(BaseModel):
-    prdcer_ctlg_name: str
-    subscription_price: str
-    ctlg_description: str
-    total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(
-        ...,
-        description="list of layer objects."
-    )
-    user_id: str
-    thumbnail_url: str
 
 
 class ReqUserLogin(BaseModel):

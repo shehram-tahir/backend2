@@ -13,23 +13,34 @@
         "layer_description": "string"
       },
       "l2f1a07c3-d0e6-4ce5-89e6-87616b2916bf": {
-        "prdcer_layer_name": "aa",
+        "prdcer_layer_name": "adsads",
         "prdcer_lyr_id": "l2f1a07c3-d0e6-4ce5-89e6-87616b2916bf",
         "bknd_dataset_id": "dcc5e6e1-85b4-406b-8774-4f155d862f36",
-        "points_color": "Red",
+        "points_color": "string",
         "layer_legend": "string",
         "layer_description": "string"
+      },
+      "ld8759651-f21b-4d2b-9bd5-cd7fd87e9cf0": {
+        "prdcer_layer_name": "schools",
+        "prdcer_lyr_id": "ld8759651-f21b-4d2b-9bd5-cd7fd87e9cf0",
+        "bknd_dataset_id": "7f2b1d32-d2cf-47a1-bab8-a3a61b422ea9",
+        "points_color": "Green",
+        "layer_legend": "schools in jeddah",
+        "layer_description": "asdasdasd"
       }
     },
     "prdcer_ctlgs": {
-      "c90": {
-        "prdcer_ctlg_name": "asdasd",
-        "prdcer_ctlg_id": "c90",
-        "subscription_price": "99",
-        "ctlg_description": "asdasdasd",
+      "a199e62e-f8ad-421a-bedb-f76a90cbbf2e": {
+        "prdcer_ctlg_name": "my new catalog",
+        "prdcer_ctlg_id": "a199e62e-f8ad-421a-bedb-f76a90cbbf2e",
+        "subscription_price": "88",
+        "ctlg_description": "string",
         "total_records": 0,
         "lyrs": [
-          "lb461d2aa-8c11-489c-9eff-ee8b83478b24"
+          {
+            "layer_id": "ld8759651-f21b-4d2b-9bd5-cd7fd87e9cf0",
+            "points_color": "red"
+          }
         ],
         "thumbnail_url": "string",
         "ctlg_owner_user_id": "1845e047-9632-4243-aadf-041bfb7a7f1f"

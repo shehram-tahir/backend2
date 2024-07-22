@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, Union, Tuple, Optional, Any, List
+from typing import Dict, Union, Tuple, Optional, Any
 from pydantic import BaseModel
 from typing import Any
 import json
@@ -439,11 +439,7 @@ def get_country_code(country_name: str) -> str:
 
 
 
-async def fetch_country_city_data() -> Dict[str, List[Dict[str, float]]]:
-    """
-    Returns a set of country and city data for United Arab Emirates, Saudi Arabia, and Canada.
-    The data is structured as a dictionary where keys are country names and values are lists of cities.
-    """
+def load_country_city():
     data = {
         "United Arab Emirates": [
             {"name": "Dubai", "lat": 25.2048, "lng": 55.2708},
@@ -461,17 +457,12 @@ async def fetch_country_city_data() -> Dict[str, List[Dict[str, float]]]:
             {"name": "Montreal", "lat": 45.5017, "lng": -73.5673},
         ],
     }
+    
     return data
 
 
 
-async def fetch_nearby_categories() -> Dict:
-    """
-    Provides a comprehensive list of nearby place categories, organized into
-    broader categories. This function returns a large, predefined dictionary
-    of categories and subcategories, covering various aspects of urban life
-    such as automotive, culture, education, entertainment, and more.
-    """
+def load_categories():
     try:
         with open("Backend/google_categories.json", "r") as f:
             categories = json.load(f)
