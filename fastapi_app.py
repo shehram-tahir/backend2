@@ -169,7 +169,7 @@ async def http_handling(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid access token",
                         headers={"WWW-Authenticate": "Bearer"},
-                    )
+                    ) from e
 
             req = req.request_body
             try:
@@ -192,7 +192,7 @@ async def http_handling(
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"An unexpected error occurred: {str(e)}"
-                )
+                ) from e
 
         request_id = "req-" + str(uuid.uuid4())
         

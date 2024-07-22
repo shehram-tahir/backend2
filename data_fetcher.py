@@ -351,11 +351,11 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     try:
         user_data = load_user_profile(req.user_id)
-    except FileNotFoundError:
+    except FileNotFoundError as fnfe:
         logger.error(f"User profile not found for user_id: {req.user_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found"
-        )
+        ) from fnfe
 
     try:
         # Add the new layer to user profile
@@ -367,12 +367,12 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
         update_user_profile(req.user_id, user_data)
         update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
         update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
-    except KeyError:
+    except KeyError as ke:
         logger.error(f"Invalid user data structure for user_id: {req.user_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid user data structure",
-        )
+        )from ke
 
     return "Producer layer created successfully"
 
@@ -389,17 +389,17 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     try:
         # Load dataset_layer_matching.json
         dataset_layer_matching = load_dataset_layer_matching()
-    except FileNotFoundError:
+    except FileNotFoundError as fnfe:
         logger.error("Dataset-layer matching file not found")
         raise HTTPException(
             status_code=500, detail="Dataset-layer matching data not available"
-        )
+        )from fnfe
 
     try:
         user_layers = fetch_user_layers(req.user_id)
-    except FileNotFoundError:
+    except FileNotFoundError as fnfe:
         logger.error(f"User layers not found for user_id: {req.user_id}")
-        raise HTTPException(status_code=404, detail="User layers not found")
+        raise HTTPException(status_code=404, detail="User layers not found") from fnfe
 
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():
@@ -443,10 +443,10 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
             layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
                 req.prdcer_lyr_id
             ]
-        except KeyError:
+        except KeyError as ke:
             raise HTTPException(
                 status_code=404, detail="Producer layer not found for this user"
-            )
+            )from ke
 
         dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
         dataset = load_dataset(dataset_id)
@@ -467,7 +467,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}") from e
 
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
@@ -498,7 +498,7 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while creating catalog: {str(e)}",
-        )
+        )from e
 
 
 async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
@@ -524,7 +524,7 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while fetching catalogs: {str(e)}",
-        )
+        )from e
 
 
 async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
@@ -587,7 +587,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")from e
 
 
 async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
@@ -633,7 +633,7 @@ async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")from e
 
 
 def apply_zone_transformation(
@@ -757,7 +757,7 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error during login: {str(e)}",
-        )
+        )from e
 
 
 
@@ -786,7 +786,7 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating user profile: {str(e)}",
-        )
+        )from e
 
 
 async def get_user_profile(req: ReqUserProfile) -> Dict[str, Any]:
@@ -806,7 +806,7 @@ async def get_user_profile(req: ReqUserProfile) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching user profile: {str(e)}",
-        )
+        )from e
 
 
 def create_feature(point: Dict[str, Any]) -> Feature:

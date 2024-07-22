@@ -11,6 +11,14 @@
         "points_color": "string",
         "layer_legend": "string",
         "layer_description": "string"
+      },
+      "l2f1a07c3-d0e6-4ce5-89e6-87616b2916bf": {
+        "prdcer_layer_name": "aa",
+        "prdcer_lyr_id": "l2f1a07c3-d0e6-4ce5-89e6-87616b2916bf",
+        "bknd_dataset_id": "dcc5e6e1-85b4-406b-8774-4f155d862f36",
+        "points_color": "Red",
+        "layer_legend": "string",
+        "layer_description": "string"
       }
     },
     "prdcer_ctlgs": {
