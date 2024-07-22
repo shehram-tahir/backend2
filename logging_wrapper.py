@@ -29,6 +29,11 @@ def log_and_validate(
         async def async_wrapper(*args, **kwargs):
             start_time = time.time()
             func_name = func.__name__
+            # Log the arguments
+            args_repr = [repr(a) for a in args]
+            kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+            signature = ", ".join(args_repr + kwargs_repr)
+            logger.info(f"{func_name} called with args: {signature}")
 
             try:
                 result = await func(*args, **kwargs)
@@ -85,6 +90,11 @@ def log_and_validate(
         def sync_wrapper(*args, **kwargs):
             start_time = time.time()
             func_name = func.__name__
+            # Log the arguments
+            args_repr = [repr(a) for a in args]
+            kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+            signature = ", ".join(args_repr + kwargs_repr)
+            logger.info(f"{func_name} called with args: {signature}")
 
             try:
                 result = func(*args, **kwargs)
