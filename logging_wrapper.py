@@ -19,6 +19,7 @@ from pydantic import BaseModel, ValidationError
 from fastapi import HTTPException, status
 
 
+
 def log_and_validate(
     logger: logging.Logger,
     validate_output: bool = False,
@@ -30,8 +31,8 @@ def log_and_validate(
             start_time = time.time()
             func_name = func.__name__
             # Log the arguments
-            args_repr = [repr(a) for a in args]
-            kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+            args_repr = [repr(a)[:500] for a in args]
+            kwargs_repr = [f"{k}={v!r}"[:500] for k, v in kwargs.items()]
             signature = ", ".join(args_repr + kwargs_repr)
             logger.info(f"{func_name} called with args: {signature}")
 
@@ -91,8 +92,8 @@ def log_and_validate(
             start_time = time.time()
             func_name = func.__name__
             # Log the arguments
-            args_repr = [repr(a) for a in args]
-            kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+            args_repr = [repr(a)[:500] for a in args]
+            kwargs_repr = [f"{k}={v!r}"[:500] for k, v in kwargs.items()]
             signature = ", ".join(args_repr + kwargs_repr)
             logger.info(f"{func_name} called with args: {signature}")
 

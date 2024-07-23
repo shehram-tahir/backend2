@@ -57,7 +57,7 @@ class DataCreateLyr(BaseModel):
     bknd_dataset_id: str
     prdcer_lyr_id: str
     records_count: int
-    next_page_token: Optional[str] = None
+    next_page_token: Optional[bool] = None
 
 
 
@@ -135,7 +135,9 @@ class ReqLocation(BaseModel):
     lng: float
     radius: int
     type: str
-    page_token: Optional[str] = None
+    page_token: Optional[bool] = None
+    text_search: Optional[str] = None
+
 
 
 class ReqCatalogId(BaseModel):
@@ -155,7 +157,10 @@ class ReqCreateLyr(BaseModel):
     dataset_category: str
     dataset_country: str
     dataset_city: str
-    page_token: Optional[str] = None
+    action: Optional[str] = None
+    page_token: Optional[bool] = None 
+    search_type: Optional[str] = None 
+    text_search: Optional[str] = None 
 
 
 

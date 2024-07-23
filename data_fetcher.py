@@ -60,13 +60,13 @@ from logging_wrapper import apply_decorator_to_module, preserve_validate_decorat
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
 
-async def fetch_ggl_nearby(location_req: ReqLocation):
+async def fetch_ggl_nearby(location_req: dict, search_type:str='default'):
     """
     This function fetches nearby points of interest (POIs) based on a given location request.
     It first tries to retrieve the data from storage. If the data isn't found in storage,
@@ -77,16 +77,22 @@ async def fetch_ggl_nearby(location_req: ReqLocation):
     dataset = None
     next_page_token = None
     # Try to get data from storage
-    dataset = await get_data_from_storage(location_req)
+    # dataset = await get_data_from_storage(location_req)
 
     if not dataset:
-        # If data is not in storage, fetch from Google Maps API
-        # dataset, next_page_token = await fetch_from_google_maps_api(location_req)
-        dataset, next_page_token = await old_fetch_from_google_maps_api(location_req)
+        if  'default' in search_type or 'new nearby search' in search_type:
+            dataset, next_page_token = await fetch_from_google_maps_api(location_req)
+        elif 'default' in search_type or 'old nearby search' in search_type:
+            dataset, next_page_token = await old_fetch_from_google_maps_api(location_req)
+        elif 'nearby but actually text search' in search_type:
+            dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(location_req)   
+        else: # text search
+             dataset, next_page_token = await text_fetch_from_google_maps_api(location_req) 
+
 
         if dataset is not None:
             # Store the fetched data in storage
-            await store_data(location_req, dataset)
+            # await store_data(location_req, dataset)
             # Generate a new backend dataset ID
             bknd_dataset_id = str(uuid.uuid4())
             # Save the new dataset
@@ -290,6 +296,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
     page_token = req.page_token
+    text_search= req.text_search
     ccc_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
     existing_layer = await search_metastore_for_string(ccc_filename)
 
@@ -335,11 +342,12 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
             radius=50000,
             type=dataset_category,
             page_token=page_token,
+            text_search=text_search,
         )
 
         # Fetch data from Google Maps API
         dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
-            new_dataset_req
+            new_dataset_req, search_type=req.search_type
         )
         # Update metastore
         update_metastore(ccc_filename, bknd_dataset_id)
