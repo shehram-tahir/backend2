@@ -39,9 +39,7 @@ class Feature(BaseModel):
     geometry: Geometry
 
 
-class MapData(BaseModel):
-    type: Literal["FeatureCollection"]
-    features: List[Feature]
+
 
 
 class CityData(BaseModel):
@@ -57,7 +55,7 @@ class DataCreateLyr(BaseModel):
     bknd_dataset_id: str
     prdcer_lyr_id: str
     records_count: int
-    next_page_token: Optional[bool] = None
+    next_page_token: Optional[str] = ''
 
 
 
@@ -83,6 +81,9 @@ class LayerInfo(BaseModel):
     records_count: int
     is_zone_lyr: str
 
+class MapData(BaseModel):
+    type: Literal["FeatureCollection"]
+    features: List[Feature]
 
 class PrdcerLyrMapData(MapData):
     prdcer_layer_name: str
@@ -135,8 +136,8 @@ class ReqLocation(BaseModel):
     lng: float
     radius: int
     type: str
-    page_token: Optional[bool] = None
-    text_search: Optional[str] = None
+    page_token: Optional[str] = ''
+    text_search: Optional[str] = ''
 
 
 
@@ -157,10 +158,10 @@ class ReqCreateLyr(BaseModel):
     dataset_category: str
     dataset_country: str
     dataset_city: str
-    action: Optional[str] = None
-    page_token: Optional[bool] = None 
-    search_type: Optional[str] = None 
-    text_search: Optional[str] = None 
+    action: Optional[str] = ''
+    page_token: Optional[str] = ''
+    search_type: Optional[str] = 'default' 
+    text_search: Optional[str] = '' 
 
 
 

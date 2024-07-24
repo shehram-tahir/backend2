@@ -1,19 +1,18 @@
+import os
 import json
+import logging
 import os
 import uuid
-from datetime import datetime
-from typing import Dict, Union, Tuple, Optional, Any
-from pydantic import BaseModel
-from typing import Any
-import json
 from datetime import datetime, date
+from typing import Any
+from typing import Dict, Tuple, Optional
+
 from fastapi import HTTPException, status
+from pydantic import BaseModel
+
 from all_types.myapi_dtypes import ReqLocation
 from config_factory import get_conf
-import logging
-from logging_wrapper import log_and_validate
-from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
-
+from logging_wrapper import apply_decorator_to_module
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +20,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
 
 USERS_PATH = "Backend/users"
 STORE_CATALOGS_PATH = "Backend/store_catalogs.json"
@@ -83,7 +81,7 @@ def convert_to_serializable(obj: Any) -> Any:
         raise ValueError(f"Object is not JSON serializable: {str(e)}")
 
 
-def get_filename(location_req: ReqLocation) -> str:
+def make_ggl_resp_filename(location_req: ReqLocation) -> str:
     """
     Generates a filename based on the location request parameters.
 
@@ -100,53 +98,9 @@ def get_filename(location_req: ReqLocation) -> str:
             location_req.radius,
             location_req.type,
         )
-        return f"{STORAGE_DIR}/data_{lat}_{lng}_{radius}_{place_type}.json"
+        return f"{lat}_{lng}_{radius}_{place_type}_{location_req.text_search}_{location_req.page_token}"
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
-
-
-async def get_data_from_storage(location_req: ReqLocation) -> Optional[Dict]:
-    """
-    Retrieves data from storage based on the location request.
-    """
-    filename = get_filename(location_req)
-    try:
-        if os.path.exists(filename):
-            with open(filename, "r") as file:
-                return json.load(file)
-        return None
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing data file")
-    except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading data file")
-
-
-async def get_dataset_from_storage(dataset_id: str) -> Optional[Dict]:
-    """
-    Retrieves a dataset from storage based on the dataset ID.
-    """
-    filename = f"{STORAGE_DIR}/catalogue_data_{dataset_id}.json"
-    try:
-        if os.path.exists(filename):
-            with open(filename, "r") as file:
-                return json.load(file)
-        return None
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing dataset file")
-    except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading dataset file")
-
-
-async def store_data(location_req: ReqLocation, data: Dict) -> None:
-    """
-    Stores data in a file based on the location request.
-    """
-    filename = get_filename(location_req)
-    try:
-        with open(filename, "w") as file:
-            json.dump(data, file)
-    except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing data file")
 
 
 async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
@@ -183,9 +137,8 @@ def load_dataset_layer_matching() -> Dict:
         )
 
 
-
 def fetch_dataset_id(
-    lyr_id: str, dataset_layer_matching: Dict = None
+        lyr_id: str, dataset_layer_matching: Dict = None
 ) -> Tuple[str, Dict]:
     """
     Searches for the dataset ID associated with a given layer ID. This function
@@ -201,27 +154,6 @@ def fetch_dataset_id(
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found for this layer"
     )
-
-
-
-def load_dataset(dataset_id: str) -> Dict:
-    """
-    Loads a dataset from file based on its ID.
-    """
-    dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
-    try:
-        with open(dataset_filepath, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Dataset file not found"
-        )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing dataset file",
-        )
-
 
 
 def fetch_layer_owner(prdcer_lyr_id: str) -> str:
@@ -249,7 +181,6 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
         )
 
 
-
 def load_user_profile(user_id: str) -> Dict:
     """
     Loads user data from a file based on the user ID.
@@ -270,9 +201,8 @@ def load_user_profile(user_id: str) -> Dict:
         )
 
 
-
 def update_dataset_layer_matching(
-    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+        prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
 ):
     try:
         if os.path.exists(DATASET_LAYER_MATCHING_PATH):
@@ -301,7 +231,6 @@ def update_dataset_layer_matching(
         )
 
 
-
 def update_user_layer_matching(layer_id: str, layer_owner_id: str):
     try:
         with open(USER_LAYER_MATCHING_PATH, "r+") as f:
@@ -317,7 +246,6 @@ def update_user_layer_matching(layer_id: str, layer_owner_id: str):
         )
 
 
-
 def update_user_profile(user_id: str, user_data: Dict):
     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
     try:
@@ -328,7 +256,6 @@ def update_user_profile(user_id: str, user_data: Dict):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating user profile",
         )
-
 
 
 def fetch_user_layers(user_id: str) -> Dict[str, Any]:
@@ -343,7 +270,6 @@ def fetch_user_layers(user_id: str) -> Dict[str, Any]:
         )
 
 
-
 def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
     try:
         user_data = load_user_profile(user_id)
@@ -354,7 +280,6 @@ def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching user catalogs: {str(e)}",
         )
-
 
 
 def create_new_user(user_id: str, username: str, email: str) -> None:
@@ -383,7 +308,6 @@ def create_new_user(user_id: str, username: str, email: str) -> None:
         )
 
 
-
 def load_store_catalogs() -> Dict[str, Any]:
     try:
         with open(STORE_CATALOGS_PATH, "r") as f:
@@ -399,20 +323,6 @@ def load_store_catalogs() -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error parsing store catalogs file",
         )
-
-
-
-def save_dataset(bknd_dataset_id: str, dataset: Dict):
-    """Save the dataset to a file"""
-    try:
-        with open(f"{DATASETS_PATH}/{bknd_dataset_id}.json", "w") as f:
-            json.dump(dataset, f)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error saving dataset",
-        )
-
 
 
 def update_metastore(ccc_filename: str, bknd_dataset_id: str):
@@ -432,11 +342,9 @@ def update_metastore(ccc_filename: str, bknd_dataset_id: str):
             )
 
 
-
 def get_country_code(country_name: str) -> str:
     country_codes = {"United Arab Emirates": "AE", "Saudi Arabia": "SA", "Canada": "CA"}
     return country_codes.get(country_name, "")
-
 
 
 def load_country_city():
@@ -457,9 +365,8 @@ def load_country_city():
             {"name": "Montreal", "lat": 45.5017, "lng": -73.5673},
         ],
     }
-    
-    return data
 
+    return data
 
 
 def load_categories():
@@ -478,10 +385,8 @@ def load_categories():
         )
 
 
-
 def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
-
 
 
 def generate_user_id() -> str:
@@ -505,7 +410,6 @@ def generate_user_id() -> str:
             return new_id
 
 
-
 def load_users_info() -> Dict:
     try:
         if os.path.exists(USERS_INFO_PATH):
@@ -519,7 +423,6 @@ def load_users_info() -> Dict:
         )
 
 
-
 def save_users_info(users_info: Dict):
     try:
         with open(USERS_INFO_PATH, "w") as f:
@@ -531,14 +434,12 @@ def save_users_info(users_info: Dict):
         )
 
 
-
 def is_username_or_email_taken(username: str, email: str) -> bool:
     users_info = load_users_info()
     for user in users_info["users"]:
         if user["username"] == username or user["email"] == email:
             return True
     return False
-
 
 
 def add_user_to_info(user_id: str, username: str, email: str, hashed_password: str):
@@ -554,7 +455,6 @@ def add_user_to_info(user_id: str, username: str, email: str, hashed_password: s
     save_users_info(users_info)
 
 
-
 def get_user_by_username(username: str) -> Optional[Dict]:
     users_info = load_users_info()
     for user in users_info["users"]:
@@ -563,6 +463,81 @@ def get_user_by_username(username: str) -> Optional[Dict]:
     return None
 
 
+
+
+
+
+async def save_plan(plan_name, plan):
+    file_path = f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    try:
+        with open(file_path, "w") as file:
+            json.dump(plan, file)
+    except IOError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing google data file")
+
+
+
+async def get_plan(plan_name):
+    file_path = f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, "r") as file:
+                return json.load(file)
+        return None
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing data file")
+    except IOError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading data file")
+
+async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
+    """
+    Stores data in a file based on the location request.
+    """
+    # TODO add time stamp to the dataset , when it was retrived
+    filename = make_ggl_resp_filename(req)
+    file_path = f"{STORAGE_DIR}/{filename}.json"
+    try:
+        with open(file_path, "w") as file:
+            json.dump(dataset, file)
+    except IOError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing google data file")
+    return filename
+
+async def get_dataset_from_storage(req: ReqLocation) -> Optional[Dict]:
+    """
+    Retrieves data from storage based on the location request.
+    """
+    filename = make_ggl_resp_filename(req)
+    file_path = f"{STORAGE_DIR}/{filename}.json"
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, "r") as file:
+                return json.load(file), filename
+        return None, None
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing data file")
+    except IOError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading data file")
+
+
+
+def load_dataset(dataset_id: str) -> Dict:
+    """
+    Loads a dataset from file based on its ID.
+    """
+    dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
+    try:
+        with open(dataset_filepath, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Dataset file not found"
+        )
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error parsing dataset file",
+        )
 
 
 

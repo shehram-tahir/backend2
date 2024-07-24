@@ -1,12 +1,12 @@
-import math
-import time
-from typing import List, Tuple
 import logging
+import math
+from typing import List, Tuple
+
 import requests
-from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 
 from all_types.myapi_dtypes import ReqLocation
 from config_factory import get_conf
+from logging_wrapper import apply_decorator_to_module
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,31 +17,6 @@ logger = logging.getLogger(__name__)
 CONF = get_conf()
 
 
-# async def old_fetch_from_google_maps_api(req: ReqLocation):
-#     lat, lng, radius, place_type, page_token = req.lat, req.lng, req.radius, req.type, req.page_token
-#     params = {
-#         'key': CONF.api_key,
-#         'location': f"{lat},{lng}",
-#         'radius': radius,
-#         'type': place_type
-#     }
-#
-#     response = requests.get(CONF.nearby_search, params=params)
-#     results = response.json()
-#
-#     output_data = []
-#     if 'results' in results:
-#         for place in results['results']:
-#             details_params = {
-#                 'key': CONF.api_key,
-#                 'place_id': place['place_id'],
-#                 'fields': CONF.google_fields
-#             }
-#             details_response = requests.get(CONF.place_details, params=details_params)
-#             place_details = details_response.json().get('result', {})
-#             output_data.append(place_details)
-#
-#     return output_data
 
 
 async def fetch_from_google_maps_api(req: ReqLocation):
@@ -61,22 +36,22 @@ async def fetch_from_google_maps_api(req: ReqLocation):
     data = {
         "includedTypes": [place_type],
         "locationRestriction": {
-            "rectangle": {
-                "low": {"latitude": lat, "longitude": lng},
-                "high": {"latitude": lat+0.2, "longitude": lng-0.2},
+            "circle": {
+                "center": {
+                    "latitude": lat,
+                    "longitude": lng
+                },
+                "radius": radius
             }
         },
     }
-
-    if page_token:
-        data["pageToken"] = page_token
 
     response = requests.post(CONF.nearby_search, headers=headers, json=data)
     if response.status_code == 200:
         response_data = response.json()
         results = response_data.get("places", [])
-        next_page_token = response_data.get("nextPageToken")
-        return results, next_page_token
+
+        return results, ''
     else:
         print("Error:", response.status_code)
         return [], None
@@ -166,8 +141,8 @@ def calculate_distance_km(point1, point2):
 
     # Haversine formula
     a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
@@ -178,7 +153,7 @@ def calculate_distance_km(point1, point2):
 
 
 def generate_grid_points(
-    center_lat: float, center_lng: float, radius_km: float, step_km: float = 0.1
+        center_lat: float, center_lng: float, radius_km: float, step_km: float = 0.1
 ) -> List[Tuple[float, float]]:
     """Generate a grid of points within the given radius."""
     points = []
@@ -186,10 +161,10 @@ def generate_grid_points(
     for i in range(-steps, steps + 1):
         for j in range(-steps, steps + 1):
             lat = center_lat + (
-                i * step_km / 111.32
+                    i * step_km / 111.32
             )  # 1 degree of latitude = 111.32 km
             lng = center_lng + (
-                j * step_km / (111.32 * math.cos(math.radians(center_lat)))
+                    j * step_km / (111.32 * math.cos(math.radians(center_lat)))
             )
             if calculate_distance_km((center_lng, center_lat), (lng, lat)) <= radius_km:
                 points.append((lat, lng))

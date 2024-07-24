@@ -1,30 +1,25 @@
-import uuid
-from typing import Awaitable
-from typing import Optional, Callable, Any, Type, TypeVar
 from auth import decode_access_token
-from fastapi import Depends
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, ValidationError
-from logging_wrapper import log_and_validate
-from fastapi import HTTPException, status
-from pydantic import ValidationError
-import uuid
 import logging
+import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
+from fastapi.responses import RedirectResponse
+from fastapi import Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
+from pydantic import ValidationError
 
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from all_types.myapi_dtypes import (
-    ReqLocation,
     ReqCatalogId,
     ResAllCards,
     ResAcknowlg,
     ResTypeMapData,
     ResCountryCityData,
     ResNearbyCategories,
-    ResOldNearbyCategories,
     ReqCreateLyr,
     ResCreateLyr,
     ReqSavePrdcerLyer,
@@ -46,12 +41,11 @@ from all_types.myapi_dtypes import (
     ResSavePrdcerCtlg,
 )
 from all_types.myapi_dtypes import ResUserCatalogs, ReqFetchCtlgLyrs, ResCtlgLyrs
+from auth import decode_access_token
 from config_factory import get_conf
 from data_fetcher import (
     fetch_country_city_data,
-    get_boxmap_catlog_data,
     fetch_catlog_collection,
-    nearby_boxmap,
     fetch_layer_collection,
     fetch_country_city_category_map_data,
     save_lyr,
@@ -66,7 +60,7 @@ from data_fetcher import (
     get_user_profile
 )
 from data_fetcher import fetch_nearby_categories
-
+from logging_wrapper import log_and_validate
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +133,6 @@ async def ws_handling(
         print(f"WebSocket disconnected: {request_id}")
 
 
-
 @log_and_validate(logger)
 async def http_handling(
         req: Optional[T],
@@ -195,7 +188,7 @@ async def http_handling(
                 ) from e
 
         request_id = "req-" + str(uuid.uuid4())
-        
+
         try:
             res_body = output_type(
                 message="Request received",
@@ -227,26 +220,23 @@ async def http_handling(
         )
 
 
-@app.post(CONF.http_catlog_data, response_model=ResTypeMapData)
-async def catlog_data(catlog_req: RequestModel[ReqCatalogId]):
-    response = await http_handling(
-        catlog_req,
-        ReqCatalogId,
-        ResTypeMapData,
-        get_boxmap_catlog_data,
-    )
-    return response
+# deprecated=True
+@app.post(CONF.http_catlog_data, response_model=ResTypeMapData, deprecated=True)
+async def catlog_data(catlog_req: RequestModel[ReqFetchCtlgLyrs]):
+    # Step 3: Redirect traffic to the new endpoint
+    new_url = app.url_path_for(CONF.fetch_ctlg_lyrs)
+    return RedirectResponse(url=new_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
-@app.post(CONF.http_single_nearby, response_model=ResTypeMapData)
-async def single_nearby(req: RequestModel[ReqLocation]):
-    response = await http_handling(
-        req,
-        ReqLocation,
-        ResTypeMapData,
-        nearby_boxmap,
-    )
-    return response
+# @app.post(CONF.http_single_nearby, response_model=ResTypeMapData)
+# async def single_nearby(req: RequestModel[ReqLocation]):
+#     response = await http_handling(
+#         req,
+#         ReqLocation,
+#         ResTypeMapData,
+#         nearby_boxmap,
+#     )
+#     return response
 
 
 @app.get(CONF.fetch_acknowlg_id, response_model=ResAcknowlg)

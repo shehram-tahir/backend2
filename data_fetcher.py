@@ -1,11 +1,13 @@
+import logging
 import math
 import uuid
+from typing import List, Dict, Any
+
 import numpy as np
-import logging
 from fastapi import HTTPException
 from fastapi import status
-from logging_wrapper import log_and_validate
-from all_types.myapi_dtypes import ReqLocation, ReqCatalogId, Feature, Geometry
+
+from all_types.myapi_dtypes import ReqLocation, Feature, Geometry
 from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
     LayerInfo,
@@ -17,7 +19,6 @@ from all_types.myapi_dtypes import (
     ReqApplyZoneLayers,
     ReqPrdcerLyrMapData,
     ReqCreateUserProfile,
-    MapData,
     ReqUserLogin,
     ReqUserProfile,
     ReqCreateLyr,
@@ -29,12 +30,13 @@ from google_api_connector import (
     fetch_from_google_maps_api,
     old_fetch_from_google_maps_api,
 )
+from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
+from logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import generate_user_id, load_categories, load_country_city
 from storage import (
-    get_data_from_storage,
-    store_data,
     get_dataset_from_storage,
+    store_ggl_data_resp,
     search_metastore_for_string,
     fetch_dataset_id,
     load_dataset,
@@ -47,16 +49,13 @@ from storage import (
     load_dataset_layer_matching,
     fetch_user_layers,
     load_store_catalogs,
-    save_dataset,
     update_metastore,
     convert_to_serializable,
+    save_plan,
+    get_plan
+
 )
 from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
-
-from fastapi import HTTPException
-from typing import List, Dict, Any
-from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,50 +65,156 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def fetch_ggl_nearby(location_req: dict, search_type:str='default'):
+def get_point_at_distance(start_point, bearing, distance):
+    """
+    Calculate the latitude and longitude of a point at a given distance and bearing from a start point.
+    """
+    R = 6371  # Earth's radius in km
+    lat1 = math.radians(start_point[1])
+    lon1 = math.radians(start_point[0])
+    bearing = math.radians(bearing)
+
+    lat2 = math.asin(math.sin(lat1) * math.cos(distance / R) +
+                     math.cos(lat1) * math.sin(distance / R) * math.cos(bearing))
+    lon2 = lon1 + math.atan2(math.sin(bearing) * math.sin(distance / R) * math.cos(lat1),
+                             math.cos(distance / R) - math.sin(lat1) * math.sin(lat2))
+
+    return (math.degrees(lon2), math.degrees(lat2))
+
+
+def cover_circle_with_seven_circles(center, radius, min_radius=2, is_center_circle=False):
+    """
+    Calculate the centers and radii of seven circles covering a larger circle, recursively.
+    """
+    small_radius = 0.5 * radius
+    if (is_center_circle and small_radius < 0.5) or (not is_center_circle and small_radius < 1):
+        return {"center": center, "radius": radius, "sub_circles": [], "is_center": is_center_circle}
+
+    # Calculate the centers of the six outer circles
+    outer_centers = []
+    for i in range(6):
+        angle = i * 60  # 360 degrees / 6 circles
+        distance = radius * math.sqrt(3) / 2
+        outer_center = get_point_at_distance(center, angle, distance)
+        outer_centers.append(outer_center)
+
+    # The center circle has the same center as the large circle
+    all_centers = [center] + outer_centers
+
+    sub_circles = []
+    for i, c in enumerate(all_centers):
+        is_center = (i == 0)
+        sub_circle = cover_circle_with_seven_circles(c, small_radius, min_radius, is_center)
+        sub_circles.append(sub_circle)
+
+    return {"center": center, "radius": radius*1000, "sub_circles": sub_circles, "is_center": is_center_circle}
+
+
+# def print_circle_hierarchy(circle, number=""):
+#     center_marker = "*" if circle['is_center'] else ""
+#     print(
+#         f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km")
+#     for i, sub_circle in enumerate(circle['sub_circles'], 1):
+#         print_circle_hierarchy(sub_circle, f"{number}.{i}" if number else f"{i}")
+
+
+# def count_circles(circle):
+#     return 1 + sum(count_circles(sub_circle) for sub_circle in circle['sub_circles'])
+
+
+def create_string_list(circle_hierarchy, place_type, text_search, page_token):
+    result = []
+    circles_to_process = [circle_hierarchy]
+
+    while circles_to_process:
+        circle = circles_to_process.pop(0)
+        lat, lng = circle['center']
+        radius = circle['radius']
+
+        circle_string = f"{lat}_{lng}_{radius}_{place_type}_{text_search}_{page_token}"
+        result.append(circle_string)
+
+        circles_to_process.extend(circle.get('sub_circles', []))
+
+    return result
+
+
+async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
     """
     This function fetches nearby points of interest (POIs) based on a given location request.
     It first tries to retrieve the data from storage. If the data isn't found in storage,
     it fetches the data from the Google Maps API after a short delay. The fetched data is
     then stored for future use before being returned.
     """
-    bknd_dataset_id = None
-    dataset = None
-    next_page_token = None
-    # Try to get data from storage
-    # dataset = await get_data_from_storage(location_req)
+    next_page_token = req.page_token
+    action =  req_create_lyr.action
+    search_type = req_create_lyr.search_type
+    plan: List[str] = []
+
+    # if radius >1500 and pagetoken == ''
+        # create plan list, which includes as the last element "end of search plan"
+        # save created plan to Backend/layer_category_country_city_matching/full_data_plans
+        # create a new location_req based on first element in the plan
+        # and return to the user data plus pagetoken which includes the next search plus the plan name
+    # if radius is >1500 and pagetoken !=''
+        # create a new location_req based on the page token information
+        # from page token read plan and make a new page token that includes the plan name plus next search except if "end of search plan"
+    # if radius is <1500 and pagetoken != ''
+        # create a new location_req based on the page token information
+        # from page token read plan and make a new page token that includes the plan name plus next search except if "end of search plan"
+    # if radius is < 1500 and pagetoken ==''
+        # execute search based on location_req
+        # retrun data plus empty page_token
+
+
+    if req.radius > 1500 and req.page_token == '' and action == "full data":
+        circle_hierarchy = cover_circle_with_seven_circles((req.lng, req.lat), req.radius/1000)
+        string_list_plan = create_string_list(circle_hierarchy, req.type, req.text_search, req.page_token)
+        string_list_plan.append("end of search plan")
+
+        plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}"
+        await save_plan(plan_name, string_list_plan)
+
+        first_search = string_list_plan[0].split('_')
+        req.lat, req.lng, req.radius = float(first_search[0]), float(first_search[1]), float(
+            first_search[2])
+        next_page_token = f"{plan_name}@#${1}"  # Start with the first search
+
+    elif req.page_token != '':
+        plan_name, search_index = req.page_token.split('@#$')
+        search_index = int(search_index)
+        plan = await get_plan(plan_name)
+        search_info = plan[search_index].split('_')
+        req.lat, req.lng, req.radius = float(search_info[0]), float(search_info[1]), float(
+            search_info[2])
+        if plan[search_index + 1] == "end of search plan":
+            next_page_token = ''  # End of search plan
+        else:
+            next_page_token = f"{plan_name}_{search_index + 1}"
+
+
+    dataset, bknd_dataset_id = await get_dataset_from_storage(req)
 
     if not dataset:
-        if  'default' in search_type or 'new nearby search' in search_type:
-            dataset, next_page_token = await fetch_from_google_maps_api(location_req)
-        elif 'default' in search_type or 'old nearby search' in search_type:
-            dataset, next_page_token = await old_fetch_from_google_maps_api(location_req)
-        elif 'nearby but actually text search' in search_type:
-            dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(location_req)   
-        else: # text search
-             dataset, next_page_token = await text_fetch_from_google_maps_api(location_req) 
 
+        if 'default' in search_type or 'new nearby search' in search_type:
+            dataset, _ = await fetch_from_google_maps_api(req)
+        elif 'default' in search_type or 'old nearby search' in search_type:
+            dataset, next_page_token = await old_fetch_from_google_maps_api(req)
+        elif 'nearby but actually text search' in search_type:
+            dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
+        else:  # text search
+            dataset, next_page_token = await text_fetch_from_google_maps_api(req)
 
         if dataset is not None:
             # Store the fetched data in storage
-            # await store_data(location_req, dataset)
-            # Generate a new backend dataset ID
-            bknd_dataset_id = str(uuid.uuid4())
-            # Save the new dataset
-            save_dataset(bknd_dataset_id, dataset)
+            bknd_dataset_id = await store_ggl_data_resp(req, dataset)
+            # # Generate a new backend dataset ID
+            # bknd_dataset_id = str(uuid.uuid4())
+            # # Save the new dataset
+            # save_dataset(bknd_dataset_id, dataset)
 
     return dataset, bknd_dataset_id, next_page_token
-
-
-async def get_catalogue_dataset(catalogue_dataset_id: str):
-    """
-    Retrieves a specific catalogue dataset from storage based on the provided ID.
-    If the dataset is not found, it returns an empty dictionary. This function
-    acts as a wrapper around the storage retrieval mechanism.
-    """
-
-    data = await get_dataset_from_storage(catalogue_dataset_id)
-    return data
 
 
 async def fetch_catlog_collection(**_):
@@ -198,29 +303,29 @@ async def fetch_layer_collection(**_):
     return metadata
 
 
-async def get_boxmap_catlog_data(req: ReqCatalogId):
-    """
-    This function retrieves catalog data for a specific catalog ID and transforms
-    it into a format suitable for box mapping. It uses the get_catalogue_dataset
-    function to fetch the raw data, then applies a transformation using the
-    MapBoxConnector to convert it into the required format.
-    """
+# async def get_boxmap_catlog_data(req: ReqCatalogId):
+#     """
+#     This function retrieves catalog data for a specific catalog ID and transforms
+#     it into a format suitable for box mapping. It uses the get_catalogue_dataset
+#     function to fetch the raw data, then applies a transformation using the
+#     MapBoxConnector to convert it into the required format.
+#     """
+#
+#     response_data = await get_catalogue_dataset(req.catalogue_dataset_id)
+#     trans_data = await MapBoxConnector.ggl_to_boxmap(response_data)
+#     return trans_data
 
-    response_data = await get_catalogue_dataset(req.catalogue_dataset_id)
-    trans_data = await MapBoxConnector.ggl_to_boxmap(response_data)
-    return trans_data
 
-
-async def nearby_boxmap(req):
-    """
-    Fetches nearby data based on the provided request and transforms it into
-    a format suitable for box mapping. It uses the fetch_nearby function to get
-    the raw data, then applies a transformation using the MapBoxConnector.
-    """
-
-    response_data, _, _ = await fetch_ggl_nearby(req)
-    trans_data = await MapBoxConnector.new_ggl_to_boxmap(response_data)
-    return trans_data
+# async def nearby_boxmap(req):
+#     """
+#     Fetches nearby data based on the provided request and transforms it into
+#     a format suitable for box mapping. It uses the fetch_nearby function to get
+#     the raw data, then applies a transformation using the MapBoxConnector.
+#     """
+#
+#     response_data, _, _ = await fetch_ggl_nearby(req)
+#     trans_data = await MapBoxConnector.new_ggl_to_boxmap(response_data)
+#     return trans_data
 
 
 # async def old_fetch_nearby_categories(**_):
@@ -296,9 +401,12 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
     page_token = req.page_token
-    text_search= req.text_search
+    text_search = req.text_search
     ccc_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
-    existing_layer = await search_metastore_for_string(ccc_filename)
+    existing_layer = None
+    if req.action != "full data":
+        #TODO this is a temporary fix
+        existing_layer = await search_metastore_for_string(ccc_filename)
 
     # first check if there is a dataset already
     # if yes load it
@@ -339,7 +447,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
         new_dataset_req = ReqLocation(
             lat=city_data["lat"],
             lng=city_data["lng"],
-            radius=50000,
+            radius=8000,
             type=dataset_category,
             page_token=page_token,
             text_search=text_search,
@@ -347,15 +455,15 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
 
         # Fetch data from Google Maps API
         dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
-            new_dataset_req, search_type=req.search_type
+            new_dataset_req, req_create_lyr = req
         )
         # Update metastore
-        update_metastore(ccc_filename, bknd_dataset_id)
+        if req.action != "full data":
+        #TODO this is a temporary fix 
+            update_metastore(ccc_filename, bknd_dataset_id)
 
         # Append new data to existing dataset
         existing_dataset.extend(dataset)
-        # Save updated dataset
-        save_dataset(bknd_dataset_id, existing_dataset)
 
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
@@ -528,17 +636,17 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
 
         for ctlg_id, ctlg_data in user_catalogs.items():
             validated_catalogs.append(
-            UserCatalogInfo(
-                prdcer_ctlg_id=ctlg_id,
-                prdcer_ctlg_name=ctlg_data["prdcer_ctlg_name"],
-                ctlg_description=ctlg_data["ctlg_description"],
-                thumbnail_url=ctlg_data.get("thumbnail_url", ""),
-                subscription_price=ctlg_data["subscription_price"],
-                total_records=ctlg_data["total_records"],
-                lyrs=ctlg_data["lyrs"],
-                ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"],
+                UserCatalogInfo(
+                    prdcer_ctlg_id=ctlg_id,
+                    prdcer_ctlg_name=ctlg_data["prdcer_ctlg_name"],
+                    ctlg_description=ctlg_data["ctlg_description"],
+                    thumbnail_url=ctlg_data.get("thumbnail_url", ""),
+                    subscription_price=ctlg_data["subscription_price"],
+                    total_records=ctlg_data["total_records"],
+                    lyrs=ctlg_data["lyrs"],
+                    ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"],
+                )
             )
-            ) 
         return validated_catalogs
     except Exception as e:
         raise HTTPException(
@@ -658,10 +766,10 @@ async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
 
 
 def apply_zone_transformation(
-    zone_layer_data: Dict[str, Any],
-    non_zone_points: List[Dict[str, Any]],
-    zone_property: str,
-    zone_lyr_id: str,
+        zone_layer_data: Dict[str, Any],
+        non_zone_points: List[Dict[str, Any]],
+        zone_property: str,
+        zone_lyr_id: str,
 ) -> List[PrdcerLyrMapData]:
     """
     This function applies zone transformations to a set of points.
@@ -748,8 +856,8 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
         dlat = lat2 - lat1
         dlon = lon2 - lon1
         a = (
-            math.sin(dlat / 2) ** 2
-            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+                math.sin(dlat / 2) ** 2
+                + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
         )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         distance = R * c
@@ -779,7 +887,6 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error during login: {str(e)}",
         )from e
-
 
 
 async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
@@ -849,8 +956,6 @@ def create_feature(point: Dict[str, Any]) -> Feature:
         raise ValueError(f"Error creating feature: {str(e)}")
 
 
-
-
 async def fetch_nearby_categories(req: None) -> Dict:
     """
     Provides a comprehensive list of nearby place categories, organized into
@@ -859,7 +964,6 @@ async def fetch_nearby_categories(req: None) -> Dict:
     such as automotive, culture, education, entertainment, and more.
     """
     return load_categories()
-
 
 
 # Apply the decorator to all functions in this module
