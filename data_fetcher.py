@@ -87,7 +87,7 @@ def cover_circle_with_seven_circles(center, radius, min_radius=2, is_center_circ
     Calculate the centers and radii of seven circles covering a larger circle, recursively.
     """
     small_radius = 0.5 * radius
-    if (is_center_circle and small_radius < 0.5) or (not is_center_circle and small_radius < 1):
+    if (is_center_circle and small_radius < 1) or (not is_center_circle and small_radius < 2):
         return {"center": center, "radius": radius, "sub_circles": [], "is_center": is_center_circle}
 
     # Calculate the centers of the six outer circles
@@ -107,19 +107,19 @@ def cover_circle_with_seven_circles(center, radius, min_radius=2, is_center_circ
         sub_circle = cover_circle_with_seven_circles(c, small_radius, min_radius, is_center)
         sub_circles.append(sub_circle)
 
-    return {"center": center, "radius": radius*1000, "sub_circles": sub_circles, "is_center": is_center_circle}
+    return {"center": center, "radius": radius, "sub_circles": sub_circles, "is_center": is_center_circle}
 
 
-# def print_circle_hierarchy(circle, number=""):
-#     center_marker = "*" if circle['is_center'] else ""
-#     print(
-#         f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km")
-#     for i, sub_circle in enumerate(circle['sub_circles'], 1):
-#         print_circle_hierarchy(sub_circle, f"{number}.{i}" if number else f"{i}")
+def print_circle_hierarchy(circle, number=""):
+    center_marker = "*" if circle['is_center'] else ""
+    print(
+        f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km")
+    for i, sub_circle in enumerate(circle['sub_circles'], 1):
+        print_circle_hierarchy(sub_circle, f"{number}.{i}" if number else f"{i}")
 
 
-# def count_circles(circle):
-#     return 1 + sum(count_circles(sub_circle) for sub_circle in circle['sub_circles'])
+def count_circles(circle):
+    return 1 + sum(count_circles(sub_circle) for sub_circle in circle['sub_circles'])
 
 
 def create_string_list(circle_hierarchy, place_type, text_search, page_token):
@@ -131,7 +131,7 @@ def create_string_list(circle_hierarchy, place_type, text_search, page_token):
         lat, lng = circle['center']
         radius = circle['radius']
 
-        circle_string = f"{lat}_{lng}_{radius}_{place_type}_{text_search}_{page_token}"
+        circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}_{text_search}_{page_token}"
         result.append(circle_string)
 
         circles_to_process.extend(circle.get('sub_circles', []))
@@ -176,7 +176,7 @@ async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
         await save_plan(plan_name, string_list_plan)
 
         first_search = string_list_plan[0].split('_')
-        req.lat, req.lng, req.radius = float(first_search[0]), float(first_search[1]), float(
+        req.lng, req.lat, req.radius = float(first_search[0]), float(first_search[1]), float(
             first_search[2])
         next_page_token = f"{plan_name}@#${1}"  # Start with the first search
 
@@ -185,7 +185,7 @@ async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
         search_index = int(search_index)
         plan = await get_plan(plan_name)
         search_info = plan[search_index].split('_')
-        req.lat, req.lng, req.radius = float(search_info[0]), float(search_info[1]), float(
+        req.lng, req.lat, req.radius = float(search_info[0]), float(search_info[1]), float(
             search_info[2])
         if plan[search_index + 1] == "end of search plan":
             next_page_token = ''  # End of search plan
