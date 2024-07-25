@@ -190,7 +190,7 @@ async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
         if plan[search_index + 1] == "end of search plan":
             next_page_token = ''  # End of search plan
         else:
-            next_page_token = f"{plan_name}_{search_index + 1}"
+            next_page_token = f"{plan_name}@#${search_index + 1}"
 
 
     dataset, bknd_dataset_id = await get_dataset_from_storage(req)
