@@ -81,7 +81,7 @@ def convert_to_serializable(obj: Any) -> Any:
         raise ValueError(f"Object is not JSON serializable: {str(e)}")
 
 
-def make_ggl_resp_filename(location_req: ReqLocation) -> str:
+def make_ggl_resp_filename(req: ReqLocation) -> str:
     """
     Generates a filename based on the location request parameters.
 
@@ -93,12 +93,15 @@ def make_ggl_resp_filename(location_req: ReqLocation) -> str:
     """
     try:
         lat, lng, radius, place_type = (
-            location_req.lat,
-            location_req.lng,
-            location_req.radius,
-            location_req.type,
+            req.lat,
+            req.lng,
+            req.radius,
+            req.type,
         )
-        return f"{lat}_{lng}_{radius}_{place_type}_{location_req.text_search}_{location_req.page_token}"
+        name = f"{lng}_{lat}_{radius}_{place_type}_{req.page_token}"
+        if req.text_search != '' and req.text_search is not None:
+            name = f"{lat}_{lng}_{radius}_{place_type}_text_search:{req.text_search}_"
+        return name
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
 
@@ -525,7 +528,7 @@ def load_dataset(dataset_id: str) -> Dict:
     """
     Loads a dataset from file based on its ID.
     """
-    dataset_filepath = os.path.join(DATASETS_PATH, f"{dataset_id}.json")
+    dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
     try:
         with open(dataset_filepath, "r") as f:
             return json.load(f)

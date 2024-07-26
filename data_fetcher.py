@@ -122,7 +122,7 @@ def count_circles(circle):
     return 1 + sum(count_circles(sub_circle) for sub_circle in circle['sub_circles'])
 
 
-def create_string_list(circle_hierarchy, place_type, text_search, page_token):
+def create_string_list(circle_hierarchy, place_type, text_search):
     result = []
     circles_to_process = [circle_hierarchy]
 
@@ -131,7 +131,9 @@ def create_string_list(circle_hierarchy, place_type, text_search, page_token):
         lat, lng = circle['center']
         radius = circle['radius']
 
-        circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}_{text_search}_{page_token}"
+        circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}"
+        if text_search != "" and text_search is not None:
+            circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}_{text_search}"
         result.append(circle_string)
 
         circles_to_process.extend(circle.get('sub_circles', []))
@@ -169,19 +171,24 @@ async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
 
     if req.radius > 1500 and req.page_token == '' and action == "full data":
         circle_hierarchy = cover_circle_with_seven_circles((req.lng, req.lat), req.radius/1000)
-        string_list_plan = create_string_list(circle_hierarchy, req.type, req.text_search, req.page_token)
+        string_list_plan = create_string_list(circle_hierarchy, req.type, req.text_search)
         string_list_plan.append("end of search plan")
 
+
+        # TODO creating the name of the file should be moved to storage
         plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}"
+        if req.text_search != '' and req.text_search is not None:
+            plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}_text_search:"
         await save_plan(plan_name, string_list_plan)
 
         first_search = string_list_plan[0].split('_')
         req.lng, req.lat, req.radius = float(first_search[0]), float(first_search[1]), float(
             first_search[2])
-        next_page_token = f"{plan_name}@#${1}"  # Start with the first search
+        next_page_token = f"page_token:{plan_name}@#${1}"  # Start with the first search
 
     elif req.page_token != '':
         plan_name, search_index = req.page_token.split('@#$')
+        _, plan_name = plan_name.split("page_token:")
         search_index = int(search_index)
         plan = await get_plan(plan_name)
         search_info = plan[search_index].split('_')
@@ -190,7 +197,7 @@ async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
         if plan[search_index + 1] == "end of search plan":
             next_page_token = ''  # End of search plan
         else:
-            next_page_token = f"{plan_name}@#${search_index + 1}"
+            next_page_token = f"page_token:{plan_name}@#${search_index + 1}"
 
 
     dataset, bknd_dataset_id = await get_dataset_from_storage(req)
@@ -574,8 +581,35 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
             )from ke
 
         dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
-        dataset = load_dataset(dataset_id)
-        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+
+        # if the dataset_id contains the word plan '21.57445341427591_39.1728_2000.0_mosque__plan_mosque_Saudi Arabia_Jeddah@#$9'
+            # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
+            # load the plan's json file 
+            # from the dataset_id isolate the page number which is after @#$ = 9
+            # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
+            # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
+        # else load dataset with dataset id
+        if 'plan' in dataset_id:
+            # Extract plan name and page number
+            plan_name, page_number = dataset_id.split('@#$')
+            dataset, plan_name = plan_name.split("page_token:")
+            page_number = int(page_number)
+            # Load the plan
+            plan = await get_plan(plan_name)
+            if not plan:
+                raise HTTPException(status_code=404, detail="Plan not found")
+            # Initialize an empty list to store all datasets
+            all_datasets = []
+            # Load and concatenate all datasets up to the current page number
+            for i in range(page_number):
+                if i == 0:
+                    continue
+                dataset = load_dataset(f"{plan[i]}_page_token:{plan_name}@#${i}")
+                all_datasets.extend(dataset)
+
+        else:
+            all_datasets = load_dataset(dataset_id)
+        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(all_datasets)
 
         return PrdcerLyrMapData(
             type="FeatureCollection",
