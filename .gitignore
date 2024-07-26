@@ -7,3 +7,4 @@ pc_venv/
 **/secret*
 **/__pycache__
 __pycache__/
+**/__pycache__/
