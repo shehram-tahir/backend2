@@ -189,7 +189,7 @@ class ReqFetchCtlgLyrs(BaseModel):
 
 
 class ReqUserLogin(BaseModel):
-    username: str
+    email: str
     password: str
 
 
@@ -197,9 +197,7 @@ class ReqUserProfile(BaseModel):
     user_id: str
 
 
-class ReqUserProfileWithToken(BaseModel):
-    request_body: ReqUserProfile
-    access_token: str
+
 
 
 T = TypeVar('T')
@@ -210,6 +208,9 @@ class ResponseModel(BaseModel, Generic[T]):
     message: str
     request_id: str
     data: T
+
+
+
 
 
 ResAllCards = ResponseModel[List[card_metadata]]
@@ -226,7 +227,7 @@ ResPrdcerLyrMapData = ResponseModel[PrdcerLyrMapData]
 ResCreateLyr = ResponseModel[DataCreateLyr]
 ResOldNearbyCategories = ResponseModel[List[str]]
 ResUserCatalogs = ResponseModel[List[UserCatalogInfo]]
-ResToken = ResponseModel[Dict[str, str]]
+ResUserLogin = ResponseModel[Dict[str, Any]]
 ResUserProfile = ResponseModel[Dict[str, Any]]
 
 class RequestModel(BaseModel, Generic[U]):

@@ -115,11 +115,7 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
         data = response.json()
 
 
-        return {
-            "access_token": data["idToken"],
-            "token_type": "bearer",
-            "expires_in": data["expiresIn"]
-        }
+        return data
     except auth.UserNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

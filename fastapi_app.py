@@ -29,11 +29,10 @@ from all_types.myapi_dtypes import (
     ReqCreateUserProfile,
     ResCreateUserProfile,
     RequestModel,
-    ResToken,
     ReqUserLogin,
     ReqUserProfile,
     ResUserProfile,
-    ReqUserProfileWithToken
+    ResUserLogin
 )
 from all_types.myapi_dtypes import (
     ReqUserId,
@@ -422,7 +421,7 @@ async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
     return response
 
 
-@app.post(CONF.login, response_model=ResToken)
+@app.post(CONF.login, response_model=ResUserLogin)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     req = ReqUserLogin(email=form_data.username, password=form_data.password)
     wrapped_req = RequestModel(message="Login request", request_info={},
@@ -430,14 +429,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     response = await http_handling(
         wrapped_req,
         ReqUserLogin,
-        ResToken,
+        ResUserLogin,
         login_user
     )
     return response
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
-async def get_user_profile_endpoint(req: ReqUserProfileWithToken, request:Request):
+async def get_user_profile_endpoint(req: RequestModel[ReqUserProfile] , request:Request):
     response = await http_handling(
         req,
         ReqUserProfile,
