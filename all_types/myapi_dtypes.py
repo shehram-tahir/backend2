@@ -39,9 +39,6 @@ class Feature(BaseModel):
     geometry: Geometry
 
 
-
-
-
 class CityData(BaseModel):
     name: str
     lat: float
@@ -55,10 +52,7 @@ class DataCreateLyr(BaseModel):
     bknd_dataset_id: str
     prdcer_lyr_id: str
     records_count: int
-    next_page_token: Optional[str] = ''
-
-
-
+    next_page_token: Optional[str] = ""
 
 
 class ReqSavePrdcerLyer(BaseModel):
@@ -71,7 +65,6 @@ class ReqSavePrdcerLyer(BaseModel):
     user_id: str
 
 
-
 class LayerInfo(BaseModel):
     prdcer_lyr_id: str
     prdcer_layer_name: str
@@ -81,9 +74,11 @@ class LayerInfo(BaseModel):
     records_count: int
     is_zone_lyr: str
 
+
 class MapData(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
+
 
 class PrdcerLyrMapData(MapData):
     prdcer_layer_name: str
@@ -95,21 +90,23 @@ class PrdcerLyrMapData(MapData):
     records_count: int
     is_zone_lyr: str
 
+
 class LyrInfoInCtlgSave(BaseModel):
-    layer_id:str
-    points_color: str = Field(..., description="Color name for the layer points, e.g., 'red'")
+    layer_id: str
+    points_color: str = Field(
+        ..., description="Color name for the layer points, e.g., 'red'"
+    )
+
 
 class ReqSavePrdcerCtlg(BaseModel):
     prdcer_ctlg_name: str
     subscription_price: str
     ctlg_description: str
     total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(
-        ...,
-        description="list of layer objects."
-    )
+    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     user_id: str
     thumbnail_url: str
+
 
 class UserCatalogInfo(BaseModel):
     prdcer_ctlg_id: str
@@ -118,10 +115,7 @@ class UserCatalogInfo(BaseModel):
     thumbnail_url: str
     subscription_price: str
     total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(
-        ...,
-        description="list of layer objects."
-    )
+    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     ctlg_owner_user_id: str
 
 
@@ -136,9 +130,8 @@ class ReqLocation(BaseModel):
     lng: float
     radius: int
     type: str
-    page_token: Optional[str] = ''
-    text_search: Optional[str] = ''
-
+    page_token: Optional[str] = ""
+    text_search: Optional[str] = ""
 
 
 class ReqCatalogId(BaseModel):
@@ -158,13 +151,10 @@ class ReqCreateLyr(BaseModel):
     dataset_category: str
     dataset_country: str
     dataset_city: str
-    action: Optional[str] = ''
-    page_token: Optional[str] = ''
-    search_type: Optional[str] = 'default' 
-    text_search: Optional[str] = '' 
-
-
-
+    action: Optional[str] = ""
+    page_token: Optional[str] = ""
+    search_type: Optional[str] = "default"
+    text_search: Optional[str] = ""
 
 
 class ReqApplyZoneLayers(BaseModel):
@@ -185,9 +175,6 @@ class ReqFetchCtlgLyrs(BaseModel):
     user_id: str
 
 
-
-
-
 class ReqUserLogin(BaseModel):
     email: str
     password: str
@@ -197,20 +184,30 @@ class ReqUserProfile(BaseModel):
     user_id: str
 
 
+class ReqResetPassword(BaseModel):
+    email: str
 
 
+class ReqConfirmReset(BaseModel):
+    oob_code: str
+    new_password: str
 
-T = TypeVar('T')
-U = TypeVar('U')
+
+class ReqChangePassword(BaseModel):
+    user_id:str
+    email:str
+    password:str
+    new_password: str
+
+
+T = TypeVar("T")
+U = TypeVar("U")
 
 
 class ResponseModel(BaseModel, Generic[T]):
     message: str
     request_id: str
     data: T
-
-
-
 
 
 ResAllCards = ResponseModel[List[card_metadata]]
@@ -229,6 +226,10 @@ ResOldNearbyCategories = ResponseModel[List[str]]
 ResUserCatalogs = ResponseModel[List[UserCatalogInfo]]
 ResUserLogin = ResponseModel[Dict[str, Any]]
 ResUserProfile = ResponseModel[Dict[str, Any]]
+ResResetPassword = ResponseModel[Dict[str, Any]]
+ResConfirmReset = ResponseModel[Dict[str, Any]]
+ResChangePassword = ResponseModel[Dict[str, Any]]
+
 
 class RequestModel(BaseModel, Generic[U]):
     message: str

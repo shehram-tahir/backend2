@@ -1,4 +1,3 @@
-from auth import create_user_profile, get_user_account, login_user
 import logging
 import uuid
 from fastapi import Request, Header, HTTPException, Depends
@@ -12,10 +11,9 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from pydantic import ValidationError
-from firebase_admin.auth import InvalidIdTokenError 
+from firebase_admin.auth import InvalidIdTokenError
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from all_types.myapi_dtypes import (
-    ReqCatalogId,
     ResAllCards,
     ResAcknowlg,
     ResTypeMapData,
@@ -32,7 +30,13 @@ from all_types.myapi_dtypes import (
     ReqUserLogin,
     ReqUserProfile,
     ResUserProfile,
-    ResUserLogin
+    ResUserLogin,
+    ReqConfirmReset,
+    ResConfirmReset,
+    ReqResetPassword,
+    ResResetPassword,
+    ResChangePassword,
+    ReqChangePassword,
 )
 from all_types.myapi_dtypes import (
     ReqUserId,
@@ -53,16 +57,24 @@ from data_fetcher import (
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    apply_zone_layers
+    apply_zone_layers,
 )
 from data_fetcher import fetch_nearby_categories
 from logging_wrapper import log_and_validate
-from auth import my_verify_id_token
+from auth import (
+    create_user_profile,
+    get_user_account,
+    login_user,
+    my_verify_id_token,
+    reset_password,
+    confirm_reset,
+    change_password,
+)
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T', bound=BaseModel)
-U = TypeVar('U', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
+U = TypeVar("U", bound=BaseModel)
 
 CONF = get_conf()
 
@@ -105,11 +117,11 @@ manager = ConnectionManager()
 
 
 async def ws_handling(
-        websocket: WebSocket,
-        request_id: str,
-        input_type: Type[BaseModel],
-        output_type: Type[BaseModel],
-        custom_function: Callable[[Any], Awaitable[Any]],
+    websocket: WebSocket,
+    request_id: str,
+    input_type: Type[BaseModel],
+    output_type: Type[BaseModel],
+    custom_function: Callable[[Any], Awaitable[Any]],
 ):
     await manager.connect(websocket, request_id)
     try:
@@ -136,11 +148,11 @@ def get_request(request: Request = Depends()):
 
 @log_and_validate(logger)
 async def http_handling(
-        req: Optional[T],
-        input_type: Optional[Type[T]],
-        output_type: Type[U],
-        custom_function: Optional[Callable[..., Awaitable[Any]]],
-        request: Request = None,
+    req: Optional[T],
+    input_type: Optional[Type[T]],
+    output_type: Type[U],
+    custom_function: Optional[Callable[..., Awaitable[Any]]],
+    request: Request = None,
 ):
     try:
         output = ""
@@ -150,22 +162,25 @@ async def http_handling(
             if request:
                 headers = request.headers
                 # Check for access token in the Authorization header
-                authorization = headers.get("Authorization",None)
+                authorization = headers.get("Authorization", None)
                 if authorization:
                     try:
                         # Extract the token from the "Bearer" scheme
                         scheme, access_token = authorization.split()
-                        if scheme.lower() != 'bearer':
+                        if scheme.lower() != "bearer":
                             raise HTTPException(
                                 status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Invalid authentication scheme",
                                 headers={"WWW-Authenticate": "Bearer"},
                             )
-                        
-                        decoded_token = my_verify_id_token(access_token)
-                        token_user_id = decoded_token['uid']
+
+                        decoded_token = await my_verify_id_token(access_token)
+                        token_user_id = decoded_token["uid"]
                         # Check if the token user_id matches the requested user_id
-                        if hasattr(req.request_body, 'user_id') and token_user_id != req.request_body.user_id:
+                        if (
+                            hasattr(req.request_body, "user_id")
+                            and token_user_id != req.request_body.user_id
+                        ):
                             raise HTTPException(
                                 status_code=status.HTTP_403_FORBIDDEN,
                                 detail="You can only access your own profile",
@@ -175,7 +190,7 @@ async def http_handling(
                             status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Invalid token format",
                             headers={"WWW-Authenticate": "Bearer"},
-                        )from e
+                        ) from e
                     except InvalidIdTokenError as e:
                         raise HTTPException(
                             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -185,8 +200,8 @@ async def http_handling(
                     except Exception as e:
                         logger.error(f"Token validation error: {str(e)}")
                         raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Invalid request body: {str(e)}"
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Invalid request body: {str(e)}",
                         ) from e
                 else:
                     # If no authorization header is present, you might want to handle this case
@@ -196,7 +211,6 @@ async def http_handling(
                         detail="Authorization header missing",
                         headers={"WWW-Authenticate": "Bearer"},
                     )
-            
 
             req = req.request_body
             try:
@@ -205,7 +219,7 @@ async def http_handling(
                 logger.error("Request validation error: %s", str(e))
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid request body: {str(e)}"
+                    detail=f"Invalid request body: {str(e)}",
                 ) from e
 
         if custom_function is not None:
@@ -218,7 +232,7 @@ async def http_handling(
                 # For any other type of exception, wrap it in an HTTPException
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"An unexpected error occurred: {str(e)}"
+                    detail=f"An unexpected error occurred: {str(e)}",
                 ) from e
 
         request_id = "req-" + str(uuid.uuid4())
@@ -233,7 +247,7 @@ async def http_handling(
             logger.error(f"Response validation error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An error occurred while constructing the response"
+                detail="An error occurred while constructing the response",
             ) from e
 
         return res_body
@@ -242,15 +256,14 @@ async def http_handling(
         # Log the exception and return it directly
         logger.error(f"HTTP exception: {http_exc.detail}")
         return JSONResponse(
-            status_code=http_exc.status_code,
-            content={"detail": http_exc.detail}
+            status_code=http_exc.status_code, content={"detail": http_exc.detail}
         )
     except Exception as e:
         # Catch any other unexpected exceptions
         logger.critical(f"Unexpected error in http_handling: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "An unexpected error occurred"}
+            content={"detail": "An unexpected error occurred"},
         )
 
 
@@ -363,9 +376,7 @@ async def save_producer_layer(req: RequestModel[ReqSavePrdcerLyer]):
 
 @app.post(CONF.user_layers, response_model=ResUserLayers)
 async def user_layers(req: RequestModel[ReqUserId]):
-    response = await http_handling(
-        req, ReqUserId, ResUserLayers, fetch_user_lyrs
-    )
+    response = await http_handling(req, ReqUserId, ResUserLayers, fetch_user_lyrs)
     return response
 
 
@@ -390,9 +401,7 @@ async def save_producer_catalog(req: RequestModel[ReqSavePrdcerCtlg]):
 
 @app.post(CONF.user_catalogs, response_model=ResUserCatalogs)
 async def user_catalogs(req: RequestModel[ReqUserId]):
-    response = await http_handling(
-        req, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs
-    )
+    response = await http_handling(req, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs)
     return response
 
 
@@ -413,10 +422,7 @@ async def apply_zone_layers_endpoint(req: RequestModel[ReqApplyZoneLayers]):
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
 async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
     response = await http_handling(
-        req,
-        ReqCreateUserProfile,
-        ResCreateUserProfile,
-        create_user_profile
+        req, ReqCreateUserProfile, ResCreateUserProfile, create_user_profile
     )
     return response
 
@@ -424,26 +430,47 @@ async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
 @app.post(CONF.login, response_model=ResUserLogin)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     req = ReqUserLogin(email=form_data.username, password=form_data.password)
-    wrapped_req = RequestModel(message="Login request", request_info={},
-                               request_body=req)  # test that we are not losing info
-    response = await http_handling(
-        wrapped_req,
-        ReqUserLogin,
-        ResUserLogin,
-        login_user
-    )
+    wrapped_req = RequestModel(
+        message="Login request", request_info={}, request_body=req
+    )  # test that we are not losing info
+    response = await http_handling(wrapped_req, ReqUserLogin, ResUserLogin, login_user)
     return response
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
-async def get_user_profile_endpoint(req: RequestModel[ReqUserProfile] , request:Request):
+async def get_user_profile_endpoint(
+    req: RequestModel[ReqUserProfile], request: Request
+):
+    response = await http_handling(
+        req, ReqUserProfile, ResUserProfile, get_user_account, request
+    )
+    return response
+
+
+@app.post(CONF.reset_password, response_model=ResResetPassword)
+async def reset_password_endpoint(req: RequestModel[ReqResetPassword]):
+    response = await http_handling(
+        req, ReqResetPassword, ResResetPassword, reset_password
+    )
+    return response
+
+
+@app.post(CONF.confirm_reset, response_model=ResConfirmReset)
+async def confirm_reset_endpoint(req: RequestModel[ReqConfirmReset]):
+    response = await http_handling(req, ReqConfirmReset, ResConfirmReset, confirm_reset)
+    return response
+
+
+@app.post(CONF.change_password, response_model=ResChangePassword)
+async def change_password_endpoint(
+    req: RequestModel[ReqChangePassword], request: Request
+):
     response = await http_handling(
         req,
-        ReqUserProfile,
-        ResUserProfile,
-        get_user_account,
-        request
-        )
+        ReqChangePassword,
+        ResChangePassword,
+        change_password
+    )
     return response
 
 

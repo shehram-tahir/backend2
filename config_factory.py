@@ -4,10 +4,17 @@ from fastapi import HTTPException
 import json
 from typing import Dict
 
+
 @dataclass
 class static_ApiConfig:
     api_key: str = ""
-    firebase_api_key:str=""
+    firebase_api_key: str = ""
+    firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
+    firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
+    firebase_sendOobCode = f"{firebase_base_url}sendOobCode?key="
+    firebase_resetPassword = f"{firebase_base_url}resetPassword?key="
+    firebase_signInWithCustomToken = f"{firebase_base_url}signInWithCustomToken?key="
+    firebase_update = f"{firebase_base_url}update?key="
     ggl_base_url: str = "https://places.googleapis.com/v1/places:"
     nearby_search: str = ggl_base_url + "searchNearby"
     place_details: str = ggl_base_url + "details/json"
@@ -23,17 +30,22 @@ class static_ApiConfig:
     nearby_categories: str = "/fastapi/nearby_categories"
     old_nearby_categories: str = "/fastapi/old_nearby_categories"
     create_layer: str = "/fastapi/create_layer"
-    save_producer_layer:str = "/fastapi/save_producer_layer"
+    save_producer_layer: str = "/fastapi/save_producer_layer"
     user_layers: str = "/fastapi/user_layers"
     prdcer_lyr_map_data: str = "/fastapi/prdcer_lyr_map_data"
     save_producer_catalog: str = "/fastapi/save_producer_catalog"
     user_catalogs: str = "/fastapi/user_catalogs"
     fetch_ctlg_lyrs: str = "/fastapi/fetch_ctlg_lyrs"
-    apply_zone_layers: str = "/fastapi/apply_zone_layers"    
-    create_user_profile: str = "/fastapi/create_user_profile"   
-    login:str = "/fastapi/login" 
-    user_profile: str =  "/fastapi/user_profile" 
-    google_fields: str = "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
+    apply_zone_layers: str = "/fastapi/apply_zone_layers"
+    create_user_profile: str = "/fastapi/create_user_profile"
+    reset_password = "/reset-password"
+    confirm_reset = "/confirm-reset"
+    change_password = "/change-password"
+    login: str = "/fastapi/login"
+    user_profile: str = "/fastapi/user_profile"
+    google_fields: str = (
+        "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
+    )
 
 
 @dataclass
@@ -90,16 +102,15 @@ class ConfigFactory:
 # print(config.base_urls.google)  # Output: https://maps.googleapis.com/maps/api
 
 
-
-def get_conf() -> Dict[str, str]:
+def get_conf() -> static_ApiConfig:
     conf = static_ApiConfig()
     try:
-        with open("secrets/secrets.json", "r", encoding='utf-8') as config_file:
+        with open("secrets/secrets.json", "r", encoding="utf-8") as config_file:
             data = json.load(config_file)
             conf.api_key = data.get("gmaps_api", "")
             conf.firebase_api_key = data.get("firebase_api_key", "")
         return conf
     except Exception as e:
         conf.api_key = ""
-        conf.firebase_api_key = "" 
+        conf.firebase_api_key = ""
         return conf
