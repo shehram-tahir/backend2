@@ -5,3 +5,10 @@
 pc_venv/
 **/.idea/
 **/secret*
+**/__pycache__
+__pycache__/
+**/__pycache__/
+**/__pycache__*
+**/__pycache__/*
+**/__pycache__/** */
+all_types/__pycache__/**
