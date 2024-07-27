@@ -1,6 +1,7 @@
-from auth import decode_access_token
+from auth import create_user_profile, get_user_account, login_user
 import logging
 import uuid
+from fastapi import Request, Header, HTTPException, Depends
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
 from fastapi.responses import RedirectResponse
 from fastapi import Depends
@@ -11,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from pydantic import ValidationError
-
+from firebase_admin.auth import InvalidIdTokenError 
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from all_types.myapi_dtypes import (
     ReqCatalogId,
@@ -41,7 +42,6 @@ from all_types.myapi_dtypes import (
     ResSavePrdcerCtlg,
 )
 from all_types.myapi_dtypes import ResUserCatalogs, ReqFetchCtlgLyrs, ResCtlgLyrs
-from auth import decode_access_token
 from config_factory import get_conf
 from data_fetcher import (
     fetch_country_city_data,
@@ -54,13 +54,11 @@ from data_fetcher import (
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    apply_zone_layers,
-    create_user_profile,
-    login_user,
-    get_user_profile
+    apply_zone_layers
 )
 from data_fetcher import fetch_nearby_categories
 from logging_wrapper import log_and_validate
+from auth import my_verify_id_token
 
 logger = logging.getLogger(__name__)
 
@@ -133,42 +131,79 @@ async def ws_handling(
         print(f"WebSocket disconnected: {request_id}")
 
 
+def get_request(request: Request = Depends()):
+    return request
+
+
 @log_and_validate(logger)
 async def http_handling(
         req: Optional[T],
         input_type: Optional[Type[T]],
         output_type: Type[U],
         custom_function: Optional[Callable[..., Awaitable[Any]]],
+        request: Request = None,
 ):
     try:
         output = ""
         if req is not None:
-            # Verify access token if it exists
-            if hasattr(req, 'access_token'):
-                try:
-                    payload = decode_access_token(req.access_token)
-                    token_user_id = payload.get("sub")
-                    # Check if the token user_id matches the requested user_id
-                    if hasattr(req.request_body, 'user_id') and token_user_id != req.request_body.user_id:
+            # Get all headers
+            authorization = None
+            if request:
+                headers = request.headers
+                # Check for access token in the Authorization header
+                authorization = headers.get("Authorization",None)
+                if authorization:
+                    try:
+                        # Extract the token from the "Bearer" scheme
+                        scheme, access_token = authorization.split()
+                        if scheme.lower() != 'bearer':
+                            raise HTTPException(
+                                status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Invalid authentication scheme",
+                                headers={"WWW-Authenticate": "Bearer"},
+                            )
+                        
+                        decoded_token = my_verify_id_token(access_token)
+                        token_user_id = decoded_token['uid']
+                        # Check if the token user_id matches the requested user_id
+                        if hasattr(req.request_body, 'user_id') and token_user_id != req.request_body.user_id:
+                            raise HTTPException(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You can only access your own profile",
+                            )
+                    except ValueError as e:
                         raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You can only access your own profile",
-                        )
-                except HTTPException:
-                    raise
-                except Exception as e:
-                    logger.error(f"Token validation error: {str(e)}")
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid token format",
+                            headers={"WWW-Authenticate": "Bearer"},
+                        )from e
+                    except InvalidIdTokenError as e:
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid access token",
+                            headers={"WWW-Authenticate": "Bearer"},
+                        ) from e
+                    except Exception as e:
+                        logger.error(f"Token validation error: {str(e)}")
+                        raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid request body: {str(e)}"
+                        ) from e
+                else:
+                    # If no authorization header is present, you might want to handle this case
+                    # depending on your security requirements. For example:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Invalid access token",
+                        detail="Authorization header missing",
                         headers={"WWW-Authenticate": "Bearer"},
-                    ) from e
+                    )
+            
 
             req = req.request_body
             try:
                 input_type.model_validate(req)
             except ValidationError as e:
-                logger.error(f"Request validation error: {str(e)}")
+                logger.error("Request validation error: %s", str(e))
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid request body: {str(e)}"
@@ -177,7 +212,7 @@ async def http_handling(
         if custom_function is not None:
             try:
                 output = await custom_function(req=req)
-            except HTTPException as http_exc:
+            except HTTPException:
                 # If it's already an HTTPException, just re-raise it
                 raise
             except Exception as e:
@@ -389,7 +424,7 @@ async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
 
 @app.post(CONF.login, response_model=ResToken)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    req = ReqUserLogin(username=form_data.username, password=form_data.password)
+    req = ReqUserLogin(email=form_data.username, password=form_data.password)
     wrapped_req = RequestModel(message="Login request", request_info={},
                                request_body=req)  # test that we are not losing info
     response = await http_handling(
@@ -402,11 +437,22 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
-async def get_user_profile_endpoint(req: ReqUserProfileWithToken):
+async def get_user_profile_endpoint(req: ReqUserProfileWithToken, request:Request):
     response = await http_handling(
         req,
         ReqUserProfile,
         ResUserProfile,
-        get_user_profile
-    )
+        get_user_account,
+        request
+        )
     return response
+
+
+# @app.post("/refresh-token")
+# async def refresh_token(token: dict = Depends(verify_token)):
+#     try:
+#         # Create a new custom token
+#         new_token = auth.create_custom_token(token['uid'])
+#         return {"access_token": new_token, "token_type": "bearer"}
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail="Token refresh failed")

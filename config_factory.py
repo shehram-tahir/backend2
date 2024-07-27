@@ -1,10 +1,13 @@
 import json
 from dataclasses import dataclass, fields, is_dataclass
-
+from fastapi import HTTPException
+import json
+from typing import Dict
 
 @dataclass
 class static_ApiConfig:
     api_key: str = ""
+    firebase_api_key:str=""
     ggl_base_url: str = "https://places.googleapis.com/v1/places:"
     nearby_search: str = ggl_base_url + "searchNearby"
     place_details: str = ggl_base_url + "details/json"
@@ -87,12 +90,16 @@ class ConfigFactory:
 # print(config.base_urls.google)  # Output: https://maps.googleapis.com/maps/api
 
 
-def get_conf():
+
+def get_conf() -> Dict[str, str]:
     conf = static_ApiConfig()
     try:
-        with open("secrets.json", "r") as config_file:
-            conf.api_key = json.load(config_file).get("gmaps_api", "")
-    except:
+        with open("secrets/secrets.json", "r", encoding='utf-8') as config_file:
+            data = json.load(config_file)
+            conf.api_key = data.get("gmaps_api", "")
+            conf.firebase_api_key = data.get("firebase_api_key", "")
+        return conf
+    except Exception as e:
         conf.api_key = ""
-
-    return conf
+        conf.firebase_api_key = "" 
+        return conf

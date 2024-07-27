@@ -18,14 +18,10 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqApplyZoneLayers,
     ReqPrdcerLyrMapData,
-    ReqCreateUserProfile,
     ReqUserLogin,
-    ReqUserProfile,
     ReqCreateLyr,
     ResCreateLyr,
 )
-from auth import authenticate_user, create_access_token
-from auth import get_password_hash
 from google_api_connector import (
     fetch_from_google_maps_api,
     old_fetch_from_google_maps_api,
@@ -33,7 +29,7 @@ from google_api_connector import (
 from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
-from storage import generate_user_id, load_categories, load_country_city
+from storage import load_categories, load_country_city
 from storage import (
     get_dataset_from_storage,
     store_ggl_data_resp,
@@ -55,7 +51,7 @@ from storage import (
     get_plan
 
 )
-from storage import is_username_or_email_taken, add_user_to_info, generate_layer_id
+from storage import generate_layer_id
 
 logging.basicConfig(
     level=logging.INFO,
@@ -900,75 +896,6 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
         raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
-async def login_user(req: ReqUserLogin) -> Dict[str, str]:
-    try:
-        user = authenticate_user(req.username, req.password)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        access_token = create_access_token(data={"sub": user["user_id"]})
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user_id": user["user_id"],
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error during login: {str(e)}",
-        )from e
-
-
-async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
-    try:
-        if is_username_or_email_taken(req.username, req.email):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username or email already taken",
-            )
-        user_id = generate_user_id()
-        hashed_password = get_password_hash(req.password)
-
-        user_data = {
-            "user_id": user_id,
-            "username": req.username,
-            "email": req.email,
-            "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}},
-        }
-
-        update_user_profile(user_id, user_data)
-        add_user_to_info(user_id, req.username, req.email, hashed_password)
-
-        return {"user_id": user_id, "message": "User profile created successfully"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating user profile: {str(e)}",
-        )from e
-
-
-async def get_user_profile(req: ReqUserProfile) -> Dict[str, Any]:
-    try:
-        user_data = load_user_profile(req.user_id)
-        if not user_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-
-        return {
-            "user_id": user_data["user_id"],
-            "username": user_data["username"],
-            "email": user_data["email"],
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user profile: {str(e)}",
-        )from e
 
 
 def create_feature(point: Dict[str, Any]) -> Feature:
