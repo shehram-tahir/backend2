@@ -9,6 +9,7 @@ from typing import Dict
 class static_ApiConfig:
     api_key: str = ""
     firebase_api_key: str = ""
+    firebase_sp_path:str = ""
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
     firebase_sendOobCode = f"{firebase_base_url}sendOobCode?key="
@@ -112,7 +113,4 @@ def get_conf() -> static_ApiConfig:
             conf.firebase_sp_path = data.get("firebase_sp_path","")
         return conf
     except Exception as e:
-        conf.api_key = ""
-        conf.firebase_api_key = ""
-        conf.firebase_sp_path
         return conf
