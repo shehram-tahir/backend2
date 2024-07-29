@@ -25,11 +25,9 @@ from config_factory import get_conf
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 CONF = get_conf()
-
-cred = credentials.Certificate(
-    "secrets/secret_fir-locator-35839-firebase-adminsdk-yb6f6-a5b81519d9.json"
-)
-default_app = firebase_admin.initialize_app(cred)
+if os.path.exists(CONF.firebase_sp_path):
+    cred = credentials.Certificate(CONF.firebase_sp_path)
+    default_app = firebase_admin.initialize_app(cred)
 
 
 

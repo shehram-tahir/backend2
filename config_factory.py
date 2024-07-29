@@ -109,8 +109,10 @@ def get_conf() -> static_ApiConfig:
             data = json.load(config_file)
             conf.api_key = data.get("gmaps_api", "")
             conf.firebase_api_key = data.get("firebase_api_key", "")
+            conf.firebase_sp_path = data.get("firebase_sp_path","")
         return conf
     except Exception as e:
         conf.api_key = ""
         conf.firebase_api_key = ""
+        conf.firebase_sp_path
         return conf
