@@ -2,7 +2,7 @@ import logging
 import math
 import uuid
 from typing import List, Dict, Any
-
+from database import Database
 import numpy as np
 from fastapi import HTTPException
 from fastapi import status
@@ -48,8 +48,7 @@ from storage import (
     update_metastore,
     convert_to_serializable,
     save_plan,
-    get_plan
-
+    get_plan,
 )
 from storage import generate_layer_id
 
@@ -70,21 +69,34 @@ def get_point_at_distance(start_point, bearing, distance):
     lon1 = math.radians(start_point[0])
     bearing = math.radians(bearing)
 
-    lat2 = math.asin(math.sin(lat1) * math.cos(distance / R) +
-                     math.cos(lat1) * math.sin(distance / R) * math.cos(bearing))
-    lon2 = lon1 + math.atan2(math.sin(bearing) * math.sin(distance / R) * math.cos(lat1),
-                             math.cos(distance / R) - math.sin(lat1) * math.sin(lat2))
+    lat2 = math.asin(
+        math.sin(lat1) * math.cos(distance / R)
+        + math.cos(lat1) * math.sin(distance / R) * math.cos(bearing)
+    )
+    lon2 = lon1 + math.atan2(
+        math.sin(bearing) * math.sin(distance / R) * math.cos(lat1),
+        math.cos(distance / R) - math.sin(lat1) * math.sin(lat2),
+    )
 
     return (math.degrees(lon2), math.degrees(lat2))
 
 
-def cover_circle_with_seven_circles(center, radius, min_radius=2, is_center_circle=False):
+def cover_circle_with_seven_circles(
+    center, radius, min_radius=2, is_center_circle=False
+):
     """
     Calculate the centers and radii of seven circles covering a larger circle, recursively.
     """
     small_radius = 0.5 * radius
-    if (is_center_circle and small_radius < 1) or (not is_center_circle and small_radius < 2):
-        return {"center": center, "radius": radius, "sub_circles": [], "is_center": is_center_circle}
+    if (is_center_circle and small_radius < 1) or (
+        not is_center_circle and small_radius < 2
+    ):
+        return {
+            "center": center,
+            "radius": radius,
+            "sub_circles": [],
+            "is_center": is_center_circle,
+        }
 
     # Calculate the centers of the six outer circles
     outer_centers = []
@@ -99,23 +111,31 @@ def cover_circle_with_seven_circles(center, radius, min_radius=2, is_center_circ
 
     sub_circles = []
     for i, c in enumerate(all_centers):
-        is_center = (i == 0)
-        sub_circle = cover_circle_with_seven_circles(c, small_radius, min_radius, is_center)
+        is_center = i == 0
+        sub_circle = cover_circle_with_seven_circles(
+            c, small_radius, min_radius, is_center
+        )
         sub_circles.append(sub_circle)
 
-    return {"center": center, "radius": radius, "sub_circles": sub_circles, "is_center": is_center_circle}
+    return {
+        "center": center,
+        "radius": radius,
+        "sub_circles": sub_circles,
+        "is_center": is_center_circle,
+    }
 
 
 def print_circle_hierarchy(circle, number=""):
-    center_marker = "*" if circle['is_center'] else ""
+    center_marker = "*" if circle["is_center"] else ""
     print(
-        f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km")
-    for i, sub_circle in enumerate(circle['sub_circles'], 1):
+        f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km"
+    )
+    for i, sub_circle in enumerate(circle["sub_circles"], 1):
         print_circle_hierarchy(sub_circle, f"{number}.{i}" if number else f"{i}")
 
 
 def count_circles(circle):
-    return 1 + sum(count_circles(sub_circle) for sub_circle in circle['sub_circles'])
+    return 1 + sum(count_circles(sub_circle) for sub_circle in circle["sub_circles"])
 
 
 def create_string_list(circle_hierarchy, place_type, text_search):
@@ -124,90 +144,77 @@ def create_string_list(circle_hierarchy, place_type, text_search):
 
     while circles_to_process:
         circle = circles_to_process.pop(0)
-        lat, lng = circle['center']
-        radius = circle['radius']
+        lat, lng = circle["center"]
+        radius = circle["radius"]
 
         circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}"
         if text_search != "" and text_search is not None:
             circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}_{text_search}"
         result.append(circle_string)
 
-        circles_to_process.extend(circle.get('sub_circles', []))
+        circles_to_process.extend(circle.get("sub_circles", []))
 
     return result
 
 
 async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
-    """
-    This function fetches nearby points of interest (POIs) based on a given location request.
-    It first tries to retrieve the data from storage. If the data isn't found in storage,
-    it fetches the data from the Google Maps API after a short delay. The fetched data is
-    then stored for future use before being returned.
-    """
+
     next_page_token = req.page_token
-    action =  req_create_lyr.action
+    action = req_create_lyr.action
     search_type = req_create_lyr.search_type
     plan: List[str] = []
 
-    # if radius >1500 and pagetoken == ''
-        # create plan list, which includes as the last element "end of search plan"
-        # save created plan to Backend/layer_category_country_city_matching/full_data_plans
-        # create a new location_req based on first element in the plan
-        # and return to the user data plus pagetoken which includes the next search plus the plan name
-    # if radius is >1500 and pagetoken !=''
-        # create a new location_req based on the page token information
-        # from page token read plan and make a new page token that includes the plan name plus next search except if "end of search plan"
-    # if radius is <1500 and pagetoken != ''
-        # create a new location_req based on the page token information
-        # from page token read plan and make a new page token that includes the plan name plus next search except if "end of search plan"
-    # if radius is < 1500 and pagetoken ==''
-        # execute search based on location_req
-        # retrun data plus empty page_token
-
-
-    if req.radius > 1500 and req.page_token == '' and action == "full data":
-        circle_hierarchy = cover_circle_with_seven_circles((req.lng, req.lat), req.radius/1000)
-        string_list_plan = create_string_list(circle_hierarchy, req.type, req.text_search)
+    if req.radius > 1500 and req.page_token == "" and action == "full data":
+        circle_hierarchy = cover_circle_with_seven_circles(
+            (req.lng, req.lat), req.radius / 1000
+        )
+        string_list_plan = create_string_list(
+            circle_hierarchy, req.type, req.text_search
+        )
         string_list_plan.append("end of search plan")
-
 
         # TODO creating the name of the file should be moved to storage
         plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}"
-        if req.text_search != '' and req.text_search is not None:
+        if req.text_search != "" and req.text_search is not None:
             plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}_text_search:"
         await save_plan(plan_name, string_list_plan)
 
-        first_search = string_list_plan[0].split('_')
-        req.lng, req.lat, req.radius = float(first_search[0]), float(first_search[1]), float(
-            first_search[2])
+        first_search = string_list_plan[0].split("_")
+        req.lng, req.lat, req.radius = (
+            float(first_search[0]),
+            float(first_search[1]),
+            float(first_search[2]),
+        )
         next_page_token = f"page_token:{plan_name}@#${1}"  # Start with the first search
 
-    elif req.page_token != '':
-        plan_name, search_index = req.page_token.split('@#$')
+    elif req.page_token != "":
+        plan_name, search_index = req.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token:")
         search_index = int(search_index)
         plan = await get_plan(plan_name)
-        search_info = plan[search_index].split('_')
-        req.lng, req.lat, req.radius = float(search_info[0]), float(search_info[1]), float(
-            search_info[2])
+        search_info = plan[search_index].split("_")
+        req.lng, req.lat, req.radius = (
+            float(search_info[0]),
+            float(search_info[1]),
+            float(search_info[2]),
+        )
         if plan[search_index + 1] == "end of search plan":
-            next_page_token = ''  # End of search plan
+            next_page_token = ""  # End of search plan
         else:
             next_page_token = f"page_token:{plan_name}@#${search_index + 1}"
-
 
     dataset, bknd_dataset_id = await get_dataset_from_storage(req)
 
     if not dataset:
 
-        if 'default' in search_type or 'new nearby search' in search_type:
+        if "default" in search_type or "new nearby search" in search_type:
             dataset, _ = await fetch_from_google_maps_api(req)
-        elif 'default' in search_type or 'old nearby search' in search_type:
+        elif "default" in search_type or "old nearby search" in search_type:
             dataset, next_page_token = await old_fetch_from_google_maps_api(req)
-        elif 'nearby but actually text search' in search_type:
-            dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
-        else:  # text search
-            dataset, next_page_token = await text_fetch_from_google_maps_api(req)
+        # elif 'nearby but actually text search' in search_type:
+        #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
+        # else:  # text search
+        #     dataset, next_page_token = await text_fetch_from_google_maps_api(req)
 
         if dataset is not None:
             # Store the fetched data in storage
@@ -306,83 +313,9 @@ async def fetch_layer_collection(**_):
     return metadata
 
 
-# async def get_boxmap_catlog_data(req: ReqCatalogId):
-#     """
-#     This function retrieves catalog data for a specific catalog ID and transforms
-#     it into a format suitable for box mapping. It uses the get_catalogue_dataset
-#     function to fetch the raw data, then applies a transformation using the
-#     MapBoxConnector to convert it into the required format.
-#     """
-#
-#     response_data = await get_catalogue_dataset(req.catalogue_dataset_id)
-#     trans_data = await MapBoxConnector.ggl_to_boxmap(response_data)
-#     return trans_data
-
-
-# async def nearby_boxmap(req):
-#     """
-#     Fetches nearby data based on the provided request and transforms it into
-#     a format suitable for box mapping. It uses the fetch_nearby function to get
-#     the raw data, then applies a transformation using the MapBoxConnector.
-#     """
-#
-#     response_data, _, _ = await fetch_ggl_nearby(req)
-#     trans_data = await MapBoxConnector.new_ggl_to_boxmap(response_data)
-#     return trans_data
-
-
-# async def old_fetch_nearby_categories(**_):
-#     """
-#     Returns an older, simplified version of nearby categories. Unlike the newer
-#     version, this function provides a flat list of category names, primarily
-#     focused on food and drink establishments.
-#     """
-
-#     categories = [
-#         "american_restaurant",
-#         "bakery",
-#         "bar",
-#         "barbecue_restaurant",
-#         "brazilian_restaurant",
-#         "breakfast_restaurant",
-#         "brunch_restaurant",
-#         "cafe",
-#         "chinese_restaurant",
-#         "coffee_shop",
-#         "fast_food_restaurant",
-#         "french_restaurant",
-#         "greek_restaurant",
-#         "hamburger_restaurant",
-#         "ice_cream_shop",
-#         "indian_restaurant",
-#         "indonesian_restaurant",
-#         "italian_restaurant",
-#         "japanese_restaurant",
-#         "korean_restaurant",
-#         "lebanese_restaurant",
-#         "meal_delivery",
-#         "meal_takeaway",
-#         "mediterranean_restaurant",
-#         "mexican_restaurant",
-#         "middle_eastern_restaurant",
-#         "pizza_restaurant",
-#         "ramen_restaurant",
-#         "restaurant",
-#         "sandwich_shop",
-#         "seafood_restaurant",
-#         "spanish_restaurant",
-#         "steak_house",
-#         "sushi_restaurant",
-#         "thai_restaurant",
-#         "turkish_restaurant",
-#         "vegan_restaurant",
-#         "vegetarian_restaurant",
-#         "vietnamese_restaurant",
-#     ]
-#     return categories
-
-
-async def fetch_country_city_data(req: ReqCreateLyr) -> Dict[str, List[Dict[str, float]]]:
+async def fetch_country_city_data(
+    req: ReqCreateLyr,
+) -> Dict[str, List[Dict[str, float]]]:
     """
     Returns a set of country and city data for United Arab Emirates, Saudi Arabia, and Canada.
     The data is structured as a dictionary where keys are country names and values are lists of cities.
@@ -408,7 +341,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     ccc_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
     existing_layer = None
     if req.action != "full data":
-        #TODO this is a temporary fix
+        # TODO this is a temporary fix
         existing_layer = await search_metastore_for_string(ccc_filename)
 
     # first check if there is a dataset already
@@ -428,7 +361,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     if not existing_layer or page_token is not None:
         existing_dataset = []
         # Fetch country and city data
-        country_city_data = await fetch_country_city_data('')
+        country_city_data = await fetch_country_city_data("")
 
         # Find the city data
         city_data = None
@@ -458,11 +391,11 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
 
         # Fetch data from Google Maps API
         dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
-            new_dataset_req, req_create_lyr = req
+            new_dataset_req, req_create_lyr=req
         )
         # Update metastore
         if req.action != "full data":
-        #TODO this is a temporary fix 
+            # TODO this is a temporary fix
             update_metastore(ccc_filename, bknd_dataset_id)
 
         # Append new data to existing dataset
@@ -500,7 +433,7 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid user data structure",
-        )from ke
+        ) from ke
 
     return "Producer layer created successfully"
 
@@ -521,7 +454,7 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
         logger.error("Dataset-layer matching file not found")
         raise HTTPException(
             status_code=500, detail="Dataset-layer matching data not available"
-        )from fnfe
+        ) from fnfe
 
     try:
         user_layers = fetch_user_layers(req.user_id)
@@ -574,20 +507,20 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         except KeyError as ke:
             raise HTTPException(
                 status_code=404, detail="Producer layer not found for this user"
-            )from ke
+            ) from ke
 
         dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
 
         # if the dataset_id contains the word plan '21.57445341427591_39.1728_2000.0_mosque__plan_mosque_Saudi Arabia_Jeddah@#$9'
-            # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
-            # load the plan's json file 
-            # from the dataset_id isolate the page number which is after @#$ = 9
-            # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
-            # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
+        # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
+        # load the plan's json file
+        # from the dataset_id isolate the page number which is after @#$ = 9
+        # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
+        # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
         # else load dataset with dataset id
-        if 'plan' in dataset_id:
+        if "plan" in dataset_id:
             # Extract plan name and page number
-            plan_name, page_number = dataset_id.split('@#$')
+            plan_name, page_number = dataset_id.split("@#$")
             dataset, plan_name = plan_name.split("page_token:")
             page_number = int(page_number)
             # Load the plan
@@ -622,7 +555,9 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"An error occurred: {str(e)}"
+        ) from e
 
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
@@ -653,7 +588,7 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while creating catalog: {str(e)}",
-        )from e
+        ) from e
 
 
 async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
@@ -682,7 +617,7 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while fetching catalogs: {str(e)}",
-        )from e
+        ) from e
 
 
 async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
@@ -746,7 +681,9 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")from e
+        raise HTTPException(
+            status_code=500, detail=f"An error occurred: {str(e)}"
+        ) from e
 
 
 async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
@@ -792,14 +729,16 @@ async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")from e
+        raise HTTPException(
+            status_code=500, detail=f"An error occurred: {str(e)}"
+        ) from e
 
 
 def apply_zone_transformation(
-        zone_layer_data: Dict[str, Any],
-        non_zone_points: List[Dict[str, Any]],
-        zone_property: str,
-        zone_lyr_id: str,
+    zone_layer_data: Dict[str, Any],
+    non_zone_points: List[Dict[str, Any]],
+    zone_property: str,
+    zone_lyr_id: str,
 ) -> List[PrdcerLyrMapData]:
     """
     This function applies zone transformations to a set of points.
@@ -886,16 +825,14 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
         dlat = lat2 - lat1
         dlon = lon2 - lon1
         a = (
-                math.sin(dlat / 2) ** 2
-                + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
         )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         distance = R * c
         return distance
     except Exception as e:
         raise ValueError(f"Error in calculate_distance_km: {str(e)}")
-
-
 
 
 def create_feature(point: Dict[str, Any]) -> Feature:
@@ -925,6 +862,9 @@ async def fetch_nearby_categories(req: None) -> Dict:
     such as automotive, culture, education, entertainment, and more.
     """
     return load_categories()
+
+
+
 
 
 # Apply the decorator to all functions in this module

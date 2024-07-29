@@ -1,18 +1,26 @@
 import logging
 import uuid
-from fastapi import Request, Header, HTTPException, Depends
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
-from fastapi.responses import RedirectResponse
+
 from fastapi import Depends
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from fastapi import HTTPException, status
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from firebase_admin.auth import InvalidIdTokenError
 from pydantic import BaseModel
 from pydantic import ValidationError
-from firebase_admin.auth import InvalidIdTokenError
+
 from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
+from all_types.myapi_dtypes import (
+    ReqUserId,
+    ResUserLayers,
+    ReqSavePrdcerCtlg,
+    ResSavePrdcerCtlg,
+)
 from all_types.myapi_dtypes import (
     ResAllCards,
     ResAcknowlg,
@@ -38,13 +46,16 @@ from all_types.myapi_dtypes import (
     ResChangePassword,
     ReqChangePassword,
 )
-from all_types.myapi_dtypes import (
-    ReqUserId,
-    ResUserLayers,
-    ReqSavePrdcerCtlg,
-    ResSavePrdcerCtlg,
-)
 from all_types.myapi_dtypes import ResUserCatalogs, ReqFetchCtlgLyrs, ResCtlgLyrs
+from auth import (
+    create_user_profile,
+    get_user_account,
+    login_user,
+    my_verify_id_token,
+    reset_password,
+    confirm_reset,
+    change_password,
+)
 from config_factory import get_conf
 from data_fetcher import (
     fetch_country_city_data,
@@ -61,15 +72,6 @@ from data_fetcher import (
 )
 from data_fetcher import fetch_nearby_categories
 from logging_wrapper import log_and_validate
-from auth import (
-    create_user_profile,
-    get_user_account,
-    login_user,
-    my_verify_id_token,
-    reset_password,
-    confirm_reset,
-    change_password,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -91,68 +93,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# fastapi_app.py
+from fastapi import FastAPI
+from database import Database
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: dict[str, WebSocket] = {}
-
-    async def connect(self, websocket: WebSocket, request_id: str):
-        await websocket.accept()
-        self.active_connections[request_id] = websocket
-
-    def disconnect(self, request_id: str):
-        if request_id in self.active_connections:
-            del self.active_connections[request_id]
-
-    async def send_personal_message(self, message: str, request_id: str):
-        if request_id in self.active_connections:
-            await self.active_connections[request_id].send_text(message)
-
-    async def send_json(self, data: dict, request_id: str):
-        if request_id in self.active_connections:
-            await self.active_connections[request_id].send_json(data)
+app = FastAPI()
 
 
-manager = ConnectionManager()
+@app.on_event("startup")
+async def startup_event():
+    await Database.create_pool()
 
 
-async def ws_handling(
-    websocket: WebSocket,
-    request_id: str,
-    input_type: Type[BaseModel],
-    output_type: Type[BaseModel],
-    custom_function: Callable[[Any], Awaitable[Any]],
-):
-    await manager.connect(websocket, request_id)
-    try:
-        while True:
-            req = await websocket.receive_text()
-            parsed_req = input_type.model_validate_json(req)
-            response = await custom_function(parsed_req)
-            try:
-                validated_output = output_type.model_validate(response)
-                await manager.send_json(
-                    {"data": validated_output.model_dump()}, request_id
-                )
-            except ValidationError as e:
-                error_message = f"Output data validation failed: {str(e)}"
-                await manager.send_json({"error": error_message}, request_id)
-    except WebSocketDisconnect:
-        manager.disconnect(request_id)
-        print(f"WebSocket disconnected: {request_id}")
-
-
-def get_request(request: Request = Depends()):
-    return request
+@app.on_event("shutdown")
+async def shutdown_event():
+    await Database.close_pool()
 
 
 @log_and_validate(logger)
 async def http_handling(
-    req: Optional[T],
-    input_type: Optional[Type[T]],
-    output_type: Type[U],
-    custom_function: Optional[Callable[..., Awaitable[Any]]],
-    request: Request = None,
+        req: Optional[T],
+        input_type: Optional[Type[T]],
+        output_type: Type[U],
+        custom_function: Optional[Callable[..., Awaitable[Any]]],
+        request: Request = None,
 ):
     try:
         output = ""
@@ -178,8 +142,8 @@ async def http_handling(
                         token_user_id = decoded_token["uid"]
                         # Check if the token user_id matches the requested user_id
                         if (
-                            hasattr(req.request_body, "user_id")
-                            and token_user_id != req.request_body.user_id
+                                hasattr(req.request_body, "user_id")
+                                and token_user_id != req.request_body.user_id
                         ):
                             raise HTTPException(
                                 status_code=status.HTTP_403_FORBIDDEN,
@@ -439,7 +403,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
 async def get_user_profile_endpoint(
-    req: RequestModel[ReqUserProfile], request: Request
+        req: RequestModel[ReqUserProfile], request: Request
 ):
     response = await http_handling(
         req, ReqUserProfile, ResUserProfile, get_user_account, request
@@ -463,7 +427,7 @@ async def confirm_reset_endpoint(req: RequestModel[ReqConfirmReset]):
 
 @app.post(CONF.change_password, response_model=ResChangePassword)
 async def change_password_endpoint(
-    req: RequestModel[ReqChangePassword], request: Request
+        req: RequestModel[ReqChangePassword], request: Request
 ):
     response = await http_handling(
         req,
@@ -472,7 +436,6 @@ async def change_password_endpoint(
         change_password
     )
     return response
-
 
 # @app.post("/refresh-token")
 # async def refresh_token(token: dict = Depends(verify_token)):
