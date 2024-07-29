@@ -1,7 +1,7 @@
 import logging
 import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
-
+from database import Database
 from fastapi import Depends
 from fastapi import FastAPI
 from fastapi import HTTPException, status
@@ -80,6 +80,9 @@ U = TypeVar("U", bound=BaseModel)
 
 CONF = get_conf()
 
+
+
+
 app = FastAPI()
 
 # Enable CORS
@@ -93,11 +96,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# fastapi_app.py
-from fastapi import FastAPI
-from database import Database
-
-app = FastAPI()
 
 
 @app.on_event("startup")

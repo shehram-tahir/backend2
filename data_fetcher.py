@@ -255,7 +255,7 @@ async def fetch_catlog_collection(**_):
             "can_access": False,
         },
         {
-            "id": "55",
+            "id": "65",
             "name": "Saudi Arabia - Restaurants, Cafes and Bakeries",
             "description": "Focusing on the restaurants, cafes and bakeries in KSA",
             "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/sau_bak_res.PNG",
