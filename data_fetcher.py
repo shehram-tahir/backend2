@@ -23,9 +23,7 @@ from all_types.myapi_dtypes import (
     ResCreateLyr,
 )
 from google_api_connector import (
-    fetch_from_google_maps_api,
-    old_fetch_from_google_maps_api,
-)
+    fetch_from_google_maps_api)
 from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
@@ -176,8 +174,8 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqCreateLy
 
         if "default" in search_type or "new nearby search" in search_type:
             dataset, _ = await fetch_from_google_maps_api(req_dataset)
-        elif "default" in search_type or "old nearby search" in search_type:
-            dataset, next_page_token = await old_fetch_from_google_maps_api(req_dataset)
+        # elif "default" in search_type or "old nearby search" in search_type:
+        #     dataset, next_page_token = await old_fetch_from_google_maps_api(req_dataset)
         # elif 'nearby but actually text search' in search_type:
         #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
         # else:  # text search

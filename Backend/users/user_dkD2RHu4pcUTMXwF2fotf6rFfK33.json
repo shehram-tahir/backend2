@@ -5,7 +5,8 @@
   "prdcer": {
     "prdcer_dataset": {
       "plan_exclude=mosque_include=_Saudi Arabia_Jeddah": "plan_exclude=mosque_include=_Saudi Arabia_Jeddah",
-      "exclude=_include=mosque_Saudi Arabia_Mecca": "plan_exclude=_include=mosque_Saudi Arabia_Mecca"
+      "exclude=_include=mosque_Saudi Arabia_Mecca": "plan_exclude=_include=mosque_Saudi Arabia_Mecca",
+      "include=mosque_exclude=_Saudi Arabia_Mecca": "plan_include=mosque_exclude=_Saudi Arabia_Mecca"
     },
     "prdcer_lyrs": {
       "string": {
@@ -23,6 +24,14 @@
         "points_color": "#FF5733",
         "layer_legend": "test1",
         "layer_description": "test1"
+      },
+      "ld5e99c6c-cb4f-4226-8236-23012ef70d80": {
+        "prdcer_layer_name": "all mosuques in mecca",
+        "prdcer_lyr_id": "ld5e99c6c-cb4f-4226-8236-23012ef70d80",
+        "bknd_dataset_id": "39.8262_21.453653414275912_2000.0_include=mosque_exclude=_token=page_token=plan_include=mosque_exclude=_Saudi Arabia_Mecca@#$9",
+        "points_color": "#FF5733",
+        "layer_legend": "mosques",
+        "layer_description": "these are mosques from google maps"
       }
     },
     "prdcer_ctlgs": {
