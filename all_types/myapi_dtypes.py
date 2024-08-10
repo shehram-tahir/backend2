@@ -124,7 +124,7 @@ class ReqCostEstimate(BaseModel):
     included_categories: List[str]
     excluded_categories: List[str]
     city_name: str
-    country_name: str
+    country: str
 
 
 
