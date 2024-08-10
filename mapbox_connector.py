@@ -1,5 +1,5 @@
 from all_types.google_dtypes import GglResponse
-from all_types.myapi_dtypes import MapData
+from all_types.response_dtypes import MapData
 from fastapi import HTTPException
 
 class MapBoxConnector:

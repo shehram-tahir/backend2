@@ -1,26 +1,9 @@
-from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional
+from typing import Dict, List, TypeVar, Generic, Optional
 
 from pydantic import BaseModel, Field
 
+from all_types.response_dtypes import LyrInfoInCtlgSave
 
-# class ResDefault(BaseModel):
-#     message: str
-#     request_id: str
-
-
-class card_metadata(BaseModel):
-    id: str
-    name: str
-    description: str
-    thumbnail_url: str
-    catalog_link: str
-    records_number: int
-    can_access: int
-
-
-class Geometry(BaseModel):
-    type: Literal["Point"]
-    coordinates: List[float]
 
 
 class boxmapProperties(BaseModel):
@@ -33,28 +16,6 @@ class boxmapProperties(BaseModel):
     user_ratings_total: int
 
 
-class Feature(BaseModel):
-    type: Literal["Feature"]
-    properties: dict
-    geometry: Geometry
-
-
-class CityData(BaseModel):
-    name: str
-    lat: float
-    lng: float
-    type: str = None
-
-
-class DataCreateLyr(BaseModel):
-    type: Literal["FeatureCollection"]
-    features: List[Feature]
-    bknd_dataset_id: str
-    prdcer_lyr_id: str
-    records_count: int
-    next_page_token: Optional[str] = ""
-
-
 class ReqSavePrdcerLyer(BaseModel):
     prdcer_layer_name: str
     prdcer_lyr_id: str
@@ -63,39 +24,6 @@ class ReqSavePrdcerLyer(BaseModel):
     layer_legend: str
     layer_description: str
     user_id: str
-
-
-class LayerInfo(BaseModel):
-    prdcer_lyr_id: str
-    prdcer_layer_name: str
-    points_color: str
-    layer_legend: str
-    layer_description: str
-    records_count: int
-    is_zone_lyr: str
-
-
-class MapData(BaseModel):
-    type: Literal["FeatureCollection"]
-    features: List[Feature]
-
-
-class PrdcerLyrMapData(MapData):
-    prdcer_layer_name: str
-    prdcer_lyr_id: str
-    bknd_dataset_id: str
-    points_color: str
-    layer_legend: str
-    layer_description: str
-    records_count: int
-    is_zone_lyr: str
-
-
-class LyrInfoInCtlgSave(BaseModel):
-    layer_id: str
-    points_color: str = Field(
-        ..., description="Color name for the layer points, e.g., 'red'"
-    )
 
 
 class ReqSavePrdcerCtlg(BaseModel):
@@ -108,17 +36,6 @@ class ReqSavePrdcerCtlg(BaseModel):
     thumbnail_url: str
 
 
-class UserCatalogInfo(BaseModel):
-    prdcer_ctlg_id: str
-    prdcer_ctlg_name: str
-    ctlg_description: str
-    thumbnail_url: str
-    subscription_price: str
-    total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
-    ctlg_owner_user_id: str
-
-
 class ZoneLayerInfo(BaseModel):
     lyr_id: str
     property_key: str
@@ -129,8 +46,8 @@ class ReqLocation(BaseModel):
     lat: float
     lng: float
     radius: int
-    excludedTypes:list[str]
-    includedTypes:list[str]
+    excludedTypes: list[str]
+    includedTypes: list[str]
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
 
@@ -151,8 +68,8 @@ class ReqPrdcerLyrMapData(BaseModel):
 class ReqCreateLyr(BaseModel):
     dataset_country: str
     dataset_city: str
-    excludedTypes:list[str]
-    includedTypes:list[str]
+    excludedTypes: list[str]
+    includedTypes: list[str]
     action: Optional[str] = ""
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
@@ -197,41 +114,21 @@ class ReqConfirmReset(BaseModel):
 
 
 class ReqChangePassword(BaseModel):
-    user_id:str
-    email:str
-    password:str
+    user_id: str
+    email: str
+    password: str
     new_password: str
 
 
-T = TypeVar("T")
+class ReqCostEstimate(BaseModel):
+    included_categories: List[str]
+    excluded_categories: List[str]
+    city_name: str
+    country_name: str
+
+
+
 U = TypeVar("U")
-
-
-class ResponseModel(BaseModel, Generic[T]):
-    message: str
-    request_id: str
-    data: T
-
-
-ResAllCards = ResponseModel[List[card_metadata]]
-ResUserLayers = ResponseModel[List[LayerInfo]]
-ResCtlgLyrs = ResponseModel[List[PrdcerLyrMapData]]
-ResApplyZoneLayers = ResponseModel[List[PrdcerLyrMapData]]
-ResCreateUserProfile = ResponseModel[Dict[str, str]]
-ResAcknowlg = ResponseModel[str]
-ResSavePrdcerCtlg = ResponseModel[str]
-ResTypeMapData = ResponseModel[MapData]
-ResCountryCityData = ResponseModel[Dict[str, List[CityData]]]
-ResNearbyCategories = ResponseModel[Dict[str, List[str]]]
-ResPrdcerLyrMapData = ResponseModel[PrdcerLyrMapData]
-ResCreateLyr = ResponseModel[DataCreateLyr]
-ResOldNearbyCategories = ResponseModel[List[str]]
-ResUserCatalogs = ResponseModel[List[UserCatalogInfo]]
-ResUserLogin = ResponseModel[Dict[str, Any]]
-ResUserProfile = ResponseModel[Dict[str, Any]]
-ResResetPassword = ResponseModel[Dict[str, Any]]
-ResConfirmReset = ResponseModel[Dict[str, Any]]
-ResChangePassword = ResponseModel[Dict[str, Any]]
 
 
 class ReqModel(BaseModel, Generic[U]):

@@ -1,8 +1,5 @@
 import json
 from dataclasses import dataclass, fields, is_dataclass
-from fastapi import HTTPException
-import json
-from typing import Dict
 
 
 @dataclass
@@ -10,7 +7,7 @@ class static_ApiConfig:
     api_key: str = ""
     backend_base_uri: str = "/fastapi/"
     firebase_api_key: str = ""
-    firebase_sp_path:str = ""
+    firebase_sp_path: str = ""
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
     firebase_sendOobCode = f"{firebase_base_url}sendOobCode?key="
@@ -45,6 +42,7 @@ class static_ApiConfig:
     change_password = backend_base_uri + "change-password"
     login: str = backend_base_uri + "login"
     user_profile: str = backend_base_uri + "user_profile"
+    cost_calculator: str = backend_base_uri + "cost_calculator"
     google_fields: str = (
         "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
     )
@@ -111,7 +109,7 @@ def get_conf() -> static_ApiConfig:
             data = json.load(config_file)
             conf.api_key = data.get("gmaps_api", "")
             conf.firebase_api_key = data.get("firebase_api_key", "")
-            conf.firebase_sp_path = data.get("firebase_sp_path","")
+            conf.firebase_sp_path = data.get("firebase_sp_path", "")
         return conf
     except Exception as e:
         return conf

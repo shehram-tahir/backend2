@@ -7,21 +7,18 @@ import numpy as np
 from fastapi import HTTPException
 from fastapi import status
 
-from all_types.myapi_dtypes import ReqLocation, Feature, Geometry
+from all_types.myapi_dtypes import ReqLocation
 from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
-    LayerInfo,
     ReqUserId,
-    PrdcerLyrMapData,
     ReqSavePrdcerCtlg,
-    UserCatalogInfo,
     ReqFetchCtlgLyrs,
     ReqApplyZoneLayers,
     ReqPrdcerLyrMapData,
     ReqUserLogin,
     ReqCreateLyr,
-    ResCreateLyr,
 )
+from all_types.response_dtypes import ResCreateLyr, Geometry, Feature, LayerInfo, PrdcerLyrMapData, UserCatalogInfo
 from google_api_connector import (
     fetch_from_google_maps_api)
 from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
@@ -532,11 +529,11 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
             for i in range(page_number):
                 if i == 0:
                     continue
-                dataset = load_dataset(f"{plan[i]}_page_token={plan_name}@#${i}")
+                dataset = await load_dataset(f"{plan[i]}_page_token={plan_name}@#${i}")
                 all_datasets.extend(dataset)
 
         else:
-            all_datasets = load_dataset(dataset_id)
+            all_datasets = await load_dataset(dataset_id)
         trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(all_datasets)
 
         return PrdcerLyrMapData(
@@ -652,7 +649,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
-            dataset = load_dataset(dataset_id)
+            dataset = await load_dataset(dataset_id)
             trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
             lyr_metadata = (
@@ -703,7 +700,7 @@ async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
         for lyr_id in non_zone_layers:
             dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
             if dataset_id:
-                dataset = load_dataset(dataset_id)
+                dataset = await load_dataset(dataset_id)
                 lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
                 non_zone_data.extend(lyr_data["features"])
 
@@ -711,7 +708,7 @@ async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
         for lyr_id in zone_layers:
             dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
             if dataset_id:
-                dataset = load_dataset(dataset_id)
+                dataset = await load_dataset(dataset_id)
                 lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
                 zone_data[lyr_id] = lyr_data
 

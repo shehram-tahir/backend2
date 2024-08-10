@@ -1,12 +1,12 @@
-import os
-import json
 import logging
-import os
 import uuid
 from datetime import datetime, date
-from typing import Any
-from typing import Dict, Tuple, Optional
-
+from typing import Any, Dict, Tuple, Optional, Union, List
+import json
+import os
+import asyncio
+import aiofiles
+from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
@@ -32,6 +32,20 @@ USERS_INFO_PATH = "Backend/users_info.json"
 
 CONF = get_conf()
 os.makedirs(STORAGE_DIR, exist_ok=True)
+
+
+class FileLock:
+    def __init__(self):
+        self.locks = {}
+
+    @asynccontextmanager
+    async def acquire(self, filename):
+        if filename not in self.locks:
+            self.locks[filename] = asyncio.Lock()
+        async with self.locks[filename]:
+            yield
+
+file_lock_manager = FileLock()
 
 
 def to_serializable(obj: Any) -> Any:
@@ -152,7 +166,7 @@ def load_dataset_layer_matching() -> Dict:
 
 
 def fetch_dataset_id(
-    lyr_id: str, dataset_layer_matching: Dict = None
+        lyr_id: str, dataset_layer_matching: Dict = None
 ) -> Tuple[str, Dict]:
     """
     Searches for the dataset ID associated with a given layer ID. This function
@@ -216,7 +230,7 @@ def load_user_profile(user_id: str) -> Dict:
 
 
 def update_dataset_layer_matching(
-    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+        prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
 ):
     try:
         if os.path.exists(DATASET_LAYER_MATCHING_PATH):
@@ -403,39 +417,53 @@ def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
 
 
+async def use_json(file_path: str, mode: str, json_content: dict = None) -> Optional[dict]:
+    async with file_lock_manager.acquire(file_path):
+        if mode == "w":
+            try:
+                async with aiofiles.open(file_path, mode='w') as file:
+                    await file.write(json.dumps(json_content, indent=2))
+            except IOError:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error writing data file",
+                )
+
+        elif mode == "r":
+            try:
+                if os.path.exists(file_path):
+                    async with aiofiles.open(file_path, mode='r') as file:
+                        content = await file.read()
+                        return json.loads(content)
+                return None
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error parsing data file",
+                )
+            except IOError:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error reading data file",
+                )
+        else:
+            raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
+
+
 async def save_plan(plan_name, plan):
     file_path = (
         f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
     )
-    try:
-        with open(file_path, "w") as file:
-            json.dump(plan, file)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error writing google data file",
-        )
+    await use_json(file_path, "w", plan)
 
 
 async def get_plan(plan_name):
     file_path = (
         f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
     )
-    try:
-        if os.path.exists(file_path):
-            with open(file_path, "r") as file:
-                return json.load(file)
-        return None
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing data file",
-        )
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error reading data file",
-        )
+    # use json file
+    json_content = await use_json(file_path, "r")
+    return json_content
 
 
 async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
@@ -445,57 +473,32 @@ async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
     # TODO add time stamp to the dataset , when it was retrived
     filename = make_ggl_dataset_filename(req)
     file_path = f"{STORAGE_DIR}/{filename}.json"
-    try:
-        with open(file_path, "w") as file:
-            json.dump(dataset, file)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error writing google data file",
-        )
+    await use_json(file_path, "w", dataset)
+
     return filename
 
 
-async def get_dataset_from_storage(req: ReqLocation) -> Optional[Dict]:
+async def get_dataset_from_storage(req: ReqLocation) -> tuple[Optional[Dict], Optional[str]]:
     """
     Retrieves data from storage based on the location request.
     """
     filename = make_ggl_dataset_filename(req)
     file_path = f"{STORAGE_DIR}/{filename}.json"
-    try:
-        if os.path.exists(file_path):
-            with open(file_path, "r") as file:
-                return json.load(file), filename
-        return None, None
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing data file",
-        )
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error reading data file",
-        )
+
+    json_data = await use_json(file_path, "r")
+    if json_data is not None:
+        return json_data, filename
+    return None, None
 
 
-def load_dataset(dataset_id: str) -> Dict:
+async def load_dataset(dataset_id: str) -> Dict:
     """
     Loads a dataset from file based on its ID.
     """
     dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
-    try:
-        with open(dataset_filepath, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Dataset file not found"
-        )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing dataset file",
-        )
+    json_content = await use_json(dataset_filepath, "r")
+    return json_content
+
 
 
 # Apply the decorator to all functions in this module

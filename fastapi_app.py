@@ -1,52 +1,35 @@
 import logging
 import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
-from database import Database
-from fastapi import Depends
-from fastapi import FastAPI
-from fastapi import HTTPException, status
-from fastapi import Request
+
+from fastapi import HTTPException, status, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.responses import RedirectResponse
-from fastapi.security import OAuth2PasswordRequestForm
-from firebase_admin.auth import InvalidIdTokenError
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pydantic import ValidationError
 
-from all_types.myapi_dtypes import ReqApplyZoneLayers, ResApplyZoneLayers
 from all_types.myapi_dtypes import (
-    ReqUserId,
-    ResUserLayers,
-    ReqSavePrdcerCtlg,
-    ResSavePrdcerCtlg,
-)
-from all_types.myapi_dtypes import (
-    ResAllCards,
-    ResAcknowlg,
-    ResTypeMapData,
-    ResCountryCityData,
-    ResNearbyCategories,
     ReqCreateLyr,
-    ResCreateLyr,
     ReqSavePrdcerLyer,
     ReqPrdcerLyrMapData,
-    ResPrdcerLyrMapData,
     ReqCreateUserProfile,
-    ResCreateUserProfile,
     ReqModel,
     ReqUserLogin,
     ReqUserProfile,
-    ResUserProfile,
-    ResUserLogin,
     ReqConfirmReset,
-    ResConfirmReset,
     ReqResetPassword,
-    ResResetPassword,
-    ResChangePassword,
     ReqChangePassword,
+    ReqCostEstimate,
+    ReqUserId,
+    ReqSavePrdcerCtlg,
+    ReqApplyZoneLayers
 )
-from all_types.myapi_dtypes import ResUserCatalogs, ReqFetchCtlgLyrs, ResCtlgLyrs
+from all_types.myapi_dtypes import ReqFetchCtlgLyrs
+from all_types.response_dtypes import ResModel, ResAllCards, ResUserLayers, ResCtlgLyrs, ResApplyZoneLayers, \
+    ResCreateUserProfile, \
+    ResAcknowlg, ResSavePrdcerCtlg, ResTypeMapData, ResCountryCityData, ResNearbyCategories, ResPrdcerLyrMapData, \
+    ResCreateLyr, ResUserCatalogs, ResUserLogin, ResUserProfile, ResResetPassword, ResConfirmReset, ResChangePassword, \
+    ResCostEstimate
 from auth import (
     create_user_profile,
     get_user_account,
@@ -57,6 +40,7 @@ from auth import (
     change_password,
 )
 from config_factory import get_conf
+from cost_calculator import calculate_cost
 from data_fetcher import (
     fetch_country_city_data,
     fetch_catlog_collection,
@@ -68,9 +52,9 @@ from data_fetcher import (
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    apply_zone_layers,
+    apply_zone_layers, fetch_nearby_categories
 )
-from data_fetcher import fetch_nearby_categories
+from database import Database
 from logging_wrapper import log_and_validate
 
 logger = logging.getLogger(__name__)
@@ -79,7 +63,6 @@ T = TypeVar("T", bound=BaseModel)
 U = TypeVar("U", bound=BaseModel)
 
 CONF = get_conf()
-
 
 app = FastAPI()
 
@@ -107,11 +90,11 @@ async def shutdown_event():
 
 @log_and_validate(logger)
 async def http_handling(
-    req: Optional[T],
-    input_type: Optional[Type[T]],
-    output_type: Type[U],
-    custom_function: Optional[Callable[..., Awaitable[Any]]],
-    full_request: Request = None,
+        req: Optional[T],
+        input_type: Optional[Type[T]],
+        output_type: Type[U],
+        custom_function: Optional[Callable[..., Awaitable[Any]]],
+        full_request: Request = None,
 ):
     try:
         output = ""
@@ -137,8 +120,8 @@ async def http_handling(
                         token_user_id = decoded_token["uid"]
                         # Check if the token user_id matches the requested user_id
                         if (
-                            hasattr(req.request_body, "user_id")
-                            and token_user_id != req.request_body.user_id
+                                hasattr(req.request_body, "user_id")
+                                and token_user_id != req.request_body.user_id
                         ):
                             raise HTTPException(
                                 status_code=status.HTTP_403_FORBIDDEN,
@@ -278,9 +261,9 @@ async def nearby_categories():
 
 
 @app.post(CONF.create_layer, response_model=ResCreateLyr)
-async def create_layer(req: ReqModel[ReqCreateLyr], request:Request):
-    if req.request_body.action =='sample':
-        request=None
+async def create_layer(req: ReqModel[ReqCreateLyr], request: Request):
+    if req.request_body.action == 'sample':
+        request = None
     response = await http_handling(
         req,
         ReqCreateLyr,
@@ -292,7 +275,7 @@ async def create_layer(req: ReqModel[ReqCreateLyr], request:Request):
 
 
 @app.post(CONF.save_producer_layer, response_model=ResAcknowlg)
-async def save_producer_layer(req: ReqModel[ReqSavePrdcerLyer], request:Request):
+async def save_producer_layer(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     response = await http_handling(
         req,
         ReqSavePrdcerLyer,
@@ -392,6 +375,13 @@ async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Re
     )
     return response
 
+
+@app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
+async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
+    response = await http_handling(
+        req, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost
+    )
+    return response
 
 # @app.post("/refresh-token")
 # async def refresh_token(token: dict = Depends(verify_token)):
