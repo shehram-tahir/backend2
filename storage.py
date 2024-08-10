@@ -28,7 +28,6 @@ DATASETS_PATH = "Backend/datasets"
 USER_LAYER_MATCHING_PATH = "Backend/user_layer_matching.json"
 METASTORE_PATH = "Backend/layer_category_country_city_matching"
 STORAGE_DIR = "Backend/storage"
-USERS_INFO_PATH = "Backend/users_info.json"
 
 CONF = get_conf()
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -291,11 +290,9 @@ def fetch_user_layers(user_id: str) -> Dict[str, Any]:
         user_data = load_user_profile(user_id)
         user_layers = user_data.get("prdcer", {}).get("prdcer_lyrs", {})
         return user_layers
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user layers: {str(e)}",
-        )
+    except FileNotFoundError as fnfe:
+        logger.error(f"User layers not found for user_id: {user_id}")
+        raise HTTPException(status_code=404, detail="User layers not found") from fnfe
 
 
 def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:

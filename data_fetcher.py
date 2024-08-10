@@ -452,11 +452,8 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
             status_code=500, detail="Dataset-layer matching data not available"
         ) from fnfe
 
-    try:
-        user_layers = fetch_user_layers(req.user_id)
-    except FileNotFoundError as fnfe:
-        logger.error(f"User layers not found for user_id: {req.user_id}")
-        raise HTTPException(status_code=404, detail="User layers not found") from fnfe
+    user_layers = fetch_user_layers(req.user_id)
+
 
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():
@@ -480,10 +477,10 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
             # Continue to next layer instead of failing the entire request
             continue
 
-    if not user_layers_metadata:
-        raise HTTPException(
-            status_code=404, detail="No valid layers found for the user"
-        )
+    # if not user_layers_metadata:
+    #     raise HTTPException(
+    #         status_code=404, detail="No valid layers found for the user"
+    #     )
 
     return user_layers_metadata
 

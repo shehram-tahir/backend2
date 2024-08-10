@@ -11,7 +11,7 @@ from all_types.myapi_dtypes import (
     ReqConfirmReset,
     ReqChangePassword,
 )
-from storage import USERS_INFO_PATH, load_user_profile, update_user_profile
+from storage import load_user_profile, update_user_profile
 from jose import jwt, JWTError
 import requests
 import os
@@ -44,7 +44,7 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
             "user_id": user.uid,
             "username": req.username,
             "email": req.email,
-            "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}},
+            "prdcer": {"prdcer_dataset": {}, "prdcer_lyrs": {}, "prdcer_ctlgs": {}},
         }
 
         # Save additional user data to your database
