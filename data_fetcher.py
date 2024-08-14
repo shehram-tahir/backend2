@@ -2,7 +2,8 @@ import logging
 import math
 import uuid
 from typing import List, Dict, Any
-from database import Database
+import json
+
 import numpy as np
 from fastapi import HTTPException
 from fastapi import status
@@ -15,25 +16,23 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqApplyZoneLayers,
     ReqPrdcerLyrMapData,
-    ReqUserLogin,
     ReqFetchDataset,
 )
-from all_types.response_dtypes import Geometry, Feature, LayerInfo, PrdcerLyrMapData, UserCatalogInfo
-from google_api_connector import (
-    fetch_from_google_maps_api)
+from all_types.response_dtypes import (
+    Geometry,
+    Feature,
+    LayerInfo,
+    PrdcerLyrMapData,
+    UserCatalogInfo,
+)
+from google_api_connector import fetch_from_google_maps_api
 from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
-from storage import (
-    load_categories,
-    load_country_city,
-    make_include_exclude_name,
-    make_ggl_layer_filename,
-)
+from storage import generate_layer_id
 from storage import (
     get_dataset_from_storage,
     store_ggl_data_resp,
-    search_metastore_for_string,
     fetch_dataset_id,
     load_dataset,
     fetch_layer_owner,
@@ -45,12 +44,16 @@ from storage import (
     load_dataset_layer_matching,
     fetch_user_layers,
     load_store_catalogs,
-    update_metastore,
     convert_to_serializable,
     save_plan,
     get_plan,
 )
-from storage import generate_layer_id
+from storage import (
+    load_categories,
+    load_country_city,
+    make_include_exclude_name,
+    make_ggl_layer_filename,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,7 +63,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_point_at_distance(start_point, bearing, distance):
+def get_point_at_distance(start_point: tuple, bearing: float, distance: float):
     """
     Calculate the latitude and longitude of a point at a given distance and bearing from a start point.
     """
@@ -82,14 +85,14 @@ def get_point_at_distance(start_point, bearing, distance):
 
 
 def cover_circle_with_seven_circles(
-    center, radius, min_radius=2, is_center_circle=False
-):
+    center: tuple, radius: float, min_radius=2, is_center_circle=False
+) -> dict:
     """
     Calculate the centers and radii of seven circles covering a larger circle, recursively.
     """
     small_radius = 0.5 * radius
-    if (is_center_circle and small_radius < 1) or (
-        not is_center_circle and small_radius < 2
+    if (is_center_circle and small_radius < 0.5) or (
+        not is_center_circle and small_radius < 1
     ):
         return {
             "center": center,
@@ -125,7 +128,7 @@ def cover_circle_with_seven_circles(
     }
 
 
-def print_circle_hierarchy(circle, number=""):
+def print_circle_hierarchy(circle: dict, number=""):
     center_marker = "*" if circle["is_center"] else ""
     print(
         f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km"
@@ -134,25 +137,56 @@ def print_circle_hierarchy(circle, number=""):
         print_circle_hierarchy(sub_circle, f"{number}.{i}" if number else f"{i}")
 
 
-def count_circles(circle):
+def count_circles(circle: dict):
     return 1 + sum(count_circles(sub_circle) for sub_circle in circle["sub_circles"])
 
 
-def create_string_list(circle_hierarchy, type_string, text_search):
+# def create_string_list(circle_hierarchy, type_string, text_search):
+#     result = []
+#     circles_to_process = [circle_hierarchy]
+
+#     while circles_to_process:
+#         circle = circles_to_process.pop(0)
+
+#         lat, lng = circle["center"]
+#         radius = circle["radius"]
+
+#         circle_string = f"{lat}_{lng}_{radius * 1000}_{type_string}"
+#         if text_search != "" and text_search is not None:
+#             circle_string = circle_string + f"_{text_search}"
+#         result.append(circle_string)
+
+#         circles_to_process.extend(circle.get("sub_circles", []))
+
+#     return result
+
+
+def create_string_list(
+    circle_hierarchy, type_string, text_search, include_hierarchy=False
+):
     result = []
-    circles_to_process = [circle_hierarchy]
+    circles_to_process = [(circle_hierarchy, "1")]
+    total_circles = 0
 
     while circles_to_process:
-        circle = circles_to_process.pop(0)
+        circle, number = circles_to_process.pop(0)
+        total_circles += 1
+
         lat, lng = circle["center"]
         radius = circle["radius"]
 
-        circle_string = f"{lat}_{lng}_{radius*1000}_{type_string}"
+        circle_string = f"{lat}_{lng}_{radius * 1000}_{type_string}"
         if text_search != "" and text_search is not None:
             circle_string = circle_string + f"_{text_search}"
+
+        center_marker = "*" if circle["is_center"] else ""
+        circle_string += f"_circle={number}{center_marker}_circleNumber={total_circles}"
+
         result.append(circle_string)
 
-        circles_to_process.extend(circle.get("sub_circles", []))
+        for i, sub_circle in enumerate(circle["sub_circles"], 1):
+            new_number = f"{number}.{i}" if number else f"{i}"
+            circles_to_process.append((sub_circle, new_number))
 
     return result
 
@@ -163,7 +197,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     plan_name = ""
 
     if req_create_lyr.action == "full data":
-        req_dataset, plan_name, next_page_token = await prepare_req_plan(
+        req_dataset, plan_name, next_page_token, current_plan_index = await process_req_plan(
             req_dataset, req_create_lyr
         )
 
@@ -184,15 +218,72 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             # Store the fetched data in storage
             bknd_dataset_id = await store_ggl_data_resp(req_dataset, dataset)
 
+    # if dataset is less than 20 or none and action is full data
+    #     call function rectify plan
+    #     replace next_page_token with next non-skip page token
+    if len(dataset) < 20 and req_create_lyr.action == "full data":
+        next_plan_index = await rectify_plan(plan_name, current_plan_index)
+        if next_plan_index=="":
+            next_page_token=""
+        else:
+            next_page_token = next_page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
+
+
+
+
     return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
-async def prepare_req_plan(req_dataset, req_create_lyr):
+async def rectify_plan(plan_name, current_plan_index):
+    plan = await get_plan(plan_name)
+    rectified_plan = add_skip_to_subcircles(plan, current_plan_index)
+    await save_plan(plan_name, rectified_plan)
+    next_plan_index= get_next_non_skip_index(rectified_plan, current_plan_index)
+
+    return next_plan_index
+
+
+def get_next_non_skip_index(rectified_plan, current_plan_index):
+    for i in range(current_plan_index + 1, len(rectified_plan)):
+        if not rectified_plan[i].endswith('_skip') and rectified_plan[i]!="end of search plan":
+            # Return the new token with the found index
+            return i
+    
+    # If no non-skipped item is found, return None or a special token
+    return ""
+
+def add_skip_to_subcircles(plan:list, token_plan_index:str):
+    circle_string= plan[token_plan_index]
+    # Extract the circle number from the input string
+
+    circle_number = circle_string.split("_circle=")[1].split("_")[0].replace("*","")
+
+    def is_subcircle(circle):
+        circle = "_circle=" + circle.split("_circle=")[1]
+        return circle.startswith(f"_circle={circle_number}.")
+        
+
+    # Add "_skip" to subcircles
+    modified_plan = []
+    for circle in plan[:-1]:
+        if is_subcircle(circle):
+            if not circle.endswith("_skip"):
+                circle += "_skip"
+        modified_plan.append(circle)
+    # Add the last item separately
+    modified_plan.append(plan[-1])
+
+    return modified_plan
+
+
+
+async def process_req_plan(req_dataset, req_create_lyr):
     action = req_create_lyr.action
     plan: List[str] = []
+    current_plan_index = 0
 
     if (
-        req_dataset.radius > 1500
+        req_dataset.radius > 750
         and req_dataset.page_token == ""
         and action == "full data"
     ):
@@ -213,8 +304,8 @@ async def prepare_req_plan(req_dataset, req_create_lyr):
         if req_dataset.text_search != "" and req_dataset.text_search is not None:
             plan_name = plan_name + f"_text_search:"
         await save_plan(plan_name, string_list_plan)
-
-        first_search = string_list_plan[0].split("_")
+        next_search = string_list_plan[0]
+        first_search = next_search.split("_")
         req_dataset.lng, req_dataset.lat, req_dataset.radius = (
             float(first_search[0]),
             float(first_search[1]),
@@ -223,22 +314,23 @@ async def prepare_req_plan(req_dataset, req_create_lyr):
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
     elif req_dataset.page_token != "":
-        plan_name, search_index = req_dataset.page_token.split("@#$")
+        plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
-        search_index = int(search_index)
+        current_plan_index = int(current_plan_index)
         plan = await get_plan(plan_name)
-        search_info = plan[search_index].split("_")
+        search_info = plan[current_plan_index].split("_")
         req_dataset.lng, req_dataset.lat, req_dataset.radius = (
             float(search_info[0]),
             float(search_info[1]),
             float(search_info[2]),
         )
-        if plan[search_index + 1] == "end of search plan":
+        if plan[current_plan_index + 1] == "end of search plan":
             next_page_token = ""  # End of search plan
         else:
-            next_page_token = f"page_token={plan_name}@#${search_index + 1}"
+            next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
 
-    return req_dataset, plan_name, next_page_token
+
+    return req_dataset, plan_name, next_page_token, current_plan_index
 
 
 async def fetch_catlog_collection(**_):
@@ -376,7 +468,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     req_dataset = ReqLocation(
         lat=city_data["lat"],
         lng=city_data["lng"],
-        radius=8000,
+        radius=30000,
         excludedTypes=req.excludedTypes,
         includedTypes=req.includedTypes,
         page_token=page_token,
@@ -384,7 +476,6 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     )
 
     # Fetch data from Google Maps API
-
     dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
         req_dataset, req_create_lyr=req
     )
@@ -397,7 +488,9 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     # make_ggl_layer_filename
     if req.action == "full data":
         user_data = load_user_profile(req.user_id)
-        user_data["prdcer"]["prdcer_dataset"][plan_name.replace("plan_", "")] = plan_name
+        user_data["prdcer"]["prdcer_dataset"][
+            plan_name.replace("plan_", "")
+        ] = plan_name
         update_user_profile(req.user_id, user_data)
 
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
@@ -456,7 +549,6 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
         ) from fnfe
 
     user_layers = fetch_user_layers(req.user_id)
-
 
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():

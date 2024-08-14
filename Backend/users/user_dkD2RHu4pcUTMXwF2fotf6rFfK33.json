@@ -3,7 +3,9 @@
   "username": "string",
   "email": "testemail@gmail.com",
   "prdcer": {
-    "prdcer_dataset": {},
+    "prdcer_dataset": {
+      "include=casino_exclude=_Canada_Montreal": "plan_include=casino_exclude=_Canada_Montreal"
+    },
     "prdcer_lyrs": {},
     "prdcer_ctlgs": {}
   }
