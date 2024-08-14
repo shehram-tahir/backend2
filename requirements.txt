@@ -12,4 +12,5 @@ passlib[bcrypt]
 firebase-admin
 asyncpg
 python-multipart
+pytest
 aiofiles

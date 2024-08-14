@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import HTTPException
 from fastapi import status
 
-from all_types.myapi_dtypes import ReqLocation
+from all_types.myapi_dtypes import ReqLocation,ReqRealEstate
 from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
     ReqUserId,
@@ -33,6 +33,8 @@ from storage import generate_layer_id
 from storage import (
     get_dataset_from_storage,
     store_ggl_data_resp,
+    load_real_estate_categories,
+    get_real_estate_dataset_from_storage,
     fetch_dataset_id,
     load_dataset,
     fetch_layer_owner,
@@ -49,7 +51,7 @@ from storage import (
     get_plan,
 )
 from storage import (
-    load_categories,
+    load_google_categories,
     load_country_city,
     make_include_exclude_name,
     make_ggl_layer_filename,
@@ -463,43 +465,65 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         raise HTTPException(
             status_code=404, detail="City not found in the specified country"
         )
+    #TODO fix me
+    real_estate_categories= await load_real_estate_categories()
+    if not(req.includedTypes!=[] and (set(req.includedTypes).intersection(set(real_estate_categories)))!=set()):
+        # Create new dataset request
+        req_dataset = ReqLocation(
+            lat=city_data["lat"],
+            lng=city_data["lng"],
+            radius=30000,
+            excludedTypes=req.excludedTypes,
+            includedTypes=req.includedTypes,
+            page_token=page_token,
+            text_search=text_search,
+        )
 
-    # Create new dataset request
-    req_dataset = ReqLocation(
-        lat=city_data["lat"],
-        lng=city_data["lng"],
-        radius=30000,
-        excludedTypes=req.excludedTypes,
-        includedTypes=req.includedTypes,
-        page_token=page_token,
-        text_search=text_search,
-    )
+        # Fetch data from Google Maps API
+        dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
+            req_dataset, req_create_lyr=req
+        )
 
-    # Fetch data from Google Maps API
-    dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
-        req_dataset, req_create_lyr=req
-    )
+        # Append new data to existing dataset
+        existing_dataset.extend(dataset)
 
-    # Append new data to existing dataset
-    existing_dataset.extend(dataset)
+        # if request action was "full data" then store dataset id in the user profile
+        # the name of the dataset will be the action + cct_layer name
+        # make_ggl_layer_filename
+        if req.action == "full data":
+            user_data = load_user_profile(req.user_id)
+            user_data["prdcer"]["prdcer_dataset"][
+                plan_name.replace("plan_", "")
+            ] = plan_name
+            update_user_profile(req.user_id, user_data)
 
-    # if request action was "full data" then store dataset id in the user profile
-    # the name of the dataset will be the action + cct_layer name
-    # make_ggl_layer_filename
-    if req.action == "full data":
-        user_data = load_user_profile(req.user_id)
-        user_data["prdcer"]["prdcer_dataset"][
-            plan_name.replace("plan_", "")
-        ] = plan_name
-        update_user_profile(req.user_id, user_data)
+        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+        trans_dataset["bknd_dataset_id"] = bknd_dataset_id
+        trans_dataset["records_count"] = len(trans_dataset["features"])
+        trans_dataset["prdcer_lyr_id"] = generate_layer_id()
+        trans_dataset["next_page_token"] = next_page_token
+        return trans_dataset
+    else:
+            req_dataset = ReqRealEstate(
+                country_name=req.dataset_country,
+                city_name=req.dataset_city,
+                excludedTypes=req.excludedTypes,
+                includedTypes=req.includedTypes,
+                page_token=page_token,
+                text_search=text_search,
+            )
 
-    trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-    trans_dataset["bknd_dataset_id"] = bknd_dataset_id
-    trans_dataset["records_count"] = len(trans_dataset["features"])
-    trans_dataset["prdcer_lyr_id"] = generate_layer_id()
-    trans_dataset["next_page_token"] = next_page_token
-    return trans_dataset
+            # Fetch data from JSON files
+            dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset)
 
+            # Append new data to existing dataset
+            existing_dataset.extend(dataset)
+
+            dataset["bknd_dataset_id"] = bknd_dataset_id
+            dataset["records_count"] = len(dataset["features"])
+            dataset["prdcer_lyr_id"] = generate_layer_id()
+            dataset["next_page_token"] = None
+            return dataset
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     try:
@@ -949,7 +973,13 @@ async def fetch_nearby_categories(req: None) -> Dict:
     of categories and subcategories, covering various aspects of urban life
     such as automotive, culture, education, entertainment, and more.
     """
-    return load_categories()
+    google_categories = load_google_categories()
+    real_estate_categories = await load_real_estate_categories()
+
+    # combine google categories and real estate categories
+    categories = {**google_categories, **real_estate_categories}
+
+    return categories
 
 
 # Apply the decorator to all functions in this module

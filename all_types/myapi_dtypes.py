@@ -126,7 +126,13 @@ class ReqCostEstimate(BaseModel):
     city_name: str
     country: str
 
-
+class ReqRealEstate(BaseModel):
+    country_name:str
+    city_name: str
+    excludedTypes: list[str]
+    includedTypes: list[str]
+    page_token: Optional[str] = ""
+    text_search: Optional[str] = ""
 
 U = TypeVar("U")
 

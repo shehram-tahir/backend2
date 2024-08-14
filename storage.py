@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset
+from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset,ReqRealEstate
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
 
@@ -21,6 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+BACKEND_DIR = "Backend/real_estate_storage"
 USERS_PATH = "Backend/users"
 STORE_CATALOGS_PATH = "Backend/store_catalogs.json"
 DATASET_LAYER_MATCHING_PATH = "Backend/dataset_layer_matching.json"
@@ -28,6 +29,9 @@ DATASETS_PATH = "Backend/datasets"
 USER_LAYER_MATCHING_PATH = "Backend/user_layer_matching.json"
 METASTORE_PATH = "Backend/layer_category_country_city_matching"
 STORAGE_DIR = "Backend/storage"
+USERS_INFO_PATH = "Backend/users_info.json"
+RIYADH_VILLA_ALLROOMS= "Backend/riyadh_villa_allrooms.json" # to be change to real estate id needed
+REAL_ESTATE_CATEGORIES_PATH="Backend/real_estate_categories.json"
 
 CONF = get_conf()
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -394,7 +398,7 @@ def load_country_city():
     return data
 
 
-def load_categories():
+def load_google_categories():
     try:
         with open("Backend/google_categories.json", "r") as f:
             categories = json.load(f)
@@ -408,6 +412,11 @@ def load_categories():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error parsing categories file",
         )
+
+async def load_real_estate_categories():
+    file_path = REAL_ESTATE_CATEGORIES_PATH
+    json_data = await use_json(file_path, "r")
+    return json_data['real_estate']
 
 
 def generate_layer_id() -> str:
@@ -487,6 +496,21 @@ async def get_dataset_from_storage(req: ReqLocation) -> tuple[Optional[Dict], Op
         return json_data, filename
     return None, None
 
+async def get_real_estate_dataset_from_storage(req: ReqRealEstate) -> tuple[dict, str]:
+    """
+    Retrieves data from storage based on the location request.
+    """
+    # TODO at moment the user will only give one category, in the future we should see how to implement this with more
+    # realEstateData=(await load_real_estate_categories())
+    # filtered_categories = [item for item in realEstateData if item in req.includedTypes]
+    # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
+    country= req.country_name.lower().replace(" ","_")
+    folder_path = f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
+    file_path = f"{folder_path}/{os.listdir(folder_path)[0]}"
+    json_data = await use_json(file_path, "r")
+    filename = file_path.split('/')[-1].split('.json')[0] + f"_include={req.includedTypes[0]}"
+    return json_data, filename
+
 
 async def load_dataset(dataset_id: str) -> Dict:
     """
@@ -497,6 +521,14 @@ async def load_dataset(dataset_id: str) -> Dict:
     return json_content
 
 
+async def save_to_json_file(folder_name:str,file_name:str, data:dict)->None:
+    if not os.path.exists(f"Backend/{folder_name}"):
+        os.makedirs(f"Backend/{folder_name}")
+
+    file_path = f"Backend/{folder_name}/{file_name}.json"
+
+    json_content = await use_json(file_path, "r")
+    return json_content
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)
