@@ -49,6 +49,7 @@ from storage import (
     convert_to_serializable,
     save_plan,
     get_plan,
+    create_real_estate_plan
 )
 from storage import (
     load_google_categories,
@@ -192,6 +193,25 @@ def create_string_list(
 
     return result
 
+async def fetch_real_estate_nearby(req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset):
+    next_page_token = req_dataset.page_token
+    plan_name = ""
+    action=req_create_lyr.action 
+
+    if action == "full data":
+        req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id = await process_req_plan(
+            req_dataset, req_create_lyr
+        )
+        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, bknd_dataset_id,action)    
+
+
+        
+    else:
+        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, '',action)
+
+    return dataset, bknd_dataset_id, next_page_token, plan_name
+
+
 
 async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
     search_type = req_create_lyr.search_type
@@ -199,7 +219,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     plan_name = ""
 
     if req_create_lyr.action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index = await process_req_plan(
+        req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id = await process_req_plan(
             req_dataset, req_create_lyr
         )
 
@@ -229,9 +249,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             next_page_token=""
         else:
             next_page_token = next_page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
-
-
-
+            
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
 
@@ -278,27 +296,37 @@ def add_skip_to_subcircles(plan:list, token_plan_index:str):
     return modified_plan
 
 
-
 async def process_req_plan(req_dataset, req_create_lyr):
     action = req_create_lyr.action
     plan: List[str] = []
     current_plan_index = 0
+    bknd_dataset_id=''
+    
 
     if (
-        req_dataset.radius > 750
-        and req_dataset.page_token == ""
+        req_dataset.page_token == ""
         and action == "full data"
     ):
-        circle_hierarchy = cover_circle_with_seven_circles(
-            (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
-        )
-        type_string = make_include_exclude_name(
-            req_dataset.includedTypes, req_dataset.excludedTypes
-        )
-        string_list_plan = create_string_list(
-            circle_hierarchy, type_string, req_dataset.text_search
-        )
+    
+    
+        if isinstance(req_dataset, ReqRealEstate ) :
+            string_list_plan=await create_real_estate_plan(req_dataset)
+
+        if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750 : 
+            circle_hierarchy = cover_circle_with_seven_circles(
+                (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
+            )
+            type_string = make_include_exclude_name(
+                req_dataset.includedTypes, req_dataset.excludedTypes
+            )
+            string_list_plan = create_string_list(
+                circle_hierarchy, type_string, req_dataset.text_search
+            )
+        
+        
         string_list_plan.append("end of search plan")
+
+
 
         # TODO creating the name of the file should be moved to storage
         tcc_string = make_ggl_layer_filename(req_create_lyr)
@@ -306,33 +334,58 @@ async def process_req_plan(req_dataset, req_create_lyr):
         if req_dataset.text_search != "" and req_dataset.text_search is not None:
             plan_name = plan_name + f"_text_search:"
         await save_plan(plan_name, string_list_plan)
-        next_search = string_list_plan[0]
-        first_search = next_search.split("_")
-        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
-            float(first_search[0]),
-            float(first_search[1]),
-            float(first_search[2]),
-        )
+        plan = string_list_plan
+
+
+        if isinstance(req_dataset, ReqLocation) : 
+            next_search = string_list_plan[0]
+            first_search = next_search.split("_")
+            req_dataset.lng, req_dataset.lat, req_dataset.radius = (
+                float(first_search[0]),
+                float(first_search[1]),
+                float(first_search[2]),
+            )
+        if isinstance(req_dataset, ReqRealEstate ) :
+            bknd_dataset_id = plan[current_plan_index]
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
+
     elif req_dataset.page_token != "":
+        
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
         current_plan_index = int(current_plan_index)
         plan = await get_plan(plan_name)
-        search_info = plan[current_plan_index].split("_")
-        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
-            float(search_info[0]),
-            float(search_info[1]),
-            float(search_info[2]),
-        )
-        if plan[current_plan_index + 1] == "end of search plan":
-            next_page_token = ""  # End of search plan
-        else:
-            next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
+        
+        
 
 
-    return req_dataset, plan_name, next_page_token, current_plan_index
+        if isinstance(req_dataset, ReqLocation) : 
+            search_info = plan[current_plan_index].split("_")
+            req_dataset.lng, req_dataset.lat, req_dataset.radius = (
+                float(search_info[0]),
+                float(search_info[1]),
+                float(search_info[2]),
+            )
+            if plan[current_plan_index + 1] == "end of search plan":
+                next_page_token = ""  # End of search plan
+            else:
+                next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
+        
+        if isinstance(req_dataset, ReqRealEstate ) :
+
+            next_plan_index =current_plan_index+1
+            bknd_dataset_id = plan[current_plan_index]
+            if plan[current_plan_index + 1] == "end of search plan":
+                    next_page_token = ""  # End of search plan
+            else:
+                next_page_token = req_dataset.page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
+        
+
+
+
+    return req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id
+
 
 
 async def fetch_catlog_collection(**_):
@@ -465,9 +518,14 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         raise HTTPException(
             status_code=404, detail="City not found in the specified country"
         )
+    
     #TODO fix me
     real_estate_categories= await load_real_estate_categories()
-    if not(req.includedTypes!=[] and (set(req.includedTypes).intersection(set(real_estate_categories['real_estate'])))!=set()):
+
+    
+
+    if not(req.includedTypes!=[] and req.includedTypes!=[] and (set(req.includedTypes).intersection(set(real_estate_categories)))!=set()):
+
         # Create new dataset request
         req_dataset = ReqLocation(
             lat=city_data["lat"],
@@ -485,45 +543,41 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         )
 
         # Append new data to existing dataset
-        existing_dataset.extend(dataset)
-
-        # if request action was "full data" then store dataset id in the user profile
-        # the name of the dataset will be the action + cct_layer name
-        # make_ggl_layer_filename
-        if req.action == "full data":
-            user_data = load_user_profile(req.user_id)
-            user_data["prdcer"]["prdcer_dataset"][
-                plan_name.replace("plan_", "")
-            ] = plan_name
-            update_user_profile(req.user_id, user_data)
-
-        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-        trans_dataset["bknd_dataset_id"] = bknd_dataset_id
-        trans_dataset["records_count"] = len(trans_dataset["features"])
-        trans_dataset["prdcer_lyr_id"] = generate_layer_id()
-        trans_dataset["next_page_token"] = next_page_token
-        return trans_dataset
+        existing_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     else:
-            req_dataset = ReqRealEstate(
-                country_name=req.dataset_country,
-                city_name=req.dataset_city,
-                excludedTypes=req.excludedTypes,
-                includedTypes=req.includedTypes,
-                page_token=page_token,
-                text_search=text_search,
-            )
+        req_dataset = ReqRealEstate(
+            country_name=req.dataset_country,
+            city_name=req.dataset_city,
+            excludedTypes=req.excludedTypes,
+            includedTypes=req.includedTypes,
+            page_token=page_token,
+            text_search=text_search,
+        )
 
-            # Fetch data from JSON files
-            dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset)
+        existing_dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_real_estate_nearby(
+            req_dataset, req_create_lyr=req
+        )
 
-            # Append new data to existing dataset
-            existing_dataset.extend(dataset)
 
-            dataset["bknd_dataset_id"] = bknd_dataset_id
-            dataset["records_count"] = len(dataset["features"])
-            dataset["prdcer_lyr_id"] = generate_layer_id()
-            dataset["next_page_token"] = None
-            return dataset
+
+
+    # if request action was "full data" then store dataset id in the user profile
+    # the name of the dataset will be the action + cct_layer name
+    # make_ggl_layer_filename
+    if req.action == "full data":
+        user_data = load_user_profile(req.user_id)
+        user_data["prdcer"]["prdcer_dataset"][
+            plan_name.replace("plan_", "")
+        ] = plan_name
+        update_user_profile(req.user_id, user_data)
+           
+             
+
+    existing_dataset["bknd_dataset_id"] = bknd_dataset_id
+    existing_dataset["records_count"] = len(existing_dataset["features"])
+    existing_dataset["prdcer_lyr_id"] = generate_layer_id()
+    existing_dataset["next_page_token"] = next_page_token
+    return existing_dataset
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     try:
