@@ -1,4 +1,5 @@
 import json
+import os
 from dataclasses import dataclass, fields, is_dataclass
 
 
@@ -109,11 +110,12 @@ def get_conf() -> static_ApiConfig:
             data = json.load(config_file)
             conf.api_key = data.get("gmaps_api", "")
 
-        with open("secrets/secrets_firebase.json", "r", encoding="utf-8") as config_file:
-            data = json.load(config_file)
-            conf.firebase_api_key = data.get("firebase_api_key", "")
-            conf.firebase_sp_path = data.get("firebase_sp_path", "")
-            
+        if os.path.exists("secrets/secrets_firebase.json"):
+            with open("secrets/secrets_firebase.json", "r", encoding="utf-8") as config_file:
+                data = json.load(config_file)
+                conf.firebase_api_key = data.get("firebase_api_key", "")
+                conf.firebase_sp_path = data.get("firebase_sp_path", "")
+
         return conf
     except Exception as e:
         return conf
