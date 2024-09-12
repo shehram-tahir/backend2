@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
+from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List
 
 from fastapi import HTTPException, status, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +22,8 @@ from all_types.myapi_dtypes import (
     ReqCostEstimate,
     ReqUserId,
     ReqSavePrdcerCtlg,
-    ReqApplyZoneLayers,
+    # ReqApplyZoneLayers,
+    ReqGradientColorBasedOnZone,
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -30,7 +31,7 @@ from all_types.response_dtypes import (
     ResAllCards,
     ResUserLayers,
     ResCtlgLyrs,
-    ResApplyZoneLayers,
+    # ResApplyZoneLayers,
     ResCreateUserProfile,
     ResSavePrdcerCtlg,
     ResTypeMapData,
@@ -45,6 +46,8 @@ from all_types.response_dtypes import (
     ResConfirmReset,
     ResChangePassword,
     ResCostEstimate,
+    ResfetchGradientColors,
+    ResGradientColorBasedOnZone
 )
 from auth import (
     create_user_profile,
@@ -68,10 +71,11 @@ from data_fetcher import (
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    apply_zone_layers,
+    # apply_zone_layers,
     fetch_nearby_categories,
-    save_draft_catalog
-
+    save_draft_catalog,
+    fetch_gradient_colors,
+    gradient_color_based_on_zone
 )
 from database import Database
 from logging_wrapper import log_and_validate
@@ -335,12 +339,12 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
     return response
 
 
-@app.post(CONF.apply_zone_layers, response_model=ResApplyZoneLayers)
-async def apply_zone_layers_endpoint(req: ReqModel[ReqApplyZoneLayers]):
-    response = await http_handling(
-        req, ReqApplyZoneLayers, ResApplyZoneLayers, apply_zone_layers
-    )
-    return response
+# @app.post(CONF.apply_zone_layers, response_model=ResApplyZoneLayers)
+# async def apply_zone_layers_endpoint(req: ReqModel[ReqApplyZoneLayers]):
+#     response = await http_handling(
+#         req, ReqApplyZoneLayers, ResApplyZoneLayers, apply_zone_layers
+#     )
+#     return response
 
 
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
@@ -412,10 +416,32 @@ async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Requ
     return response
 
 
-@app.post(CONF.save_draft_catalog,response_model=ResSavePrdcerCtlg)
-async def save_draft_catalog_endpoint(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
-    response = await http_handling(req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, request)
-    return response 
+@app.post(CONF.save_draft_catalog, response_model=ResSavePrdcerCtlg)
+async def save_draft_catalog_endpoint(
+    req: ReqModel[ReqSavePrdcerCtlg], request: Request
+):
+    response = await http_handling(
+        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, request
+    )
+    return response
+
+@app.get(CONF.fetch_gradient_colors, response_model=ResfetchGradientColors)
+async def fetch_gradient_colors_endpoint():
+    response = await http_handling(
+        None,None,ResfetchGradientColors, fetch_gradient_colors)
+    return response
+
+
+@app.post(CONF.gradient_color_based_on_zone, response_model=ResModel[List[ResGradientColorBasedOnZone]])
+async def gradient_color_based_on_zone_endpoint(
+    req: ReqModel[ReqGradientColorBasedOnZone],
+    request: Request):
+    response = await http_handling(
+        req,
+        ReqGradientColorBasedOnZone,
+        ResModel[List[ResGradientColorBasedOnZone]],
+        gradient_color_based_on_zone)
+    return response
 
 
 

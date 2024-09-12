@@ -4,7 +4,13 @@ from pydantic import BaseModel, Field
 
 from all_types.response_dtypes import LyrInfoInCtlgSave
 
+U = TypeVar("U")
 
+
+class ReqModel(BaseModel, Generic[U]):
+    message: str
+    request_info: Dict
+    request_body: U
 
 class boxmapProperties(BaseModel):
     name: str
@@ -77,10 +83,10 @@ class ReqFetchDataset(BaseModel):
     user_id: str
 
 
-class ReqApplyZoneLayers(BaseModel):
-    user_id: str
-    lyrs: List[str]
-    lyrs_as_zone: List[Dict[str, str]]
+# class ReqApplyZoneLayers(BaseModel):
+#     user_id: str
+#     lyrs: List[str]
+#     lyrs_as_zone: List[Dict[str, str]]
 
 
 class ReqCreateUserProfile(BaseModel):
@@ -134,10 +140,12 @@ class ReqRealEstate(BaseModel):
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
 
-U = TypeVar("U")
 
 
-class ReqModel(BaseModel, Generic[U]):
-    message: str
-    request_info: Dict
-    request_body: U
+class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
+    color_grid_choice:list[str]
+    change_lyr_id:str
+    based_on_lyr_id:str
+    radius_offset: float
+    color_based_on: str
+

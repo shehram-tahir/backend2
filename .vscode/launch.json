@@ -10,7 +10,7 @@
                 "fastapi_app:app",
                 "--reload",
                 "--host", "localhost",
-                "--port", "7001"
+                "--port", "7000"
             ],
             "jinja": true
         }

@@ -8,7 +8,40 @@
       "include=villa_for_rent_exclude=string_Saudi Arabia_Riyadh": "plan_include=villa_for_rent_exclude=string_Saudi Arabia_Riyadh",
       "include=villa_for_rent_exclude=_Saudi Arabia_Riyadh": "plan_include=villa_for_rent_exclude=_Saudi Arabia_Riyadh"
     },
-    "prdcer_lyrs": {},
+    "prdcer_lyrs": {
+      "l9554065f-3751-4d34-887d-d93fa2589a44": {
+        "prdcer_layer_name": "sdfdsfsdf",
+        "prdcer_lyr_id": "l9554065f-3751-4d34-887d-d93fa2589a44",
+        "bknd_dataset_id": "39.1728_21.5433_30000_include=car_dealer_exclude=_token=",
+        "points_color": "#28A745",
+        "layer_legend": "sdfdsffds",
+        "layer_description": "dsfdsfdfs"
+      },
+      "l65d7d227-5558-466e-84d8-b51c9780f29e": {
+        "prdcer_layer_name": "nm,nm,nm,",
+        "prdcer_lyr_id": "l65d7d227-5558-466e-84d8-b51c9780f29e",
+        "bknd_dataset_id": "39.1728_21.5433_30000_include=car_rental_exclude=_token=",
+        "points_color": "#007BFF",
+        "layer_legend": "nm,,nmnm,",
+        "layer_description": "nm,nm,"
+      },
+      "l1486626b-cfe4-4690-8a16-b74ca3a8a80d": {
+        "prdcer_layer_name": "cvxcvxcv",
+        "prdcer_lyr_id": "l1486626b-cfe4-4690-8a16-b74ca3a8a80d",
+        "bknd_dataset_id": "39.1728_21.5433_30000_include=car_dealer_exclude=_token=",
+        "points_color": "#FF5733",
+        "layer_legend": "xcvxcv",
+        "layer_description": "mbnmbnm"
+      },
+      "lfd6ba786-f747-48a5-a190-ed43f6219a88": {
+        "prdcer_layer_name": "bnnbmbnm",
+        "prdcer_lyr_id": "lfd6ba786-f747-48a5-a190-ed43f6219a88",
+        "bknd_dataset_id": "39.1728_21.5433_30000_include=car_rental_exclude=_token=",
+        "points_color": "#FF5733",
+        "layer_legend": "bnmmnbbnm",
+        "layer_description": "bnmbnmbn"
+      }
+    },
     "prdcer_ctlgs": {},
     "draft_ctlgs": {}
   }

@@ -29,6 +29,7 @@ DATASETS_PATH = "Backend/datasets"
 USER_LAYER_MATCHING_PATH = "Backend/user_layer_matching.json"
 METASTORE_PATH = "Backend/layer_category_country_city_matching"
 STORAGE_DIR = "Backend/storage"
+COLOR_PATH = "Backend/gradient_colors.json"
 USERS_INFO_PATH = "Backend/users_info.json"
 RIYADH_VILLA_ALLROOMS= "Backend/riyadh_villa_allrooms.json" # to be change to real estate id needed
 REAL_ESTATE_CATEGORIES_PATH="Backend/real_estate_categories.json"
@@ -532,9 +533,38 @@ async def load_dataset(dataset_id: str) -> Dict:
     """
     Loads a dataset from file based on its ID.
     """
-    dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
-    json_content = await use_json(dataset_filepath, "r")
-    return json_content
+    # if the dataset_id contains the word plan '21.57445341427591_39.1728_2000.0_mosque__plan_mosque_Saudi Arabia_Jeddah@#$9'
+    # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
+    # load the plan's json file
+    # from the dataset_id isolate the page number which is after @#$ = 9
+    # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
+    # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
+    # else load dataset with dataset id
+    if "plan" in dataset_id:
+        # Extract plan name and page number
+        plan_name, page_number = dataset_id.split("@#$")
+        dataset_prefix, plan_name = plan_name.split("page_token=")
+        page_number = int(page_number)
+        # Load the plan
+        plan = await get_plan(plan_name)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        # Initialize an empty list to store all datasets
+        all_datasets = []
+        # Load and concatenate all datasets up to the current page number
+        for i in range(page_number):
+            if i == 0:
+                continue
+            dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
+            json_content = await use_json(dataset_filepath, "r")
+            all_datasets.extend(json_content)
+
+    else:
+        dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
+        all_datasets = await use_json(dataset_filepath, "r")
+        
+
+    return all_datasets
 
 
 async def save_to_json_file(folder_name:str,file_name:str, data:dict)->None:
@@ -545,6 +575,17 @@ async def save_to_json_file(folder_name:str,file_name:str, data:dict)->None:
 
     json_content = await use_json(file_path, "r")
     return json_content
+
+
+async def load_gradient_colors() -> Optional[List[List]]:
+    """
+    """
+    json_data = await use_json(COLOR_PATH, "r")
+    return json_data
+
+
+
+
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

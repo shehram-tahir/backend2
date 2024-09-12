@@ -2,6 +2,14 @@ from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional
 
 from pydantic import BaseModel, Field
 
+T = TypeVar("T")
+
+
+class ResModel(BaseModel, Generic[T]):
+    message: str
+    request_id: str
+    data: T
+
 
 class ResCostEstimate(BaseModel):
     cost: float
@@ -51,15 +59,6 @@ class MapData(BaseModel):
     features: List[Feature]
 
 
-class PrdcerLyrMapData(MapData):
-    prdcer_layer_name: str
-    prdcer_lyr_id: str
-    bknd_dataset_id: str
-    points_color: str
-    layer_legend: str
-    layer_description: str
-    records_count: int
-    is_zone_lyr: str
 
 
 class CityData(BaseModel):
@@ -88,14 +87,21 @@ class UserCatalogInfo(BaseModel):
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     ctlg_owner_user_id: str
 
+class PrdcerLyrMapData(MapData):
+    prdcer_layer_name: str
+    prdcer_lyr_id: str
+    bknd_dataset_id: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    records_count: int
+    is_zone_lyr: str
 
-T = TypeVar("T")
+
+class ResGradientColorBasedOnZone(PrdcerLyrMapData):
+    sub_lyr_id: str  # This is the additional property
 
 
-class ResModel(BaseModel, Generic[T]):
-    message: str
-    request_id: str
-    data: T
 
 
 ResAllCards = ResModel[List[card_metadata]]
@@ -103,7 +109,7 @@ ResAllCards = ResModel[List[card_metadata]]
 ResUserLayers = ResModel[List[LayerInfo]]
 
 ResCtlgLyrs = ResModel[List[PrdcerLyrMapData]]
-ResApplyZoneLayers = ResModel[List[PrdcerLyrMapData]]
+# ResApplyZoneLayers = ResModel[List[PrdcerLyrMapData]]
 ResCreateUserProfile = ResModel[Dict[str, str]]
 ResSavePrdcerCtlg = ResModel[str]
 ResTypeMapData = ResModel[MapData]
@@ -118,3 +124,4 @@ ResUserProfile = ResModel[Dict[str, Any]]
 ResResetPassword = ResModel[Dict[str, Any]]
 ResConfirmReset = ResModel[Dict[str, Any]]
 ResChangePassword = ResModel[Dict[str, Any]]
+ResfetchGradientColors = ResModel[list[list[str]]]

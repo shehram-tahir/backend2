@@ -3,26 +3,16 @@ import math
 import uuid
 from typing import List, Dict, Any
 import json
-
+from geopy.distance import geodesic
 import numpy as np
 from fastapi import HTTPException
 from fastapi import status
 
-from all_types.myapi_dtypes import ReqLocation,ReqRealEstate
-from all_types.myapi_dtypes import (
-    ReqSavePrdcerLyer,
-    ReqUserId,
-    ReqSavePrdcerCtlg,
-    ReqFetchCtlgLyrs,
-    ReqApplyZoneLayers,
-    ReqPrdcerLyrMapData,
-    ReqFetchDataset,
-)
+from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
-    Geometry,
-    Feature,
-    LayerInfo,
+    ResGradientColorBasedOnZone,
     PrdcerLyrMapData,
+    LayerInfo,
     UserCatalogInfo,
 )
 from google_api_connector import fetch_from_google_maps_api
@@ -49,7 +39,8 @@ from storage import (
     convert_to_serializable,
     save_plan,
     get_plan,
-    create_real_estate_plan
+    create_real_estate_plan,
+    load_gradient_colors,
 )
 from storage import (
     load_google_categories,
@@ -193,24 +184,28 @@ def create_string_list(
 
     return result
 
-async def fetch_real_estate_nearby(req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset):
+
+async def fetch_real_estate_nearby(
+    req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset
+):
     next_page_token = req_dataset.page_token
     plan_name = ""
-    action=req_create_lyr.action 
+    action = req_create_lyr.action
 
     if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = await process_req_plan(
-            req_dataset, req_create_lyr
+        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+            await process_req_plan(req_dataset, req_create_lyr)
         )
-        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, bknd_dataset_id,action)    
+        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
+            req_dataset, bknd_dataset_id, action
+        )
 
-
-        
     else:
-        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, '',action)
+        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
+            req_dataset, "", action
+        )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
-
 
 
 async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
@@ -219,8 +214,8 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     plan_name = ""
 
     if req_create_lyr.action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id = await process_req_plan(
-            req_dataset, req_create_lyr
+        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+            await process_req_plan(req_dataset, req_create_lyr)
         )
 
     dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
@@ -245,11 +240,12 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     #     replace next_page_token with next non-skip page token
     if len(dataset) < 20 and req_create_lyr.action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
-        if next_plan_index=="":
-            next_page_token=""
+        if next_plan_index == "":
+            next_page_token = ""
         else:
-            next_page_token = next_page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
-            
+            next_page_token = (
+                next_page_token.split("@#$")[0] + "@#$" + str(next_plan_index)
+            )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
 
@@ -258,30 +254,33 @@ async def rectify_plan(plan_name, current_plan_index):
     plan = await get_plan(plan_name)
     rectified_plan = add_skip_to_subcircles(plan, current_plan_index)
     await save_plan(plan_name, rectified_plan)
-    next_plan_index= get_next_non_skip_index(rectified_plan, current_plan_index)
+    next_plan_index = get_next_non_skip_index(rectified_plan, current_plan_index)
 
     return next_plan_index
 
 
 def get_next_non_skip_index(rectified_plan, current_plan_index):
     for i in range(current_plan_index + 1, len(rectified_plan)):
-        if not rectified_plan[i].endswith('_skip') and rectified_plan[i]!="end of search plan":
+        if (
+            not rectified_plan[i].endswith("_skip")
+            and rectified_plan[i] != "end of search plan"
+        ):
             # Return the new token with the found index
             return i
-    
+
     # If no non-skipped item is found, return None or a special token
     return ""
 
-def add_skip_to_subcircles(plan:list, token_plan_index:str):
-    circle_string= plan[token_plan_index]
+
+def add_skip_to_subcircles(plan: list, token_plan_index: str):
+    circle_string = plan[token_plan_index]
     # Extract the circle number from the input string
 
-    circle_number = circle_string.split("_circle=")[1].split("_")[0].replace("*","")
+    circle_number = circle_string.split("_circle=")[1].split("_")[0].replace("*", "")
 
     def is_subcircle(circle):
         circle = "_circle=" + circle.split("_circle=")[1]
         return circle.startswith(f"_circle={circle_number}.")
-        
 
     # Add "_skip" to subcircles
     modified_plan = []
@@ -300,19 +299,14 @@ async def process_req_plan(req_dataset, req_create_lyr):
     action = req_create_lyr.action
     plan: List[str] = []
     current_plan_index = 0
-    bknd_dataset_id=''
-    
+    bknd_dataset_id = ""
 
-    if (
-        req_dataset.page_token == ""
-        and action == "full data"
-    ):
-    
-    
-        if isinstance(req_dataset, ReqRealEstate ) :
-            string_list_plan=await create_real_estate_plan(req_dataset)
+    if req_dataset.page_token == "" and action == "full data":
 
-        if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750 : 
+        if isinstance(req_dataset, ReqRealEstate):
+            string_list_plan = await create_real_estate_plan(req_dataset)
+
+        if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750:
             circle_hierarchy = cover_circle_with_seven_circles(
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
             )
@@ -322,11 +316,8 @@ async def process_req_plan(req_dataset, req_create_lyr):
             string_list_plan = create_string_list(
                 circle_hierarchy, type_string, req_dataset.text_search
             )
-        
-        
+
         string_list_plan.append("end of search plan")
-
-
 
         # TODO creating the name of the file should be moved to storage
         tcc_string = make_ggl_layer_filename(req_create_lyr)
@@ -336,8 +327,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
         await save_plan(plan_name, string_list_plan)
         plan = string_list_plan
 
-
-        if isinstance(req_dataset, ReqLocation) : 
+        if isinstance(req_dataset, ReqLocation):
             next_search = string_list_plan[0]
             first_search = next_search.split("_")
             req_dataset.lng, req_dataset.lat, req_dataset.radius = (
@@ -345,22 +335,18 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 float(first_search[1]),
                 float(first_search[2]),
             )
-        if isinstance(req_dataset, ReqRealEstate ) :
+        if isinstance(req_dataset, ReqRealEstate):
             bknd_dataset_id = plan[current_plan_index]
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
-
     elif req_dataset.page_token != "":
-        
+
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
         current_plan_index = int(current_plan_index)
         plan = await get_plan(plan_name)
-        
-        
 
-
-        if isinstance(req_dataset, ReqLocation) : 
+        if isinstance(req_dataset, ReqLocation):
             search_info = plan[current_plan_index].split("_")
             req_dataset.lng, req_dataset.lat, req_dataset.radius = (
                 float(search_info[0]),
@@ -371,21 +357,21 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 next_page_token = ""  # End of search plan
             else:
                 next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
-        
-        if isinstance(req_dataset, ReqRealEstate ) :
 
-            next_plan_index =current_plan_index+1
+        if isinstance(req_dataset, ReqRealEstate):
+
+            next_plan_index = current_plan_index + 1
             bknd_dataset_id = plan[current_plan_index]
             if plan[current_plan_index + 1] == "end of search plan":
-                    next_page_token = ""  # End of search plan
+                next_page_token = ""  # End of search plan
             else:
-                next_page_token = req_dataset.page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
-        
+                next_page_token = (
+                    req_dataset.page_token.split("@#$")[0]
+                    + "@#$"
+                    + str(next_plan_index)
+                )
 
-
-
-    return req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id
-
+    return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
 
 async def fetch_catlog_collection(**_):
@@ -518,14 +504,19 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         raise HTTPException(
             status_code=404, detail="City not found in the specified country"
         )
-    
-    #TODO fix me
-    real_estate_categories= await load_real_estate_categories()
 
-    
+    # TODO fix me
+    real_estate_categories = await load_real_estate_categories()
 
-
-    if not(req.includedTypes!=[] and (set(req.includedTypes).intersection(set(real_estate_categories['real_estate'])))!=set()):
+    if not (
+        req.includedTypes != []
+        and (
+            set(req.includedTypes).intersection(
+                set(real_estate_categories["real_estate"])
+            )
+        )
+        != set()
+    ):
 
         # Create new dataset request
         req_dataset = ReqLocation(
@@ -555,12 +546,9 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             text_search=text_search,
         )
 
-        existing_dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_real_estate_nearby(
-            req_dataset, req_create_lyr=req
+        existing_dataset, bknd_dataset_id, next_page_token, plan_name = (
+            await fetch_real_estate_nearby(req_dataset, req_create_lyr=req)
         )
-
-
-
 
     # if request action was "full data" then store dataset id in the user profile
     # the name of the dataset will be the action + cct_layer name
@@ -571,14 +559,13 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             plan_name.replace("plan_", "")
         ] = plan_name
         update_user_profile(req.user_id, user_data)
-           
-             
 
     existing_dataset["bknd_dataset_id"] = bknd_dataset_id
     existing_dataset["records_count"] = len(existing_dataset["features"])
     existing_dataset["prdcer_lyr_id"] = generate_layer_id()
     existing_dataset["next_page_token"] = next_page_token
     return existing_dataset
+
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     try:
@@ -677,34 +664,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
             ) from ke
 
         dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
-
-        # if the dataset_id contains the word plan '21.57445341427591_39.1728_2000.0_mosque__plan_mosque_Saudi Arabia_Jeddah@#$9'
-        # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
-        # load the plan's json file
-        # from the dataset_id isolate the page number which is after @#$ = 9
-        # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
-        # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
-        # else load dataset with dataset id
-        if "plan" in dataset_id:
-            # Extract plan name and page number
-            plan_name, page_number = dataset_id.split("@#$")
-            dataset, plan_name = plan_name.split("page_token=")
-            page_number = int(page_number)
-            # Load the plan
-            plan = await get_plan(plan_name)
-            if not plan:
-                raise HTTPException(status_code=404, detail="Plan not found")
-            # Initialize an empty list to store all datasets
-            all_datasets = []
-            # Load and concatenate all datasets up to the current page number
-            for i in range(page_number):
-                if i == 0:
-                    continue
-                dataset = await load_dataset(f"{plan[i]}_page_token={plan_name}@#${i}")
-                all_datasets.extend(dataset)
-
-        else:
-            all_datasets = await load_dataset(dataset_id)
+        all_datasets = await load_dataset(dataset_id)
         trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(all_datasets)
 
         return PrdcerLyrMapData(
@@ -853,120 +813,120 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         ) from e
 
 
-async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
-    """
-    Applies zone layer transformations to a set of layers.
-    """
-    try:
-        non_zone_layers = req.lyrs.copy()
-        zone_layers = []
-        for layer in req.lyrs_as_zone:
-            zone_lyr_id = list(layer.keys())[0]
-            zone_layers.append(zone_lyr_id)
-            non_zone_layers.remove(zone_lyr_id)
+# async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
+#     """
+#     Applies zone layer transformations to a set of layers.
+#     """
+#     try:
+#         non_zone_layers = req.lyrs.copy()
+#         zone_layers = []
+#         for layer in req.lyrs_as_zone:
+#             zone_lyr_id = list(layer.keys())[0]
+#             zone_layers.append(zone_lyr_id)
+#             non_zone_layers.remove(zone_lyr_id)
 
-        dataset_layer_matching = load_dataset_layer_matching()
+#         dataset_layer_matching = load_dataset_layer_matching()
 
-        non_zone_data = []
-        for lyr_id in non_zone_layers:
-            dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
-            if dataset_id:
-                dataset = await load_dataset(dataset_id)
-                lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-                non_zone_data.extend(lyr_data["features"])
+#         non_zone_data = []
+#         for lyr_id in non_zone_layers:
+#             dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
+#             if dataset_id:
+#                 dataset = await load_dataset(dataset_id)
+#                 lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+#                 non_zone_data.extend(lyr_data["features"])
 
-        zone_data = {}
-        for lyr_id in zone_layers:
-            dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
-            if dataset_id:
-                dataset = await load_dataset(dataset_id)
-                lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-                zone_data[lyr_id] = lyr_data
+#         zone_data = {}
+#         for lyr_id in zone_layers:
+#             dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
+#             if dataset_id:
+#                 dataset = await load_dataset(dataset_id)
+#                 lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+#                 zone_data[lyr_id] = lyr_data
 
-        transformed_layers = []
-        for layer in req.lyrs_as_zone:
-            zone_lyr_id = list(layer.keys())[0]
-            zone_property_key = list(layer.values())[0]
-            zone_transformed = apply_zone_transformation(
-                zone_data[zone_lyr_id], non_zone_data, zone_property_key, zone_lyr_id
-            )
-            transformed_layers.extend(zone_transformed)
+#         transformed_layers = []
+#         for layer in req.lyrs_as_zone:
+#             zone_lyr_id = list(layer.keys())[0]
+#             zone_property_key = list(layer.values())[0]
+#             zone_transformed = apply_zone_transformation(
+#                 zone_data[zone_lyr_id], non_zone_data, zone_property_key, zone_lyr_id
+#             )
+#             transformed_layers.extend(zone_transformed)
 
-        return transformed_layers
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"An error occurred: {str(e)}"
-        ) from e
+#         return transformed_layers
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500, detail=f"An error occurred: {str(e)}"
+#         ) from e
 
 
-def apply_zone_transformation(
-    zone_layer_data: Dict[str, Any],
-    non_zone_points: List[Dict[str, Any]],
-    zone_property: str,
-    zone_lyr_id: str,
-) -> List[PrdcerLyrMapData]:
-    """
-    This function applies zone transformations to a set of points.
-    """
-    try:
-        zone_property = zone_property.split("features.properties.")[-1]
-        property_values = [
-            feature["properties"].get(zone_property, 9191919191)
-            for feature in zone_layer_data["features"]
-        ]
-        arr = np.array(property_values)
-        avg = np.mean(arr[arr != 9191919191.0])
-        new_arr = np.where(arr == 9191919191.0, avg, arr)
-        property_values = new_arr.tolist()
-        thresholds = calculate_thresholds(property_values)
+# def apply_zone_transformation(
+#     zone_layer_data: Dict[str, Any],
+#     non_zone_points: List[Dict[str, Any]],
+#     zone_property: str,
+#     zone_lyr_id: str,
+# ) -> List[PrdcerLyrMapData]:
+#     """
+#     This function applies zone transformations to a set of points.
+#     """
+#     try:
+#         zone_property = zone_property.split("features.properties.")[-1]
+#         property_values = [
+#             feature["properties"].get(zone_property, 9191919191)
+#             for feature in zone_layer_data["features"]
+#         ]
+#         arr = np.array(property_values)
+#         avg = np.mean(arr[arr != 9191919191.0])
+#         new_arr = np.where(arr == 9191919191.0, avg, arr)
+#         property_values = new_arr.tolist()
+#         thresholds = calculate_thresholds(property_values)
 
-        new_layers = [
-            PrdcerLyrMapData(
-                type="FeatureCollection",
-                features=[],
-                prdcer_layer_name=f"{zone_layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
-                prdcer_lyr_id=f"zy{zone_lyr_id}_applied_{i + 1}",
-                points_color=color,
-                layer_legend=f"{zone_layer_data.get('layer_legend', 'Layer')} {category} {zone_property}",
-                records_count=0,
-                is_zone_lyr="False",
-                bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
-                layer_description=zone_layer_data.get("layer_description", ""),
-            )
-            for i, (category, color) in enumerate(
-                [
-                    ("low", "grey"),
-                    ("medium", "cyan"),
-                    ("high", "red"),
-                    ("non-zone-overlap", "blue"),
-                ]
-            )
-        ]
+#         new_layers = [
+#             PrdcerLyrMapData(
+#                 type="FeatureCollection",
+#                 features=[],
+#                 prdcer_layer_name=f"{zone_layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
+#                 prdcer_lyr_id=f"zy{zone_lyr_id}_applied_{i + 1}",
+#                 points_color=color,
+#                 layer_legend=f"{zone_layer_data.get('layer_legend', 'Layer')} {category} {zone_property}",
+#                 records_count=0,
+#                 is_zone_lyr="False",
+#                 bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
+#                 layer_description=zone_layer_data.get("layer_description", ""),
+#             )
+#             for i, (category, color) in enumerate(
+#                 [
+#                     ("low", "grey"),
+#                     ("medium", "cyan"),
+#                     ("high", "red"),
+#                     ("non-zone-overlap", "blue"),
+#                 ]
+#             )
+#         ]
 
-        for point in non_zone_points:
-            point_coords = point["geometry"]["coordinates"]
-            for zone_feature in zone_layer_data["features"]:
-                zone_point = zone_feature["geometry"]["coordinates"]
-                if calculate_distance_km(point_coords, zone_point) <= 2:
-                    value = zone_feature["properties"].get(zone_property, 0)
-                    if value <= thresholds[0]:
-                        new_layers[0].features.append(create_feature(point))
-                    elif value <= thresholds[1]:
-                        new_layers[1].features.append(create_feature(point))
-                    else:
-                        new_layers[2].features.append(create_feature(point))
-                    break
-                else:
-                    new_layers[3].features.append(create_feature(point))
+#         for point in non_zone_points:
+#             point_coords = point["geometry"]["coordinates"]
+#             for zone_feature in zone_layer_data["features"]:
+#                 zone_point = zone_feature["geometry"]["coordinates"]
+#                 if calculate_distance_km(point_coords, zone_point) <= 2:
+#                     value = zone_feature["properties"].get(zone_property, 0)
+#                     if value <= thresholds[0]:
+#                         new_layers[0].features.append(create_feature(point))
+#                     elif value <= thresholds[1]:
+#                         new_layers[1].features.append(create_feature(point))
+#                     else:
+#                         new_layers[2].features.append(create_feature(point))
+#                     break
+#                 else:
+#                     new_layers[3].features.append(create_feature(point))
 
-        for layer in new_layers:
-            layer.records_count = len(layer.features)
+#         for layer in new_layers:
+#             layer.records_count = len(layer.features)
 
-        return new_layers
-    except Exception as e:
-        raise ValueError(f"Error in apply_zone_transformation: {str(e)}")
+#         return new_layers
+#     except Exception as e:
+#         raise ValueError(f"Error in apply_zone_transformation: {str(e)}")
 
 
 def calculate_thresholds(values: List[float]) -> List[float]:
@@ -1002,23 +962,23 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
         raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
-def create_feature(point: Dict[str, Any]) -> Feature:
-    """
-    Converts a point dictionary into a Feature object. This function is used
-    to ensure that all points are in the correct format for geospatial operations.
-    """
-    try:
-        return Feature(
-            type=point["type"],
-            properties=point["properties"],
-            geometry=Geometry(
-                type="Point", coordinates=point["geometry"]["coordinates"]
-            ),
-        )
-    except KeyError as e:
-        raise ValueError(f"Invalid point data: missing key {str(e)}")
-    except Exception as e:
-        raise ValueError(f"Error creating feature: {str(e)}")
+# def create_feature(point: Dict[str, Any]) -> Feature:
+#     """
+#     Converts a point dictionary into a Feature object. This function is used
+#     to ensure that all points are in the correct format for geospatial operations.
+#     """
+#     try:
+#         return Feature(
+#             type=point["type"],
+#             properties=point["properties"],
+#             geometry=Geometry(
+#                 type="Point", coordinates=point["geometry"]["coordinates"]
+#             ),
+#         )
+#     except KeyError as e:
+#         raise ValueError(f"Invalid point data: missing key {str(e)}")
+#     except Exception as e:
+#         raise ValueError(f"Error creating feature: {str(e)}")
 
 
 async def fetch_nearby_categories(req: None) -> Dict:
@@ -1040,8 +1000,8 @@ async def fetch_nearby_categories(req: None) -> Dict:
 async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
     try:
         user_data = load_user_profile(req.user_id)
-        if (len(req.lyrs) > 0):
-        
+        if len(req.lyrs) > 0:
+
             new_ctlg_id = str(uuid.uuid4())
             new_catalog = {
                 "prdcer_ctlg_name": req.prdcer_ctlg_name,
@@ -1071,6 +1031,132 @@ async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
         ) from e
 
 
+async def fetch_gradient_colors(req) -> List[List]:
+    """ """
+
+    data = await load_gradient_colors()
+    return data
+
+
+async def given_layer_fetch_dataset(layer_id: str):
+    # given layer id get dataset
+    layer_owner_id = fetch_layer_owner(layer_id)
+    layer_owner_data = load_user_profile(layer_owner_id)
+    try:
+        layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][layer_id]
+    except KeyError as ke:
+        raise HTTPException(
+            status_code=404, detail="Producer layer not found for this user"
+        ) from ke
+
+    dataset_id, dataset_info = fetch_dataset_id(layer_id)
+    all_datasets = await load_dataset(dataset_id)
+
+    return all_datasets
+
+
+async def gradient_color_based_on_zone(
+    req: ReqGradientColorBasedOnZone,
+) -> List[ResGradientColorBasedOnZone]:
+    change_layer_dataset = await given_layer_fetch_dataset(req.change_lyr_id)
+    based_on_layer_dataset = await given_layer_fetch_dataset(req.based_on_lyr_id)
+
+    def calculate_distance(lat1, lon1, lat2, lon2):
+        return geodesic((lat1, lon1), (lat2, lon2)).meters
+
+    def get_nearby_average_metric(color_based_on, point, based_on_dataset, radius):
+        lat, lon = point["location"]["latitude"], point["location"]["longitude"]
+        nearby_metric_value = [
+            p[color_based_on]
+            for p in based_on_dataset
+            if color_based_on in p
+            and calculate_distance(
+                lat, lon, p["location"]["latitude"], p["location"]["longitude"]
+            )
+            <= radius
+        ]
+        return np.mean(nearby_metric_value) if nearby_metric_value else None
+
+    # Calculate influence scores for change_layer_dataset and store them
+    influence_scores = []
+    point_influence_map = {}
+    for point in change_layer_dataset:
+        avg_metric = get_nearby_average_metric(
+            req.color_based_on, point, based_on_layer_dataset, req.radius_offset
+        )
+        if avg_metric is not None:
+            influence_scores.append(avg_metric)
+            point_influence_map[point["id"]] = avg_metric
+
+    # Calculate thresholds based on influence scores
+    percentiles = [16.67, 33.33, 50, 66.67, 83.33]
+    thresholds = np.percentile(influence_scores, percentiles)
+
+    # Create layers
+    new_layers = []
+    layer_data = [
+        [] for _ in range(len(thresholds) + 2)
+    ]  # +1 for above highest threshold, +1 for unallocated
+
+    # Assign points to layers
+    for point in change_layer_dataset:
+        avg_metric = point_influence_map.get(point["id"])
+        feature = MapBoxConnector.assign_point_properties(point)
+
+        if avg_metric is None:
+            layer_index = -1  # Last layer (unallocated)
+            feature["properties"]["influence_score"] = None
+        else:
+            layer_index = next(
+                (
+                    i
+                    for i, threshold in enumerate(thresholds)
+                    if avg_metric <= threshold
+                ),
+                len(thresholds),
+            )
+            feature["properties"]["influence_score"] = avg_metric
+
+        layer_data[layer_index].append(feature)
+
+    # Create layers only for non-empty data
+    for i, data in enumerate(layer_data):
+        if data:
+            color = (
+                req.color_grid_choice[i] if i < len(req.color_grid_choice) else "white"
+            )
+            if i == len(layer_data) - 1:
+                layer_name = "Unallocated Points"
+                layer_legend = "No nearby points"
+            elif i == 0:
+                layer_name = f"Gradient Layer {i+1}"
+                layer_legend = f"Influence Score < {thresholds[0]:.2f}"
+            elif i == len(thresholds):
+                layer_name = f"Gradient Layer {i+1}"
+                layer_legend = f"Influence Score > {thresholds[-1]:.2f}"
+            else:
+                layer_name = f"Gradient Layer {i+1}"
+                layer_legend = (
+                    f"Influence Score {thresholds[i-1]:.2f} - {thresholds[i]:.2f}"
+                )
+
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=data,
+                    prdcer_layer_name=layer_name,
+                    prdcer_lyr_id=req.change_lyr_id,
+                    sub_lyr_id=f"{req.change_lyr_id}_gradient_{i+1}",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color=color,
+                    layer_legend=layer_legend,
+                    layer_description=f"Gradient layer based on nearby {req.color_based_on} influence",
+                    records_count=len(data),
+                    is_zone_lyr="true",
+                )
+            )
+
+    return new_layers
 
 
 # Apply the decorator to all functions in this module
