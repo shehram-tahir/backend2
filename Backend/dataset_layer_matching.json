@@ -1,14 +1,1 @@
-{
-    "39.1728_21.5433_30000_include=car_dealer_exclude=_token=": {
-      "records_count": 9191919,
-      "prdcer_lyrs": [
-        "l1486626b-cfe4-4690-8a16-b74ca3a8a80d"
-      ]
-    },
-    "39.1728_21.5433_30000_include=car_rental_exclude=_token=": {
-      "records_count": 9191919,
-      "prdcer_lyrs": [
-        "lfd6ba786-f747-48a5-a190-ed43f6219a88"
-      ]
-    }
-  }
+{}

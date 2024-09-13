@@ -605,21 +605,12 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     all layers owned by the user, including metadata like layer name, color,
     and record count.
     """
-    try:
-        # Load dataset_layer_matching.json
-        dataset_layer_matching = load_dataset_layer_matching()
-    except FileNotFoundError as fnfe:
-        logger.error("Dataset-layer matching file not found")
-        raise HTTPException(
-            status_code=500, detail="Dataset-layer matching data not available"
-        ) from fnfe
-
     user_layers = fetch_user_layers(req.user_id)
 
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():
         try:
-            dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
+            dataset_id, dataset_info = fetch_dataset_id(lyr_id)
             records_count = dataset_info["records_count"]
 
             user_layers_metadata.append(
@@ -773,13 +764,12 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         if not ctlg:
             raise HTTPException(status_code=404, detail="Catalog not found")
 
-        dataset_layer_matching = load_dataset_layer_matching()
         ctlg_owner_data = load_user_profile(ctlg["ctlg_owner_user_id"])
 
         ctlg_lyrs_map_data = []
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
-            dataset_id, dataset_info = fetch_dataset_id(lyr_id, dataset_layer_matching)
+            dataset_id, dataset_info = fetch_dataset_id(lyr_id)
             dataset = await load_dataset(dataset_id)
             trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 

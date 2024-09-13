@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset,ReqRealEstate
+from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
 
@@ -31,8 +31,10 @@ METASTORE_PATH = "Backend/layer_category_country_city_matching"
 STORAGE_DIR = "Backend/storage"
 COLOR_PATH = "Backend/gradient_colors.json"
 USERS_INFO_PATH = "Backend/users_info.json"
-RIYADH_VILLA_ALLROOMS= "Backend/riyadh_villa_allrooms.json" # to be change to real estate id needed
-REAL_ESTATE_CATEGORIES_PATH="Backend/real_estate_categories.json"
+RIYADH_VILLA_ALLROOMS = (
+    "Backend/riyadh_villa_allrooms.json"  # to be change to real estate id needed
+)
+REAL_ESTATE_CATEGORIES_PATH = "Backend/real_estate_categories.json"
 
 CONF = get_conf()
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -48,6 +50,7 @@ class FileLock:
             self.locks[filename] = asyncio.Lock()
         async with self.locks[filename]:
             yield
+
 
 file_lock_manager = FileLock()
 
@@ -169,16 +172,13 @@ def load_dataset_layer_matching() -> Dict:
         )
 
 
-def fetch_dataset_id(
-        lyr_id: str, dataset_layer_matching: Dict = None
-) -> Tuple[str, Dict]:
+def fetch_dataset_id(lyr_id: str) -> Tuple[str, Dict]:
     """
     Searches for the dataset ID associated with a given layer ID. This function
     reads the dataset-layer matching file and iterates through it to find the
     corresponding dataset for a given layer.
     """
-    if dataset_layer_matching is None:
-        dataset_layer_matching = load_dataset_layer_matching()
+    dataset_layer_matching = load_dataset_layer_matching()
 
     for d_id, dataset_info in dataset_layer_matching.items():
         if lyr_id in dataset_info["prdcer_lyrs"]:
@@ -234,7 +234,7 @@ def load_user_profile(user_id: str) -> Dict:
 
 
 def update_dataset_layer_matching(
-        prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
 ):
     try:
         if os.path.exists(DATASET_LAYER_MATCHING_PATH):
@@ -414,7 +414,8 @@ def load_google_categories():
             detail="Error parsing categories file",
         )
 
-async def load_real_estate_categories() ->dict:
+
+async def load_real_estate_categories() -> dict:
     file_path = REAL_ESTATE_CATEGORIES_PATH
     json_data = await use_json(file_path, "r")
     return json_data
@@ -424,11 +425,13 @@ def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
 
 
-async def use_json(file_path: str, mode: str, json_content: dict = None) -> Optional[dict]:
+async def use_json(
+    file_path: str, mode: str, json_content: dict = None
+) -> Optional[dict]:
     async with file_lock_manager.acquire(file_path):
         if mode == "w":
             try:
-                async with aiofiles.open(file_path, mode='w') as file:
+                async with aiofiles.open(file_path, mode="w") as file:
                     await file.write(json.dumps(json_content, indent=2))
             except IOError:
                 raise HTTPException(
@@ -439,7 +442,7 @@ async def use_json(file_path: str, mode: str, json_content: dict = None) -> Opti
         elif mode == "r":
             try:
                 if os.path.exists(file_path):
-                    async with aiofiles.open(file_path, mode='r') as file:
+                    async with aiofiles.open(file_path, mode="r") as file:
                         content = await file.read()
                         return json.loads(content)
                 return None
@@ -485,7 +488,9 @@ async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
     return filename
 
 
-async def get_dataset_from_storage(req: ReqLocation) -> tuple[Optional[Dict], Optional[str]]:
+async def get_dataset_from_storage(
+    req: ReqLocation,
+) -> tuple[Optional[Dict], Optional[str]]:
     """
     Retrieves data from storage based on the location request.
     """
@@ -499,14 +504,18 @@ async def get_dataset_from_storage(req: ReqLocation) -> tuple[Optional[Dict], Op
 
 
 async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
-    country= req.country_name.lower().replace(" ","_")
-    folder_path = f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
+    country = req.country_name.lower().replace(" ", "_")
+    folder_path = (
+        f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
+    )
     files = os.listdir(folder_path)
     files = [file.split(".json")[0] for file in files]
     return files
 
 
-async def get_real_estate_dataset_from_storage(req: ReqRealEstate, filename: str,action:str) -> tuple[dict, str]:
+async def get_real_estate_dataset_from_storage(
+    req: ReqRealEstate, filename: str, action: str
+) -> tuple[dict, str]:
     """
     Retrieves data from storage based on the location request.
     """
@@ -515,15 +524,17 @@ async def get_real_estate_dataset_from_storage(req: ReqRealEstate, filename: str
     # filtered_categories = [item for item in realEstateData if item in req.includedTypes]
     # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
 
-    country= req.country_name.lower().replace(" ","_")
-    folder_path = f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
+    country = req.country_name.lower().replace(" ", "_")
+    folder_path = (
+        f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
+    )
     if action == "full data":
         file_path = f"{folder_path}/{filename}.json"
     else:
         files = os.listdir(folder_path)
-        file_path = f'{folder_path}/{files[0]}'
+        file_path = f"{folder_path}/{files[0]}"
         filename = files[0].split(".json")[0]
-    json_data = await use_json(file_path, "r")    
+    json_data = await use_json(file_path, "r")
     if json_data is not None:
         return json_data, filename
     return None, None
@@ -562,12 +573,11 @@ async def load_dataset(dataset_id: str) -> Dict:
     else:
         dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
         all_datasets = await use_json(dataset_filepath, "r")
-        
 
     return all_datasets
 
 
-async def save_to_json_file(folder_name:str,file_name:str, data:dict)->None:
+async def save_to_json_file(folder_name: str, file_name: str, data: dict) -> None:
     if not os.path.exists(f"Backend/{folder_name}"):
         os.makedirs(f"Backend/{folder_name}")
 
@@ -578,13 +588,9 @@ async def save_to_json_file(folder_name:str,file_name:str, data:dict)->None:
 
 
 async def load_gradient_colors() -> Optional[List[List]]:
-    """
-    """
+    """ """
     json_data = await use_json(COLOR_PATH, "r")
     return json_data
-
-
-
 
 
 # Apply the decorator to all functions in this module
