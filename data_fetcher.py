@@ -191,19 +191,16 @@ async def fetch_real_estate_nearby(
     next_page_token = req_dataset.page_token
     plan_name = ""
     action = req_create_lyr.action
+    bknd_dataset_id = ""
 
     if action == "full data":
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
             await process_req_plan(req_dataset, req_create_lyr)
         )
-        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
-            req_dataset, bknd_dataset_id, action
-        )
 
-    else:
-        dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
-            req_dataset, "", action
-        )
+    dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
+        req_dataset, bknd_dataset_id, action
+    )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
 

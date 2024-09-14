@@ -528,16 +528,14 @@ async def get_real_estate_dataset_from_storage(
     folder_path = (
         f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
     )
+    files = os.listdir(folder_path)
     if action == "full data":
         file_path = f"{folder_path}/{filename}.json"
     else:
-        files = os.listdir(folder_path)
         file_path = f"{folder_path}/{files[0]}"
         filename = files[0].split(".json")[0]
     json_data = await use_json(file_path, "r")
-    if json_data is not None:
-        return json_data, filename
-    return None, None
+    return json_data, filename
 
 
 async def load_dataset(dataset_id: str) -> Dict:
