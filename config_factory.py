@@ -10,6 +10,7 @@ class static_ApiConfig:
     firebase_api_key: str = ""
     firebase_sp_path: str = ""
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
+    firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="      ## Change 
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
     firebase_sendOobCode = f"{firebase_base_url}sendOobCode?key="
     firebase_resetPassword = f"{firebase_base_url}resetPassword?key="
@@ -42,6 +43,7 @@ class static_ApiConfig:
     confirm_reset = backend_base_uri + "confirm-reset"
     change_password = backend_base_uri + "change-password"
     login: str = backend_base_uri + "login"
+    refresh_token = backend_base_uri + "refresh-token"     ## Change
     user_profile: str = backend_base_uri + "user_profile"
     cost_calculator: str = backend_base_uri + "cost_calculator"
     google_fields: str = (
