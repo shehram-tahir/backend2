@@ -73,7 +73,8 @@ async def get_payment_methods(req: ReqGetPaymentMethods) -> Dict[str, Any]:
             "details": {
                 "bank_name": "Example Bank",
                 "last4": "6789"
-            }
+            },
+            "is_default": True
         }
     ]
 
