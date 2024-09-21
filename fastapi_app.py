@@ -25,7 +25,8 @@ from all_types.myapi_dtypes import (
     ReqGradientColorBasedOnZone,
     ReqRefreshToken,
     ReqChangeEmail,
-    ReqAddPaymentMethod
+    ReqAddPaymentMethod,
+    ReqGetPaymentMethods
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -50,7 +51,8 @@ from all_types.response_dtypes import (
     ResAddPaymentMethod,
     ResfetchGradientColors,
     ResGradientColorBasedOnZone,
-    ResUserRefreshToken
+    ResUserRefreshToken,
+    ResGetPaymentMethods
 )
 from auth import (
     create_user_profile,
@@ -63,7 +65,7 @@ from auth import (
     refresh_id_token,
     change_email
 )
-from payment_handler import add_payment_method
+from payment_handler import add_payment_method, get_payment_methods
 from config_factory import get_conf
 from cost_calculator import calculate_cost
 from data_fetcher import (
@@ -491,6 +493,17 @@ async def add_payment_method_endpoint(req: ReqAddPaymentMethod, request: Request
         ReqAddPaymentMethod,
         ResModel[ResAddPaymentMethod],
         add_payment_method,
+        request
+    )
+    return response
+
+@app.post(CONF.get_payment_methods, response_model=ResModel[ResGetPaymentMethods])
+async def get_payment_methods_endpoint(req: ReqGetPaymentMethods, request: Request):
+    response = await http_handling(
+        req,
+        ReqGetPaymentMethods,
+        ResModel[ResGetPaymentMethods],
+        get_payment_methods,
         request
     )
     return response

@@ -165,3 +165,5 @@ class ReqRefreshToken(BaseModel):
     grant_type:str
     refresh_token:str
 
+class ReqGetPaymentMethods(BaseModel):
+    user_id: str

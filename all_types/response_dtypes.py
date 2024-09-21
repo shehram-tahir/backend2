@@ -106,6 +106,14 @@ class ResAddPaymentMethod(BaseModel):
     status: str
 
 
+class PaymentMethod(BaseModel):
+    id: str
+    type: str
+    details: Dict[str, Any]
+
+class ResGetPaymentMethods(BaseModel):
+    payment_methods: List[PaymentMethod]
+
 ResAllCards = ResModel[List[card_metadata]]
 
 ResUserLayers = ResModel[List[LayerInfo]]

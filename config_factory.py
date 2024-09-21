@@ -44,6 +44,7 @@ class static_ApiConfig:
     change_password: str = backend_base_uri + "change-password"
     change_email: str= backend_base_uri + "change_email"
     add_payment_method: str = backend_base_uri + "add_payment_method"
+    get_payment_methods: str = backend_base_uri + "get_payment_methods"
     login: str = backend_base_uri + "login"
     refresh_token: str = backend_base_uri + "refresh-token"
     user_profile: str = backend_base_uri + "user_profile"
