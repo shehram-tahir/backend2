@@ -12,7 +12,10 @@
                 "--host", "localhost",
                 "--port", "7000"
             ],
-            "jinja": true
+            "jinja": true,
+            "env": {
+                "DATABASE_URL": "postgresql://scraper_user:scraper_password@s-locator.northernacs.com:5432/aqar_scraper"
+            }
         }
     ]
 }

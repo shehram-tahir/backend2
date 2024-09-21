@@ -39,11 +39,13 @@ class static_ApiConfig:
     fetch_ctlg_lyrs: str = backend_base_uri + "fetch_ctlg_lyrs"
     apply_zone_layers: str = backend_base_uri + "apply_zone_layers"
     create_user_profile: str = backend_base_uri + "create_user_profile"
-    reset_password = backend_base_uri + "reset-password"
-    confirm_reset = backend_base_uri + "confirm-reset"
-    change_password = backend_base_uri + "change-password"
+    reset_password: str = backend_base_uri + "reset-password"
+    confirm_reset: str = backend_base_uri + "confirm-reset"
+    change_password: str = backend_base_uri + "change-password"
+    change_email: str= backend_base_uri + "change_email"
+    add_payment_method: str = backend_base_uri + "add_payment_method"
     login: str = backend_base_uri + "login"
-    refresh_token = backend_base_uri + "refresh-token"     ## Change
+    refresh_token: str = backend_base_uri + "refresh-token"
     user_profile: str = backend_base_uri + "user_profile"
     cost_calculator: str = backend_base_uri + "cost_calculator"
     google_fields: str = (

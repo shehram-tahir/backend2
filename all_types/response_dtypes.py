@@ -101,7 +101,9 @@ class PrdcerLyrMapData(MapData):
 class ResGradientColorBasedOnZone(PrdcerLyrMapData):
     sub_lyr_id: str  # This is the additional property
 
-
+class ResAddPaymentMethod(BaseModel):
+    payment_method_id: str
+    status: str
 
 
 ResAllCards = ResModel[List[card_metadata]]
@@ -123,7 +125,6 @@ ResUserLogin = ResModel[Dict[str, Any]]
 ResUserProfile = ResModel[Dict[str, Any]]
 ResResetPassword = ResModel[Dict[str, Any]]
 ResConfirmReset = ResModel[Dict[str, Any]]
-ResChangePassword = ResModel[Dict[str, Any]]
 ResfetchGradientColors = ResModel[list[list[str]]]
 
 

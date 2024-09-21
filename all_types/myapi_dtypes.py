@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar, Generic, Optional
+from typing import Dict, List, TypeVar, Generic, Optional, Any
 
 from pydantic import BaseModel, Field
 
@@ -125,6 +125,16 @@ class ReqChangePassword(BaseModel):
     password: str
     new_password: str
 
+class ReqChangeEmail(BaseModel):
+    user_id: str
+    current_email: str
+    new_email: str
+    password: str
+
+class ReqAddPaymentMethod(BaseModel):
+    user_id: str
+    payment_type: str  # e.g., "credit_card", "paypal", "bank_account"
+    payment_details: Dict[str, Any]  # This will contain the specific details for each payment type
 
 class ReqCostEstimate(BaseModel):
     included_categories: List[str]
@@ -154,3 +164,4 @@ class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
 class ReqRefreshToken(BaseModel):
     grant_type:str
     refresh_token:str
+

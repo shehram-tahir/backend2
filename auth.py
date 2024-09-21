@@ -10,7 +10,8 @@ from all_types.myapi_dtypes import (
     ReqResetPassword,
     ReqConfirmReset,
     ReqChangePassword,
-    ReqRefreshToken
+    ReqRefreshToken,
+    ReqChangeEmail
 )
 from storage import load_user_profile, update_user_profile
 from jose import jwt, JWTError
@@ -93,21 +94,7 @@ async def refresh_id_token(req:ReqRefreshToken) -> Dict[str, str]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         ) from e
-    except auth.TokenExpired as t:
-        raise HTTPException(
-            status_code= status.HTTP_401_UNAUTHORIZED,
-            detail="Token Expired"
-        ) from t
-    except auth.UserDisabled as d:
-        raise HTTPException(
-            status_code = status.HTTP_403_FORBIDDEN,
-            detail="User Disabled"
-        ) from d
-    except auth.InvalidRefreshToken as i:
-        raise HTTPException(
-            status_code = status.HTTP_400_BAD_REQUEST,
-            detail="Invalid Refresh Token"
-        )
+
 ########################################################################################
 
 async def my_verify_id_token(token: str = Depends(oauth2_scheme)):
@@ -156,21 +143,11 @@ async def confirm_reset(req: ReqConfirmReset) -> Dict[str, str]:
 
 async def change_password(req: ReqChangePassword) -> Dict[str, str]:
     response = await login_user(req)
-    # First, get a new ID token for the user
     if response["localId"] != req.user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User id did not match firebase user ID acquired from user name and password",
         ) 
-
-    # custom_token = auth.create_custom_token(response["localId"])
-
-    # # Exchange custom token for ID token
-    # payload = {"token": custom_token.decode(), "returnSecureToken": True}
-    # response = await make_firebase_api_request(
-    #     CONF.firebase_signInWithCustomToken, payload
-    # )
-    # id_token = response.json()["idToken"]
 
     # Now change the password
     payload = {
@@ -181,6 +158,21 @@ async def change_password(req: ReqChangePassword) -> Dict[str, str]:
     response = await make_firebase_api_request(CONF.firebase_update, payload)
     return response
 
+async def change_email(req: ReqChangeEmail) -> Dict[str, str]:
+    response = await login_user(req)
+    if response["localId"] != req.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User id did not match firebase user ID acquired from user name and password",
+        ) 
+
+    payload = {
+        "idToken": response["idToken"],
+        "email": req.new_email,
+        "returnSecureToken": True,
+    }
+    response = await make_firebase_api_request(CONF.firebase_update, payload)
+    return response
 
 
 async def make_firebase_api_request(url, payload):

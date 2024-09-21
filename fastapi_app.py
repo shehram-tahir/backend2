@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List
+from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List, Dict
 
 from fastapi import HTTPException, status, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,9 +22,10 @@ from all_types.myapi_dtypes import (
     ReqCostEstimate,
     ReqUserId,
     ReqSavePrdcerCtlg,
-    # ReqApplyZoneLayers,
     ReqGradientColorBasedOnZone,
-    ReqRefreshToken
+    ReqRefreshToken,
+    ReqChangeEmail,
+    ReqAddPaymentMethod
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -45,8 +46,8 @@ from all_types.response_dtypes import (
     ResUserProfile,
     ResResetPassword,
     ResConfirmReset,
-    ResChangePassword,
     ResCostEstimate,
+    ResAddPaymentMethod,
     ResfetchGradientColors,
     ResGradientColorBasedOnZone,
     ResUserRefreshToken
@@ -59,8 +60,10 @@ from auth import (
     reset_password,
     confirm_reset,
     change_password,
-    refresh_id_token
+    refresh_id_token,
+    change_email
 )
+from payment_handler import add_payment_method
 from config_factory import get_conf
 from cost_calculator import calculate_cost
 from data_fetcher import (
@@ -430,13 +433,20 @@ async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
     return response
 
 
-@app.post(CONF.change_password, response_model=ResChangePassword)
+@app.post(CONF.change_password, response_model=ResModel[Dict[str, Any]])
 async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
     response = await http_handling(
-        req, ReqChangePassword, ResChangePassword, change_password
+        req, ReqChangePassword, ResModel[Dict[str, Any]], change_password, request
     )
     return response
 
+
+@app.post(CONF.change_email, response_model=ResModel[Dict[str, Any]])
+async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request):
+    response = await http_handling(
+        req, ReqChangeEmail, ResModel[Dict[str, Any]], change_email, request
+    )
+    return response
 
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
 async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
@@ -474,12 +484,13 @@ async def gradient_color_based_on_zone_endpoint(
     return response
 
 
-
-# @app.post("/refresh-token")
-# async def refresh_token(token: dict = Depends(verify_token)):
-#     try:
-#         # Create a new custom token
-#         new_token = auth.create_custom_token(token['uid'])
-#         return {"access_token": new_token, "token_type": "bearer"}
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail="Token refresh failed")
+@app.post(CONF.add_payment_method, response_model=ResModel[ResAddPaymentMethod])
+async def add_payment_method_endpoint(req: ReqAddPaymentMethod, request: Request):
+    response = await http_handling(
+        req,
+        ReqAddPaymentMethod,
+        ResModel[ResAddPaymentMethod],
+        add_payment_method,
+        request
+    )
+    return response
