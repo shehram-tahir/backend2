@@ -108,4 +108,3 @@ class Database:
             return True
         except Exception:
             return False
-   

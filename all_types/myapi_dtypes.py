@@ -12,6 +12,7 @@ class ReqModel(BaseModel, Generic[U]):
     request_info: Dict
     request_body: U
 
+
 class boxmapProperties(BaseModel):
     name: str
     rating: float
@@ -125,16 +126,21 @@ class ReqChangePassword(BaseModel):
     password: str
     new_password: str
 
+
 class ReqChangeEmail(BaseModel):
     user_id: str
     current_email: str
     new_email: str
     password: str
 
+
 class ReqAddPaymentMethod(BaseModel):
     user_id: str
     payment_type: str  # e.g., "credit_card", "paypal", "bank_account"
-    payment_details: Dict[str, Any]  # This will contain the specific details for each payment type
+    payment_details: Dict[
+        str, Any
+    ]  # This will contain the specific details for each payment type
+
 
 class ReqCostEstimate(BaseModel):
     included_categories: List[str]
@@ -142,8 +148,9 @@ class ReqCostEstimate(BaseModel):
     city_name: str
     country: str
 
+
 class ReqRealEstate(BaseModel):
-    country_name:str
+    country_name: str
     city_name: str
     excludedTypes: list[str]
     includedTypes: list[str]
@@ -151,19 +158,24 @@ class ReqRealEstate(BaseModel):
     text_search: Optional[str] = ""
 
 
-
 class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
-    color_grid_choice:list[str]
-    change_lyr_id:str
-    based_on_lyr_id:str
+    color_grid_choice: list[str]
+    change_lyr_id: str
+    based_on_lyr_id: str
     radius_offset: float
     color_based_on: str
 
 
 ## Added it for Refresh token
 class ReqRefreshToken(BaseModel):
-    grant_type:str
-    refresh_token:str
+    grant_type: str
+    refresh_token: str
+
 
 class ReqGetPaymentMethods(BaseModel):
     user_id: str
+
+
+class ReqStreeViewCheck(BaseModel):
+    lat: float
+    lng: float

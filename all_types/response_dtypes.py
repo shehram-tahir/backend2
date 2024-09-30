@@ -59,8 +59,6 @@ class MapData(BaseModel):
     features: List[Feature]
 
 
-
-
 class CityData(BaseModel):
     name: str
     lat: float
@@ -87,6 +85,7 @@ class UserCatalogInfo(BaseModel):
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     ctlg_owner_user_id: str
 
+
 class PrdcerLyrMapData(MapData):
     prdcer_layer_name: str
     prdcer_lyr_id: str
@@ -101,6 +100,7 @@ class PrdcerLyrMapData(MapData):
 class ResGradientColorBasedOnZone(PrdcerLyrMapData):
     sub_lyr_id: str  # This is the additional property
 
+
 class ResAddPaymentMethod(BaseModel):
     payment_method_id: str
     status: str
@@ -111,8 +111,10 @@ class PaymentMethod(BaseModel):
     type: str
     details: Dict[str, Any]
 
+
 class ResGetPaymentMethods(BaseModel):
     payment_methods: List[PaymentMethod]
+
 
 ResAllCards = ResModel[List[card_metadata]]
 
@@ -126,7 +128,7 @@ ResTypeMapData = ResModel[MapData]
 
 ResCountryCityData = ResModel[Dict[str, List[CityData]]]
 ResNearbyCategories = ResModel[Dict[str, List[str]]]
-ResPrdcerLyrMapData = ResModel[PrdcerLyrMapData] 
+ResPrdcerLyrMapData = ResModel[PrdcerLyrMapData]
 ResOldNearbyCategories = ResModel[List[str]]
 ResUserCatalogs = ResModel[List[UserCatalogInfo]]
 ResUserLogin = ResModel[Dict[str, Any]]
@@ -137,4 +139,4 @@ ResfetchGradientColors = ResModel[list[list[str]]]
 
 
 ## Added for Refresh token
-ResUserRefreshToken = ResModel[Dict[str,Any]] ## Change 
+ResUserRefreshToken = ResModel[Dict[str, Any]]  ## Change

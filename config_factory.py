@@ -10,7 +10,7 @@ class static_ApiConfig:
     firebase_api_key: str = ""
     firebase_sp_path: str = ""
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
-    firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="      ## Change 
+    firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="  ## Change
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
     firebase_sendOobCode = f"{firebase_base_url}sendOobCode?key="
     firebase_resetPassword = f"{firebase_base_url}resetPassword?key="
@@ -49,13 +49,27 @@ class static_ApiConfig:
     refresh_token: str = backend_base_uri + "refresh-token"
     user_profile: str = backend_base_uri + "user_profile"
     cost_calculator: str = backend_base_uri + "cost_calculator"
+    check_street_view: str = backend_base_uri + "check_street_view"
     google_fields: str = (
         "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
     )
     save_draft_catalog: str = backend_base_uri + "save_draft_catalog"
     fetch_gradient_colors :str = backend_base_uri + "fetch_gradient_colors"
     gradient_color_based_on_zone :str = backend_base_uri + "gradient_color_based_on_zone"
-    
+
+    # Stripe Product URLs
+    create_stripe_product: str = backend_base_uri + "create_stripe_product"
+    update_stripe_product: str = backend_base_uri + "update_stripe_product"
+    delete_stripe_product: str = backend_base_uri + "delete_stripe_product"
+    list_stripe_products: str = backend_base_uri + "list_stripe_products"
+    # Stripe subscription URLs
+    create_stripe_subscription: str = backend_base_uri + "create_stripe_subscription"
+    update_stripe_subscription: str = backend_base_uri + "update_stripe_subscription"
+    deactivate_stripe_subscription: str = (
+        backend_base_uri + "deactivate_stripe_subscription"
+    )
+    fetch_stripe_subscription: str = backend_base_uri + "fetch_stripe_subscription"
+
 
 
 @dataclass

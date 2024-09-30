@@ -1,10 +1,12 @@
+import aiohttp
 import logging
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
+from fastapi import HTTPException
 import requests
 
-from all_types.myapi_dtypes import ReqLocation
+from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
 
@@ -17,10 +19,7 @@ logger = logging.getLogger(__name__)
 CONF = get_conf()
 
 
-
-
 async def fetch_from_google_maps_api(req: ReqLocation):
-
 
     headers = {
         "Content-Type": "application/json",
@@ -32,11 +31,8 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         "excludedTypes": [req.excludedTypes],
         "locationRestriction": {
             "circle": {
-                "center": {
-                    "latitude": req.lat,
-                    "longitude": req.lng
-                },
-                "radius": req.radius
+                "center": {"latitude": req.lat, "longitude": req.lng},
+                "radius": req.radius,
             }
         },
     }
@@ -46,11 +42,24 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         response_data = response.json()
         results = response_data.get("places", [])
 
-        return results, ''
+        return results, ""
     else:
         print("Error:", response.status_code)
         return [], None
 
+
+async def check_street_view_availability(req: ReqStreeViewCheck) -> Dict[str, bool]:
+    url = f"https://maps.googleapis.com/maps/api/streetview?return_error_code=true&size=600x300&location={req.lat},{req.lng}&heading=151.78&pitch=-0.76&key={CONF.api_key}"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                return {"has_street_view": True}
+            else:
+                raise HTTPException(
+                    status_code=response.status,
+                    detail="Error checking Street View availability",
+                )
 
 
 # Apply the decorator to all functions in this module

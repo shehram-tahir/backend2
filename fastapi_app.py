@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List, Dict
 
-from fastapi import HTTPException, status, FastAPI, Request
+from fastapi import Body, HTTPException, status, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -26,7 +26,8 @@ from all_types.myapi_dtypes import (
     ReqRefreshToken,
     ReqChangeEmail,
     ReqAddPaymentMethod,
-    ReqGetPaymentMethods
+    ReqGetPaymentMethods,
+    ReqStreeViewCheck,
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -52,7 +53,7 @@ from all_types.response_dtypes import (
     ResfetchGradientColors,
     ResGradientColorBasedOnZone,
     ResUserRefreshToken,
-    ResGetPaymentMethods
+    ResGetPaymentMethods,
 )
 from auth import (
     create_user_profile,
@@ -63,8 +64,9 @@ from auth import (
     confirm_reset,
     change_password,
     refresh_id_token,
-    change_email
+    change_email,
 )
+from google_api_connector import check_street_view_availability
 from payment_handler import add_payment_method, get_payment_methods
 from config_factory import get_conf
 from cost_calculator import calculate_cost
@@ -83,7 +85,7 @@ from data_fetcher import (
     fetch_nearby_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    gradient_color_based_on_zone
+    gradient_color_based_on_zone,
 )
 from database import Database
 from logging_wrapper import log_and_validate
@@ -385,12 +387,15 @@ async def login(req: ReqModel[ReqUserLogin]):
         }
     return response
 
-##################################################################################################################### 
-@app.post(CONF.refresh_token,response_model=ResUserRefreshToken)
-async def refresh_token(req:ReqModel[ReqRefreshToken]):
+
+#####################################################################################################################
+@app.post(CONF.refresh_token, response_model=ResUserRefreshToken)
+async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
         if CONF.firebase_api_key != "":
-            response = await http_handling(req,ReqRefreshToken,ResUserRefreshToken,refresh_id_token)
+            response = await http_handling(
+                req, ReqRefreshToken, ResUserRefreshToken, refresh_id_token
+            )
         else:
             response = {
                 "message": "Request received",
@@ -410,6 +415,8 @@ async def refresh_token(req:ReqModel[ReqRefreshToken]):
         return response
     except Exception as e:
         raise HTTPException(status_code=400, detail="Token refresh failed")
+
+
 #########################################################################################################################
 
 
@@ -450,6 +457,7 @@ async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request)
     )
     return response
 
+
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
 async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
     response = await http_handling(
@@ -467,43 +475,65 @@ async def save_draft_catalog_endpoint(
     )
     return response
 
+
 @app.get(CONF.fetch_gradient_colors, response_model=ResfetchGradientColors)
 async def fetch_gradient_colors_endpoint():
     response = await http_handling(
-        None,None,ResfetchGradientColors, fetch_gradient_colors)
+        None, None, ResfetchGradientColors, fetch_gradient_colors
+    )
     return response
 
 
-@app.post(CONF.gradient_color_based_on_zone, response_model=ResModel[List[ResGradientColorBasedOnZone]])
+@app.post(
+    CONF.gradient_color_based_on_zone,
+    response_model=ResModel[List[ResGradientColorBasedOnZone]],
+)
 async def gradient_color_based_on_zone_endpoint(
-    req: ReqModel[ReqGradientColorBasedOnZone],
-    request: Request):
+    req: ReqModel[ReqGradientColorBasedOnZone], request: Request
+):
     response = await http_handling(
         req,
         ReqGradientColorBasedOnZone,
         ResModel[List[ResGradientColorBasedOnZone]],
-        gradient_color_based_on_zone)
+        gradient_color_based_on_zone,
+    )
     return response
 
 
 @app.post(CONF.add_payment_method, response_model=ResModel[ResAddPaymentMethod])
-async def add_payment_method_endpoint(req: ReqAddPaymentMethod, request: Request):
+async def add_payment_method_endpoint(
+    req: ReqModel[ReqAddPaymentMethod], request: Request
+):
     response = await http_handling(
         req,
         ReqAddPaymentMethod,
         ResModel[ResAddPaymentMethod],
         add_payment_method,
-        request
+        request,
     )
     return response
 
+
 @app.post(CONF.get_payment_methods, response_model=ResModel[ResGetPaymentMethods])
-async def get_payment_methods_endpoint(req: ReqGetPaymentMethods, request: Request):
+async def get_payment_methods_endpoint(
+    req: ReqModel[ReqGetPaymentMethods], request: Request
+):
     response = await http_handling(
         req,
         ReqGetPaymentMethods,
         ResModel[ResGetPaymentMethods],
         get_payment_methods,
-        request
+        request,
+    )
+    return response
+
+
+@app.post(CONF.check_street_view, response_model=ResModel[Dict[str, bool]])
+async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
+    response = await http_handling(
+        req,
+        ReqStreeViewCheck,
+        ResModel[Dict[str, Any]],
+        check_street_view_availability,
     )
     return response
