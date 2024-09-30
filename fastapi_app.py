@@ -387,10 +387,8 @@ async def login(req: ReqModel[ReqUserLogin]):
         }
     return response
 
-
-#####################################################################################################################
-@app.post(CONF.refresh_token, response_model=ResUserRefreshToken)
-async def refresh_token(req: ReqModel[ReqRefreshToken]):
+@app.post(CONF.refresh_token,response_model=ResUserRefreshToken)
+async def refresh_token(req:ReqModel[ReqRefreshToken]):
     try:
         if CONF.firebase_api_key != "":
             response = await http_handling(
@@ -416,8 +414,6 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
     except Exception as e:
         raise HTTPException(status_code=400, detail="Token refresh failed")
 
-
-#########################################################################################################################
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
