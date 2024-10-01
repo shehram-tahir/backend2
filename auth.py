@@ -11,7 +11,7 @@ from all_types.myapi_dtypes import (
     ReqConfirmReset,
     ReqChangePassword,
     ReqRefreshToken,
-    ReqChangeEmail
+    ReqChangeEmail,
 )
 from storage import load_user_profile, update_user_profile
 from jose import jwt, JWTError
@@ -32,9 +32,6 @@ if os.path.exists(CONF.firebase_sp_path):
     default_app = firebase_admin.initialize_app(cred)
 
 
-
-
-
 async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
     try:
         # Create user in Firebase
@@ -46,7 +43,12 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
             "user_id": user.uid,
             "username": req.username,
             "email": req.email,
-            "prdcer": {"prdcer_dataset": {}, "prdcer_lyrs": {}, "prdcer_ctlgs": {},"draft_ctlgs":{}},
+            "prdcer": {
+                "prdcer_dataset": {},
+                "prdcer_lyrs": {},
+                "prdcer_ctlgs": {},
+                "draft_ctlgs": {},
+            },
         }
 
         # Save additional user data to your database
@@ -59,21 +61,19 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
             "password": req.password,
             "returnSecureToken": True,
         }
-        response = await make_firebase_api_request(CONF.firebase_signInWithPassword, payload)
+        response = await make_firebase_api_request(
+            CONF.firebase_signInWithPassword, payload
+        )
 
         ## Send Verifiy Email
-        payload = {
-            "requestType" : "VERIFY_EMAIL",
-            "idToken": response['idToken']
-        }
-        _ = await make_firebase_api_request(CONF.firebase_sendOobCode,payload=payload)
+        payload = {"requestType": "VERIFY_EMAIL", "idToken": response["idToken"]}
+        _ = await make_firebase_api_request(CONF.firebase_sendOobCode, payload=payload)
         return {"user_id": user.uid, "message": "User profile created successfully"}
     except auth.EmailAlreadyExistsError as emialerrror:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already taken",
         ) from emialerrror
-
 
 
 async def login_user(req: ReqUserLogin) -> Dict[str, str]:
@@ -83,16 +83,17 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
             "password": req.password,
             "returnSecureToken": True,
         }
-        response = await make_firebase_api_request(CONF.firebase_signInWithPassword, payload)
+        response = await make_firebase_api_request(
+            CONF.firebase_signInWithPassword, payload
+        )
         response["created_at"] = datetime.now()
-        if response.get('localId','') != '':
-            user = auth.get_user(response['localId'])
+        if response.get("localId", "") != "":
+            user = auth.get_user(response["localId"])
             if user.email_verified:
                 return response
             else:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Unverified Email"
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified Email"
                 )
         raise auth.UserNotFoundError(message="")
     except auth.UserNotFoundError as e:
@@ -101,13 +102,11 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
             detail="Incorrect username or password",
         ) from e
 
-async def refresh_id_token(req:ReqRefreshToken) -> Dict[str, str]:
+
+async def refresh_id_token(req: ReqRefreshToken) -> Dict[str, str]:
     try:
-        payload = {
-            "grant_type" :req.grant_type,
-            "refresh_token" : req.refresh_token
-        }
-        response = await make_firebase_api_request(CONF.firebase_refresh_token,payload)
+        payload = {"grant_type": req.grant_type, "refresh_token": req.refresh_token}
+        response = await make_firebase_api_request(CONF.firebase_refresh_token, payload)
         response["created_at"] = datetime.now()
         return response
     except auth.UserNotFoundError as e:
@@ -115,6 +114,7 @@ async def refresh_id_token(req:ReqRefreshToken) -> Dict[str, str]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         ) from e
+
 
 async def my_verify_id_token(token: str = Depends(oauth2_scheme)):
     try:
@@ -133,8 +133,6 @@ async def my_verify_id_token(token: str = Depends(oauth2_scheme)):
         ) from e
 
 
-
-
 async def get_user_account(req: ReqUserProfile) -> Dict[str, Any]:
     user_data = load_user_profile(req.user_id)
     if not user_data:
@@ -145,12 +143,10 @@ async def get_user_account(req: ReqUserProfile) -> Dict[str, Any]:
     return user_data
 
 
-
 async def reset_password(req: ReqResetPassword) -> Dict[str, str]:
     payload = {"requestType": "PASSWORD_RESET", "email": req.email}
     response = await make_firebase_api_request(CONF.firebase_sendOobCode, payload)
     return response
-
 
 
 async def confirm_reset(req: ReqConfirmReset) -> Dict[str, str]:
@@ -159,15 +155,14 @@ async def confirm_reset(req: ReqConfirmReset) -> Dict[str, str]:
     return response
 
 
-
 async def change_password(req: ReqChangePassword) -> Dict[str, str]:
-    login_req = ReqUserLogin(email=req.email,password=req.password)
+    login_req = ReqUserLogin(email=req.email, password=req.password)
     response = await login_user(login_req)
-    if response.get("localId","") != req.user_id:
+    if response.get("localId", "") != req.user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User id did not match firebase user ID acquired from user name and password",
-        ) 
+        )
 
     # Now change the password
     payload = {
@@ -179,31 +174,29 @@ async def change_password(req: ReqChangePassword) -> Dict[str, str]:
 
     return response
 
+
 async def change_email(req: ReqChangeEmail) -> Dict[str, str]:
-    login_req = ReqUserLogin(email=req.current_email,password=req.password)
+    login_req = ReqUserLogin(email=req.current_email, password=req.password)
     response = await login_user(login_req)
-    if response.get("localId","") != req.user_id:
+    if response.get("localId", "") != req.user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User id did not match firebase user ID acquired from user name and password",
-        ) 
+        )
 
+    ## Send vertification to the new email
     payload = {
-        "idToken": response['idToken'],
-        "email": req.new_email,
-        "returnSecureToken": True,
+        "requestType": "VERIFY_AND_CHANGE_EMAIL",
+        "idToken": response["idToken"],
+        "newEmail": req.new_email,
     }
+    _ = await make_firebase_api_request(CONF.firebase_sendOobCode, payload=payload)
 
-    _ = await make_firebase_api_request(CONF.firebase_update, payload)
-
-    ## Send vertification email
-    payload = {
-            "requestType" : "VERIFY_EMAIL",
-            "idToken": response['idToken']
-        }
-    _ = await make_firebase_api_request(CONF.firebase_sendOobCode,payload=payload)
+    login_req = ReqUserLogin(email=req.new_email, password=req.password)
+    response = await login_user(login_req)
 
     return response
+
 
 async def make_firebase_api_request(url, payload):
     try:
@@ -215,5 +208,3 @@ async def make_firebase_api_request(url, payload):
             status_code=e.response.status_code,
             detail=e.response.json().get("error", {}).get("message"),
         ) from e
-
-        
