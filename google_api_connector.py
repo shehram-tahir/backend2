@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 CONF = get_conf()
 
 
+
+
 async def fetch_from_google_maps_api(req: ReqLocation):
+
 
     headers = {
         "Content-Type": "application/json",
@@ -31,8 +34,11 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         "excludedTypes": [req.excludedTypes],
         "locationRestriction": {
             "circle": {
-                "center": {"latitude": req.lat, "longitude": req.lng},
-                "radius": req.radius,
+                "center": {
+                    "latitude": req.lat,
+                    "longitude": req.lng
+                },
+                "radius": req.radius
             }
         },
     }

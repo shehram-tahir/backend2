@@ -137,10 +137,7 @@ class ReqChangeEmail(BaseModel):
 class ReqAddPaymentMethod(BaseModel):
     user_id: str
     payment_type: str  # e.g., "credit_card", "paypal", "bank_account"
-    payment_details: Dict[
-        str, Any
-    ]  # This will contain the specific details for each payment type
-
+    payment_details: Dict[str, Any]  # This will contain the specific details for each payment type
 
 class ReqCostEstimate(BaseModel):
     included_categories: List[str]

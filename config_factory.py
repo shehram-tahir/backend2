@@ -62,7 +62,22 @@ class static_ApiConfig:
     update_stripe_product: str = backend_base_uri + "update_stripe_product"
     delete_stripe_product: str = backend_base_uri + "delete_stripe_product"
     list_stripe_products: str = backend_base_uri + "list_stripe_products"
-    # Stripe subscription URLs
+
+
+    # Stripe wallet URLs
+    charge_wallet: str = backend_base_uri + "charge_wallet"
+    fetch_wallet: str = backend_base_uri + "fetch_wallet"
+    deduct_wallet: str = backend_base_uri + "deduct_wallet"
+
+    # Stripe customers
+    create_stripe_customer: str = backend_base_uri + "create_stripe_customer"
+    update_stripe_customer: str = backend_base_uri + "update_stripe_customer"
+    fetch_stripe_customer: str = backend_base_uri + "fetch_stripe_customer"
+    delete_stripe_customer: str = backend_base_uri + "delete_stripe_customer"
+    list_stripe_customers: str = backend_base_uri + "list_stripe_customers"
+
+    # Stripe Subscription
+
     create_stripe_subscription: str = backend_base_uri + "create_stripe_subscription"
     update_stripe_subscription: str = backend_base_uri + "update_stripe_subscription"
     deactivate_stripe_subscription: str = (
@@ -70,6 +85,14 @@ class static_ApiConfig:
     )
     fetch_stripe_subscription: str = backend_base_uri + "fetch_stripe_subscription"
 
+
+    # Stripe Payment Methods
+    create_stripe_payment_method: str = backend_base_uri + "create_stripe_payment_method"
+    update_stripe_payment_method: str = backend_base_uri + "update_stripe_payment_method"
+    detach_stripe_payment_method: str = backend_base_uri + "detach_stripe_payment_method"
+    set_default_stripe_payment_method: str = backend_base_uri + "set_default_stripe_payment_method"
+    list_stripe_payment_methods: str = backend_base_uri + "list_stripe_payment_methods"
+    testing_create_card_payment_source: str = backend_base_uri + "testing_create_card_payment_source"
 
 
 @dataclass

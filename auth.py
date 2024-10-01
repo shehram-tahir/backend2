@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from all_types.myapi_dtypes import (
@@ -14,15 +13,12 @@ from all_types.myapi_dtypes import (
     ReqChangeEmail,
 )
 from storage import load_user_profile, update_user_profile
-from jose import jwt, JWTError
 import requests
 import os
 from firebase_admin import auth
 import firebase_admin
 from firebase_admin import credentials
 from config_factory import get_conf
-import time
-
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -191,7 +187,6 @@ async def change_email(req: ReqChangeEmail) -> Dict[str, str]:
         "newEmail": req.new_email,
     }
     _ = await make_firebase_api_request(CONF.firebase_sendOobCode, payload=payload)
-
 
     return response
 
