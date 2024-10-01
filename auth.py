@@ -192,8 +192,6 @@ async def change_email(req: ReqChangeEmail) -> Dict[str, str]:
     }
     _ = await make_firebase_api_request(CONF.firebase_sendOobCode, payload=payload)
 
-    login_req = ReqUserLogin(email=req.new_email, password=req.password)
-    response = await login_user(login_req)
 
     return response
 
