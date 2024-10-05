@@ -105,6 +105,13 @@ async def refresh_id_token(req: ReqRefreshToken) -> Dict[str, str]:
         payload = {"grant_type": req.grant_type, "refresh_token": req.refresh_token}
         response = await make_firebase_api_request(CONF.firebase_refresh_token, payload)
         response["created_at"] = datetime.now()
+        response["idToken"]= response["id_token"]
+        response["refreshToken"]= response["refresh_token"]
+        response["expiresIn"] = response["expires_in"]
+        response["localId"] = response["user_id"]
+        # drop certain keys from reponse like id_token, refresh_token, expires_in, user_id
+        keys_to_drop = ["id_token", "refresh_token", "expires_in", "user_id"]
+        response = {key: value for key, value in response.items() if key not in keys_to_drop}
         return response
     except auth.UserNotFoundError as e:
         raise HTTPException(
