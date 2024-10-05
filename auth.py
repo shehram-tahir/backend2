@@ -89,7 +89,8 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
                 return response
             else:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified Email"
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Unverified Email"
                 )
         raise auth.UserNotFoundError(message="")
     except auth.UserNotFoundError as e:
