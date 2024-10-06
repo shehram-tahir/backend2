@@ -209,3 +209,22 @@ async def make_firebase_api_request(url, payload):
             status_code=e.response.status_code,
             detail=e.response.json().get("error", {}).get("message"),
         ) from e
+
+
+
+async def get_user_email_and_username(user_id: str):
+    try:
+        user = auth.get_user(user_id)
+        email = user.email
+        username = user.display_name
+        return email, username
+    except auth.UserNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with ID {user_id} not found"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred: {str(e)}"
+        )

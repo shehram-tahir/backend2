@@ -7,45 +7,40 @@ from all_types.stripe_dtypes import (
 import stripe
 from database import Database
 import json
+from auth import get_user_email_and_username
 
 # customer functions
-async def create_customer(customer_req: CustomerReq) -> CustomerRes:
+async def create_customer(req: CustomerReq) -> CustomerRes:
+    # using user_id get from firebase user_email, user_name
+    email, username = get_user_email_and_username(req.user_id)
+
     # Create a new customer in Stripe
     customer = stripe.Customer.create(
-        name=customer_req.name,
-        email=customer_req.email,
-        description=customer_req.description,
-        phone=customer_req.phone,
-        address=customer_req.address.dict(),
-        metadata=customer_req.metadata,
+        name=username,
+        email=email,
+        description=req.description,
+        phone=req.phone,
+        address=req.address.model_dump(),
+        metadata=req.metadata,
     )
-
+    
     # Save the customer in the database
-    query = "INSERT INTO stripe_customers (user_id, customer_id, name, email, description, phone, address, metadata, created, invoice_prefix) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *"
+    query = "INSERT INTO stripe_customers (user_id, customer_id) VALUES ($1, $2) RETURNING *"
     customer_json = dict(customer)
-    customer_json["metadata"] = dict(customer.metadata)
-    customer_json["address"] = dict(customer.address)
+
 
     customer = await Database.execute(
         query,
-        customer_req.user_id,
-        customer.id,
-        customer.name,
-        customer.email,
-        customer.description,
-        customer.phone,
-        json.dumps(customer_json["address"]),
-        json.dumps(customer_json["metadata"]),
-        datetime.now(),
-        "s_locator_",
+        req.user_id,
+        customer.id
     )
 
-    customer_json["user_id"] = customer_req.user_id
+    customer_json["user_id"] = req.user_id
 
     return CustomerRes(**customer_json)
 
 
-async def fetch_customer(user_id: str) -> CustomerRes:
+async def fetch_customer(user_id) -> CustomerRes:
     sql = "SELECT * FROM stripe_customers WHERE user_id = $1"
     customer = await Database.fetchrow(sql, user_id)
     if not customer:
@@ -61,34 +56,35 @@ async def fetch_customer(user_id: str) -> CustomerRes:
     return CustomerRes(**customer_dict)
 
 
-async def update_customer(customer_req: CustomerReq) -> CustomerRes:
+async def update_customer(req: CustomerReq) -> CustomerRes:
     stripe_customer = stripe.Customer.modify(
-        customer_req.user_id,
-        name=customer_req.name,
-        email=customer_req.email,
-        description=customer_req.description,
-        phone=customer_req.phone,
-        address=customer_req.address.dict(),
-        metadata=customer_req.metadata.dict(),
+        req.user_id,
+        name=req.name,
+        email=req.email,
+        description=req.description,
+        phone=req.phone,
+        address=req.address.model_dump(),
+        metadata=req.metadata,
     )
 
     query = "UPDATE stripe_customers SET name = $1, email = $2, description = $3, phone = $4, address = $5, metadata = $6 WHERE user_id = $7 RETURNING *"
 
     customer = await Database.execute(
         query,
-        customer_req.name,
-        customer_req.email,
-        customer_req.description,
-        customer_req.phone,
-        customer_req.address.dict(),
-        customer_req.metadata.dict(),
-        customer_req.user_id,
+        req.name,
+        req.email,
+        req.description,
+        req.phone,
+        req.address.dict(),
+        req.metadata.dict(),
+        req.user_id,
     )
 
     return CustomerRes(**customer)
 
 
-async def delete_customer(user_id: str) -> dict:
+async def delete_customer(req) -> dict:
+    user_id = req.user_id
     # get the customer from the database
     # delete the customer from stripe
     # delete the customer from the database

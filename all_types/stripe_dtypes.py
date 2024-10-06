@@ -80,8 +80,6 @@ class ProductReq(BaseModel):
 
 
 # Customer
-
-
 class CustomerReq(BaseModel):
     class Address(BaseModel):
         city: Optional[str] = None
@@ -99,12 +97,11 @@ class CustomerReq(BaseModel):
     delinquent: Optional[bool] = None
     description: Optional[str] = None
     discount: Optional[Any] = None
-    email: Optional[str] = None
+
     invoice_prefix: Optional[str] = None
     invoice_settings: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
-    name: Optional[str] = None
-    phone: Optional[str] = None
+
 
 
 class CustomerRes(BaseModel):
@@ -177,4 +174,5 @@ class PaymentMethodRes(BaseModel):
 
 class PaymentMethodUpdateReq(BaseModel):
     billing_details: Optional[Dict[str, str]]
+
 
