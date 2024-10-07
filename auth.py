@@ -48,7 +48,7 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
         }
 
         # Save additional user data to your database
-        update_user_profile(user.uid, user_data)
+        await update_user_profile(user.uid, user_data)
 
         # Send user verify email
 
@@ -138,7 +138,7 @@ async def my_verify_id_token(token: str = Depends(oauth2_scheme)):
 
 
 async def get_user_account(req: ReqUserProfile) -> Dict[str, Any]:
-    user_data = load_user_profile(req.user_id)
+    user_data = await load_user_profile(req.user_id)
     if not user_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"

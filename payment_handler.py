@@ -9,7 +9,7 @@ from all_types.response_dtypes import ResGetPaymentMethods, PaymentMethod
 import random
 
 async def add_payment_method(req: ReqAddPaymentMethod) -> Dict[str, Any]:
-    # user_data = load_user_profile(req.user_id)
+    # user_data = await load_user_profile(req.user_id)
     # if not user_data:
     #     raise HTTPException(
     #         status_code=status.HTTP_404_NOT_FOUND,
@@ -32,14 +32,14 @@ async def add_payment_method(req: ReqAddPaymentMethod) -> Dict[str, Any]:
     # user_data["payment_methods"].append(new_payment_method)
 
     # # Update the user profile in the database
-    # update_user_profile(req.user_id, user_data)
+    # await update_user_profile(req.user_id, user_data)
 
     return {"message":"thank you"}
 
 
 
 async def get_payment_methods(req: ReqGetPaymentMethods) -> Dict[str, Any]:
-    # user_data = load_user_profile(req.user_id)
+    # user_data = await load_user_profile(req.user_id)
     # if not user_data:
     #     raise HTTPException(
     #         status_code=status.HTTP_404_NOT_FOUND,
