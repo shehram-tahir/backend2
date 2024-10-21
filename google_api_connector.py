@@ -7,7 +7,7 @@ from fastapi import HTTPException
 import requests
 
 from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
-from backend_common.config_factory import get_conf
+from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 
 logging.basicConfig(
@@ -16,7 +16,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-CONF = get_conf()
+
 
 
 

@@ -9,9 +9,12 @@ import aiofiles
 from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
+from backend_common.database import Database
 
+from backend_common.dtypes.auth_dtypes import ReqUserProfile
+from sql_object import SqlObject
 from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
-from backend_common.config_factory import get_conf
+from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 
 logging.basicConfig(
@@ -36,7 +39,7 @@ RIYADH_VILLA_ALLROOMS = (
 )
 REAL_ESTATE_CATEGORIES_PATH = "Backend/real_estate_categories.json"
 
-CONF = get_conf()
+
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
 
@@ -213,23 +216,72 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
         )
 
 
+async def create_user_profile(user_id: str, email: str = "", username: str = ""):
+    user_data = {
+        "user_id": user_id,
+        "email": email,
+        "username": username,
+        "prdcer": {
+            "prdcer_dataset": {},
+            "prdcer_lyrs": {},
+            "prdcer_ctlgs": {},
+            "draft_ctlgs": {},
+        },
+    }
+    await update_user_profile(user_id, user_data)
+
+    return user_data
+
+
 async def load_user_profile(user_id: str) -> Dict:
     """
-    Loads user data from a file based on the user ID.
+    Loads user data from a database based on the user ID.
+    If the user doesn't exist, creates an empty profile.
     """
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
     try:
-        with open(user_file_path, "r") as f:
-            user_data = json.load(f)
-        return user_data
-    except FileNotFoundError:
+        user_data = await Database.fetchrow(SqlObject.load_user_profile_query, user_id)
+
+        if user_data is None:
+            # User doesn't exist, create an empty profile
+            data = await create_user_profile(user_id)
+
+        else:
+            dict_data = dict(user_data)
+            data = {
+                "user_id": dict_data["user_id"],
+                "prdcer": {
+                    "prdcer_dataset": json.loads(dict_data["prdcer_dataset"]),
+                    "prdcer_lyrs": json.loads(dict_data["prdcer_lyrs"]),
+                    "prdcer_ctlgs": json.loads(dict_data["prdcer_ctlgs"]),
+                    "draft_ctlgs": json.loads(dict_data["draft_ctlgs"]),
+                },
+            }
+
+        return data
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User profile does not exist"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    except json.JSONDecodeError:
+
+
+async def update_user_profile(user_id: str, user_data: Dict):
+    try:
+        values = (
+            user_data["user_id"],
+            json.dumps(user_data.get("prdcer", {}).get("prdcer_dataset", {})),
+            json.dumps(user_data.get("prdcer", {}).get("prdcer_lyrs", {})),
+            json.dumps(user_data.get("prdcer", {}).get("prdcer_ctlgs", {})),
+            json.dumps(user_data.get("prdcer", {}).get("draft_ctlgs", {})),
+        )
+        await Database.execute(SqlObject.upsert_user_profile_query, *values)
+    except IOError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing user profile",
+            detail="Error updating user profile",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 
@@ -275,18 +327,6 @@ def update_user_layer_matching(layer_id: str, layer_owner_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating user layer matching",
-        )
-
-
-async def update_user_profile(user_id: str, user_data: Dict):
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
-    try:
-        with open(user_file_path, "w") as f:
-            json.dump(user_data, f, indent=2)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating user profile",
         )
 
 

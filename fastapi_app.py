@@ -1,6 +1,7 @@
 import logging
 import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List, Dict
+
 import stripe
 from fastapi import Body, HTTPException, status, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,34 +9,36 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pydantic import ValidationError
 
-from all_types.myapi_dtypes import (
-    ReqFetchDataset,
-    ReqSavePrdcerLyer,
-    ReqPrdcerLyrMapData,
+from backend_common.dtypes.auth_dtypes import (
+    ReqChangeEmail,
+    ReqChangePassword,
+    ReqConfirmReset,
     ReqCreateUserProfile,
-    ReqModel,
+    ReqResetPassword,
+    ReqUserId,
     ReqUserLogin,
     ReqUserProfile,
-    ReqConfirmReset,
-    ReqResetPassword,
-    ReqChangePassword,
+    ReqRefreshToken,
+)
+
+from all_types.myapi_dtypes import (
+    ReqModel,
+    ReqFetchDataset,
+    ReqPrdcerLyrMapData,
     ReqCostEstimate,
-    ReqUserId,
     ReqSavePrdcerCtlg,
     ReqGradientColorBasedOnZone,
-    ReqRefreshToken,
-    ReqChangeEmail,
-    ReqAddPaymentMethod,
-    ReqGetPaymentMethods,
     ReqStreeViewCheck,
+    ReqSavePrdcerLyer,
+    ReqFetchCtlgLyrs,
 )
-from all_types.myapi_dtypes import ReqFetchCtlgLyrs
+
+
 from all_types.response_dtypes import (
     ResModel,
     ResAllCards,
     ResUserLayers,
     ResCtlgLyrs,
-    # ResApplyZoneLayers,
     ResCreateUserProfile,
     ResSavePrdcerCtlg,
     ResTypeMapData,
@@ -56,8 +59,7 @@ from all_types.response_dtypes import (
     ResGetPaymentMethods,
 )
 from backend_common.auth import (
-    create_user_profile,
-    get_user_account,
+    create_user,
     login_user,
     my_verify_id_token,
     reset_password,
@@ -67,7 +69,7 @@ from backend_common.auth import (
     change_email,
 )
 from google_api_connector import check_street_view_availability
-from backend_common.config_factory import get_conf
+from config_factory import CONF
 from cost_calculator import calculate_cost
 from data_fetcher import (
     fetch_country_city_data,
@@ -75,7 +77,7 @@ from data_fetcher import (
     fetch_layer_collection,
     fetch_country_city_category_map_data,
     save_lyr,
-    fetch_user_lyrs,
+    aquire_user_lyrs,
     fetch_lyr_map_data,
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
@@ -85,6 +87,7 @@ from data_fetcher import (
     save_draft_catalog,
     fetch_gradient_colors,
     gradient_color_based_on_zone,
+    get_user_profile
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -130,7 +133,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 U = TypeVar("U", bound=BaseModel)
 
-CONF = get_conf()
 
 app = FastAPI()
 
@@ -183,7 +185,7 @@ async def http_handling(
                             headers={"WWW-Authenticate": "Bearer"},
                         )
 
-                    decoded_token = await my_verify_id_token(access_token)
+                    decoded_token = my_verify_id_token(access_token)
                     token_user_id = decoded_token["uid"]
                     # Check if the token user_id matches the requested user_id
                     if (
@@ -216,6 +218,7 @@ async def http_handling(
         if custom_function is not None:
             try:
                 if req:
+                    req = req.request_body
                     output = await custom_function(req=req)
                 else:
                     output = await custom_function()
@@ -240,8 +243,8 @@ async def http_handling(
         except ValidationError as e:
             logger.error(f"Response validation error: {str(e)}")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An error occurred while constructing the response",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Response validation failed: {str(e)}",
             ) from e
 
         return res_body
@@ -333,14 +336,13 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
 @app.post(CONF.save_layer, response_model=ResModel[str])
 async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     response = await http_handling(
-        req, ReqSavePrdcerLyer, ResModel[str], save_lyr, request
-    )
+        req, ReqSavePrdcerLyer, ResModel[str], save_lyr, request)
     return response
 
 
 @app.post(CONF.user_layers, response_model=ResUserLayers)
 async def user_layers(req: ReqModel[ReqUserId]):
-    response = await http_handling(req, ReqUserId, ResUserLayers, fetch_user_lyrs)
+    response = await http_handling(req, ReqUserId, ResUserLayers, aquire_user_lyrs)
     return response
 
 
@@ -375,7 +377,7 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
 async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
     response = await http_handling(
-        req, ReqCreateUserProfile, ResCreateUserProfile, create_user_profile
+        req, ReqCreateUserProfile, ResCreateUserProfile, create_user
     )
     return response
 
@@ -434,7 +436,7 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
 @app.post(CONF.user_profile, response_model=ResUserProfile)
 async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
     response = await http_handling(
-        req, ReqUserProfile, ResUserProfile, get_user_account, request
+        req, ReqUserProfile, ResUserProfile, get_user_profile, request
     )
     return response
 
@@ -511,18 +513,18 @@ async def gradient_color_based_on_zone_endpoint(
     return response
 
 
-@app.post(CONF.add_payment_method, response_model=ResModel[ResAddPaymentMethod])
-async def add_payment_method_endpoint(
-    req: ReqModel[ReqAddPaymentMethod], request: Request
-):
-    response = await http_handling(
-        req,
-        ReqAddPaymentMethod,
-        ResModel[ResAddPaymentMethod],
-        add_payment_method,
-        request,
-    )
-    return response
+# @app.post(CONF.add_payment_method, response_model=ResModel[ResAddPaymentMethod])
+# async def add_payment_method_endpoint(
+#     req: ReqModel[ReqAddPaymentMethod], request: Request
+# ):
+#     response = await http_handling(
+#         req,
+#         ReqAddPaymentMethod,
+#         ResModel[ResAddPaymentMethod],
+#         add_payment_method,
+#         request,
+#     )
+#     return response
 
 
 @app.post(CONF.check_street_view, response_model=ResModel[Dict[str, bool]])
@@ -536,19 +538,18 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     return response
 
 
-@app.post(CONF.get_payment_methods, response_model=ResModel[ResGetPaymentMethods])
-async def get_payment_methods_endpoint(
-    req: ReqModel[ReqGetPaymentMethods], request: Request
-):
-    response = await http_handling(
-        req,
-        ReqGetPaymentMethods,
-        ResModel[ResGetPaymentMethods],
-        get_payment_methods,
-        request,
-    )
-    return response
-
+# @app.post(CONF.get_payment_methods, response_model=ResModel[ResGetPaymentMethods])
+# async def get_payment_methods_endpoint(
+#     req: ReqModel[ReqGetPaymentMethods], request: Request
+# ):
+#     response = await http_handling(
+#         req,
+#         ReqGetPaymentMethods,
+#         ResModel[ResGetPaymentMethods],
+#         get_payment_methods,
+#         request,
+#     )
+#     return response
 
 
 # Stripe Customers
@@ -564,6 +565,7 @@ async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     )
     return response
 
+
 @app.put(
     CONF.update_stripe_customer,
     response_model=ResModel[CustomerRes],
@@ -576,6 +578,7 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     )
     return response
 
+
 @app.delete(
     CONF.delete_stripe_customer,
     response_model=ResModel[str],
@@ -583,10 +586,9 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     tags=["stripe customers"],
 )
 async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
-    response = await http_handling(
-        req, ReqUserId, ResModel[str], delete_customer
-    )
+    response = await http_handling(req, ReqUserId, ResModel[str], delete_customer)
     return response
+
 
 @app.get(
     CONF.list_stripe_customers,
@@ -599,6 +601,7 @@ async def list_stripe_customers_endpoint():
         None, None, ResModel[List[CustomerRes]], list_customers
     )
     return response
+
 
 @app.post(
     CONF.fetch_stripe_customer,
@@ -880,4 +883,3 @@ async def list_stripe_products_endpoint():
         request_id=str(uuid.uuid4()),
     )
     return response
-

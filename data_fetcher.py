@@ -482,7 +482,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
     existing_dataset = []
     # Fetch country and city data
-    country_city_data = await fetch_country_city_data("")
+    country_city_data = await fetch_country_city_data()
 
     # Find the city data
     city_data = None
@@ -563,17 +563,11 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
-    try:
-        user_data = await load_user_profile(req.user_id)
-    except FileNotFoundError as fnfe:
-        logger.error(f"User profile not found for user_id: {req.user_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found"
-        ) from fnfe
+    user_data = await load_user_profile(req.user_id)
 
     try:
         # Add the new layer to user profile
-        user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.dict(
+        user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.model_dump(
             exclude={"user_id"}
         )
 
@@ -593,7 +587,7 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
 
 @preserve_validate_decorator
 @log_and_validate(logger, validate_output=True, output_model=List[LayerInfo])
-async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
+async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     """
     Retrieves all producer layers associated with a specific user. It reads the
     user's data file and the dataset-layer matching file to compile a list of
@@ -1142,6 +1136,10 @@ async def gradient_color_based_on_zone(
             )
 
     return new_layers
+
+
+async def get_user_profile(req):
+    return await load_user_profile(req.user_id)
 
 
 # Apply the decorator to all functions in this module

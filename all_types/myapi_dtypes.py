@@ -90,54 +90,11 @@ class ReqFetchDataset(BaseModel):
 #     lyrs_as_zone: List[Dict[str, str]]
 
 
-class ReqCreateUserProfile(BaseModel):
-    username: str
-    email: str
-    password: str
-
-
 class ReqFetchCtlgLyrs(BaseModel):
     prdcer_ctlg_id: str
     as_layers: bool
     user_id: str
 
-
-class ReqUserLogin(BaseModel):
-    email: str
-    password: str
-
-
-class ReqUserProfile(BaseModel):
-    user_id: str
-
-
-class ReqResetPassword(BaseModel):
-    email: str
-
-
-class ReqConfirmReset(BaseModel):
-    oob_code: str
-    new_password: str
-
-
-class ReqChangePassword(BaseModel):
-    user_id: str
-    email: str
-    password: str
-    new_password: str
-
-
-class ReqChangeEmail(BaseModel):
-    user_id: str
-    current_email: str
-    new_email: str
-    password: str
-
-
-class ReqAddPaymentMethod(BaseModel):
-    user_id: str
-    payment_type: str  # e.g., "credit_card", "paypal", "bank_account"
-    payment_details: Dict[str, Any]  # This will contain the specific details for each payment type
 
 class ReqCostEstimate(BaseModel):
     included_categories: List[str]
@@ -161,16 +118,6 @@ class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
     based_on_lyr_id: str
     radius_offset: float
     color_based_on: str
-
-
-## Added it for Refresh token
-class ReqRefreshToken(BaseModel):
-    grant_type: str
-    refresh_token: str
-
-
-class ReqGetPaymentMethods(BaseModel):
-    user_id: str
 
 
 class ReqStreeViewCheck(BaseModel):
