@@ -1010,7 +1010,7 @@ async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
         ) from e
 
 
-async def fetch_gradient_colors(req) -> List[List]:
+async def fetch_gradient_colors() -> List[List]:
     """ """
 
     data = await load_gradient_colors()
