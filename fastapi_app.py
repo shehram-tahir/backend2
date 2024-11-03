@@ -223,8 +223,6 @@ async def nearby_categories():
 
 @app.post(CONF.fetch_dataset, response_model=ResModel[ResFetchDataset], dependencies=[Depends(JWTBearer())])
 async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
-    if req.request_body.action == "sample":
-        request = None
     response = await request_handling(
         req,
         ReqFetchDataset,
