@@ -229,7 +229,7 @@ async def nearby_categories():
 @app.post(CONF.fetch_dataset, response_model=ResModel[ResFetchDataset], dependencies=[Depends(JWTBearer())])
 async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     response = await request_handling(
-        req,
+        req.request_body,
         ReqFetchDataset,
         ResModel[ResFetchDataset],
         fetch_country_city_category_map_data,
@@ -241,20 +241,20 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
 @app.post(CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())])
 async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     response = await request_handling(
-        req, ReqSavePrdcerLyer, ResModel[str], save_lyr, wrap_output=True)
+        req.request_body, ReqSavePrdcerLyer, ResModel[str], save_lyr, wrap_output=True)
     return response
 
 
 @app.post(CONF.user_layers, response_model=ResUserLayers)
 async def user_layers(req: ReqModel[ReqUserId]):
-    response = await request_handling(req, ReqUserId, ResUserLayers, aquire_user_lyrs, wrap_output=True)
+    response = await request_handling(req.request_body, ReqUserId, ResUserLayers, aquire_user_lyrs, wrap_output=True)
     return response
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResPrdcerLyrMapData)
 async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     response = await request_handling(
-        req, ReqPrdcerLyrMapData, ResPrdcerLyrMapData, fetch_lyr_map_data,
+        req.request_body, ReqPrdcerLyrMapData, ResPrdcerLyrMapData, fetch_lyr_map_data,
         wrap_output=True
     )
     return response
@@ -264,7 +264,7 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
           response_model=ResNearestLocData)
 async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
     response = await request_handling(
-        req, ReqNearestRoute, ResNearestLocData, fetch_lyr_map_data_coordinates,
+        req.request_body, ReqNearestRoute, ResNearestLocData, fetch_lyr_map_data_coordinates,
         wrap_output=True
     )
     return response
@@ -272,7 +272,7 @@ async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
 @app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg, dependencies=[Depends(JWTBearer())])
 async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
     response = await request_handling(
-        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, create_save_prdcer_ctlg,
+        req.request_body, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, create_save_prdcer_ctlg,
         wrap_output=True
     )
     return response
@@ -280,14 +280,14 @@ async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Reque
 
 @app.post(CONF.user_catalogs, response_model=ResUserCatalogs)
 async def user_catalogs(req: ReqModel[ReqUserId]):
-    response = await request_handling(req, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs,
+    response = await request_handling(req.request_body, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs,
                                       wrap_output=True)
     return response
 
 
 @app.post(CONF.fetch_ctlg_lyrs, response_model=ResCtlgLyrs)
 async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
-    response = await request_handling(req, ReqFetchCtlgLyrs, ResCtlgLyrs, fetch_ctlg_lyrs,
+    response = await request_handling(req.request_body, ReqFetchCtlgLyrs, ResCtlgLyrs, fetch_ctlg_lyrs,
         wrap_output=True)
     return response
 
@@ -295,7 +295,7 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
 async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
     response = await request_handling(
-        req, ReqCreateUserProfile, ResCreateUserProfile, create_user,
+        req.request_body, ReqCreateUserProfile, ResCreateUserProfile, create_user,
         wrap_output=True
     )
     return response
@@ -304,7 +304,7 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 @app.post(CONF.login, response_model=ResUserLogin)
 async def login(req: ReqModel[ReqUserLogin]):
     if CONF.firebase_api_key != "":
-        response = await request_handling(req, ReqUserLogin, ResUserLogin, login_user,
+        response = await request_handling(req.request_body, ReqUserLogin, ResUserLogin, login_user,
         wrap_output=True)
     else:
         response = {
@@ -330,7 +330,7 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
         if CONF.firebase_api_key != "":
             response = await request_handling(
-                req, ReqRefreshToken, ResUserRefreshToken, refresh_id_token, wrap_output=True
+                req.request_body, ReqRefreshToken, ResUserRefreshToken, refresh_id_token, wrap_output=True
             )
         else:
             response = {
@@ -356,7 +356,7 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
 @app.post(CONF.user_profile, response_model=ResUserProfile, dependencies=[Depends(JWTBearer())])
 async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
     response = await request_handling(
-        req, ReqUserProfile, ResUserProfile, get_user_profile,
+        req.request_body, ReqUserProfile, ResUserProfile, get_user_profile,
         wrap_output=True
     )
     return response
@@ -365,7 +365,7 @@ async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Requ
 @app.post(CONF.reset_password, response_model=ResResetPassword)
 async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
     response = await request_handling(
-        req, ReqResetPassword, ResResetPassword, reset_password,
+        req.request_body, ReqResetPassword, ResResetPassword, reset_password,
         wrap_output=True
     )
     return response
@@ -373,7 +373,7 @@ async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
 
 @app.post(CONF.confirm_reset, response_model=ResConfirmReset)
 async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
-    response = await request_handling(req, ReqConfirmReset, ResConfirmReset, confirm_reset,
+    response = await request_handling(req.request_body, ReqConfirmReset, ResConfirmReset, confirm_reset,
                                       wrap_output=True)
     return response
 
@@ -381,7 +381,7 @@ async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
 @app.post(CONF.change_password, response_model=ResModel[Dict[str, Any]], dependencies=[Depends(JWTBearer())])
 async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
     response = await request_handling(
-        req, ReqChangePassword, ResModel[Dict[str, Any]], change_password,
+        req.request_body, ReqChangePassword, ResModel[Dict[str, Any]], change_password,
         wrap_output=True
     )
     return response
@@ -390,7 +390,7 @@ async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Re
 @app.post(CONF.change_email, response_model=ResModel[Dict[str, Any]], dependencies=[Depends(JWTBearer())])
 async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request):
     response = await request_handling(
-        req, ReqChangeEmail, ResModel[Dict[str, Any]], change_email,
+        req.request_body, ReqChangeEmail, ResModel[Dict[str, Any]], change_email,
         wrap_output=True
     )
     return response
@@ -399,7 +399,7 @@ async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request)
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
 async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
     response = await request_handling(
-        req, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost, wrap_output=True
+        req.request_body, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost, wrap_output=True
     )
     return response
 
@@ -409,7 +409,7 @@ async def save_draft_catalog_endpoint(
     req: ReqModel[ReqSavePrdcerCtlg], request: Request
 ):
     response = await request_handling(
-        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, wrap_output=True
+        req.request_body, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, wrap_output=True
     )
     return response
 
@@ -430,7 +430,7 @@ async def gradient_color_based_on_zone_endpoint(
     req: ReqModel[ReqGradientColorBasedOnZone], request: Request
 ):
     response = await request_handling(
-        req,
+        req.request_body,
         ReqGradientColorBasedOnZone,
         ResModel[List[ResGradientColorBasedOnZone]],
         gradient_color_based_on_zone,
@@ -444,7 +444,7 @@ async def gradient_color_based_on_zone_endpoint(
 #     req: ReqModel[ReqAddPaymentMethod], request: Request
 # ):
 #     response = await request_handling(
-#         req,
+#         req.request_body,
 #         ReqAddPaymentMethod,
 #         ResModel[ResAddPaymentMethod],
 #         add_payment_method,
@@ -456,7 +456,7 @@ async def gradient_color_based_on_zone_endpoint(
 @app.post(CONF.check_street_view, response_model=ResModel[Dict[str, bool]])
 async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     response = await request_handling(
-        req,
+        req.request_body,
         ReqStreeViewCheck,
         ResModel[Dict[str, Any]],
         check_street_view_availability,
@@ -470,7 +470,7 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
 #     req: ReqModel[ReqGetPaymentMethods], request: Request
 # ):
 #     response = await request_handling(
-#         req,
+#         req.request_body,
 #         ReqGetPaymentMethods,
 #         ResModel[ResGetPaymentMethods],
 #         get_payment_methods,
@@ -488,7 +488,7 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
 )
 async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     response = await request_handling(
-        req, CustomerReq, ResModel[dict], create_customer, wrap_output=True
+        req.request_body, CustomerReq, ResModel[dict], create_customer, wrap_output=True
     )
     return response
 
@@ -501,7 +501,7 @@ async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
 )
 async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     response = await request_handling(
-        req, CustomerReq, ResModel[dict], update_customer, wrap_output=True
+        req.request_body, CustomerReq, ResModel[dict], update_customer, wrap_output=True
     )
     return response
 
@@ -513,7 +513,7 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     tags=["stripe customers"],
 )
 async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
-    response = await request_handling(req, ReqUserId, ResModel[str], delete_customer, wrap_output=True)
+    response = await request_handling(req.request_body, ReqUserId, ResModel[str], delete_customer, wrap_output=True)
     return response
 
 
@@ -538,7 +538,7 @@ async def list_stripe_customers_endpoint():
 )
 async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
     response = await request_handling(
-        req, ReqUserId, ResModel[dict], fetch_customer, wrap_output=True
+        req.request_body, ReqUserId, ResModel[dict], fetch_customer, wrap_output=True
     )
     return response
 
