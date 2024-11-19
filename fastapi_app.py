@@ -63,7 +63,7 @@ from all_types.response_dtypes import (
     ResGetPaymentMethods,
 )
 from backend_common.auth import (
-    create_user,
+    create_firebase_user,
     login_user,
     my_verify_id_token,
     reset_password,
@@ -114,9 +114,8 @@ from backend_common.stripe_backend import (
     update_stripe_product,
     delete_stripe_product,
     list_stripe_products,
-    create_customer,
+    create_stripe_customer,
     update_customer,
-    delete_customer,
     list_customers,
     fetch_customer,
     create_subscription,
@@ -292,13 +291,13 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
     return response
 
 
-@app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
-async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
-    response = await request_handling(
-        req.request_body, ReqCreateUserProfile, ResCreateUserProfile, create_user,
-        wrap_output=True
-    )
-    return response
+# @app.post(CONF.create_firebase_stripe_user, response_model=ResCreateUserProfile)
+# async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
+#     response = await request_handling(
+#         req.request_body, ReqCreateUserProfile, ResCreateUserProfile, create_firebase_user,
+#         wrap_output=True
+#     )
+#     return response
 
 
 @app.post(CONF.login, response_model=ResUserLogin)
@@ -480,17 +479,17 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
 
 
 # Stripe Customers
-@app.post(
-    CONF.create_stripe_customer,
-    response_model=ResModel[dict],
-    description="Create a new customer in stripe",
-    tags=["stripe customers"],
-)
-async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
-    response = await request_handling(
-        req.request_body, CustomerReq, ResModel[dict], create_customer, wrap_output=True
-    )
-    return response
+# @app.post(
+#     CONF.create_stripe_customer,
+#     response_model=ResModel[dict],
+#     description="Create a new customer in stripe",
+#     tags=["stripe customers"],
+# )
+# async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
+#     response = await request_handling(
+#         req.request_body, CustomerReq, ResModel[dict], create_stripe_customer, wrap_output=True
+#     )
+#     return response
 
 
 @app.put(
@@ -506,15 +505,15 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     return response
 
 
-@app.delete(
-    CONF.delete_stripe_customer,
-    response_model=ResModel[dict],
-    description="Delete an existing customer in stripe",
-    tags=["stripe customers"],
-)
-async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
-    response = await request_handling(req.request_body, ReqUserId, ResModel[str], delete_customer, wrap_output=True)
-    return response
+# @app.delete(
+#     CONF.delete_stripe_customer,
+#     response_model=ResModel[dict],
+#     description="Delete an existing customer in stripe",
+#     tags=["stripe customers"],
+# )
+# async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
+#     response = await request_handling(req.request_body, ReqUserId, ResModel[str], delete_customer, wrap_output=True)
+#     return response
 
 
 @app.get(
@@ -739,34 +738,6 @@ async def set_default_payment_method_endpoint(user_id: str, payment_method_id: s
     return response
 
 
-# @app.post(
-#     CONF.testing_create_card_payment_source,
-#     response_model=ResModel[dict],
-#     description="Create a new payment method in stripe",
-#     tags=["stripe payment methods"],
-# )
-# async def testing_create_card_payment_source_endpoint(
-#     user_id: str, source: str = "tok_visa"
-# ):
-#     payment_method = await testing_create_card_payment_source(user_id, source)
-#     response = ResModel(
-#         data=payment_method,
-#         message="Payment method created successfully",
-#         request_id=str(uuid.uuid4()),
-#     )
-#     return response
-
-
-# Stripe Payment Methods
-# @app.get(
-#     CONF.list_stripe_payment_methods,
-#     response_model=ResModel[str],
-#     description="List all payment methods in stripe",
-#     tags=["stripe payment methods"],
-# )
-# async def list_stripe_payment_methods_endpoint(user_id: str):
-#     pass
-# Stripe Products
 @app.post(
     CONF.create_stripe_product,
     response_model=ResModel[dict],
