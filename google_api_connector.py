@@ -14,6 +14,7 @@ from all_types.response_dtypes import (
     TrafficCondition,
     RouteInfo,
 )
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
@@ -22,11 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
-
-
 async def fetch_from_google_maps_api(req: ReqLocation):
-
 
     headers = {
         "Content-Type": "application/json",
@@ -38,11 +35,8 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         "excludedTypes": [req.excludedTypes],
         "locationRestriction": {
             "circle": {
-                "center": {
-                    "latitude": req.lat,
-                    "longitude": req.lng
-                },
-                "radius": req.radius
+                "center": {"latitude": req.lat, "longitude": req.lng},
+                "radius": req.radius,
             }
         },
     }
@@ -59,8 +53,6 @@ async def fetch_from_google_maps_api(req: ReqLocation):
 
 
 async def text_fetch_from_google_maps_api(req: ReqLocation):
-
-
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,
@@ -68,25 +60,23 @@ async def text_fetch_from_google_maps_api(req: ReqLocation):
     }
     data = {
         "textQuery": req.text_search,
-        "locationRestriction": {
+        "includePureServiceAreaBusinesses": False,
+        "pageToken": req.page_token,
+        "locationBias": {
             "circle": {
-                "center": {
-                    "latitude": req.lat,
-                    "longitude": req.lng
-                },
-                "radius": req.radius
+                "center": {"latitude": req.lat, "longitude": req.lng},
+                "radius": req.radius,
             }
-        }
+        },
     }
-
     response = requests.post(CONF.search_text, headers=headers, json=data)
     if response.status_code == 200:
         response_data = response.json()
         results = response_data.get("places", [])
-
-        return results, ""
+        next_page_token = response_data.get("nextPageToken", "")
+        return results, next_page_token
     else:
-        print("Error:", response.status_code)
+        print("Error:", response.status_code, response.text)
         return [], None
 
 
@@ -102,12 +92,30 @@ async def check_street_view_availability(req: ReqStreeViewCheck) -> Dict[str, bo
                     status_code=response.status,
                     detail="Error checking Street View availability",
                 )
-async def calculate_distance_traffic_route(origin: str, destination: str) -> RouteInfo: #GoogleApi connector
+
+
+async def calculate_distance_traffic_route(
+    origin: str, destination: str
+) -> RouteInfo:  # GoogleApi connector
     url = "https://routes.googleapis.com/directions/v2:computeRoutes"
 
     payload = {
-        "origin": {"location": {"latLng": {"latitude": origin.split(",")[0], "longitude": origin.split(",")[1]}}},
-        "destination": {"location": {"latLng": {"latitude": destination.split(",")[0], "longitude": destination.split(",")[1]}}},
+        "origin": {
+            "location": {
+                "latLng": {
+                    "latitude": origin.split(",")[0],
+                    "longitude": origin.split(",")[1],
+                }
+            }
+        },
+        "destination": {
+            "location": {
+                "latLng": {
+                    "latitude": destination.split(",")[0],
+                    "longitude": destination.split(",")[1],
+                }
+            }
+        },
         "travelMode": "DRIVE",
         "routingPreference": "TRAFFIC_AWARE",
         "computeAlternativeRoutes": True,
@@ -118,7 +126,7 @@ async def calculate_distance_traffic_route(origin: str, destination: str) -> Rou
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,
-        "X-Goog-fieldmask": "*"
+        "X-Goog-fieldmask": "*",
     }
 
     try:
@@ -142,21 +150,23 @@ async def calculate_distance_traffic_route(origin: str, destination: str) -> Rou
                     TrafficCondition(
                         start_index=interval.get("startPolylinePointIndex", 0),
                         end_index=interval["endPolylinePointIndex"],
-                        speed=interval["speed"]
+                        speed=interval["speed"],
                     )
-                    for interval in leg["travelAdvisory"].get("speedReadingIntervals", [])
-                ]
+                    for interval in leg["travelAdvisory"].get(
+                        "speedReadingIntervals", []
+                    )
+                ],
             )
             route_info.append(leg_info)
 
-        return RouteInfo(
-            origin=origin,
-            destination=destination,
-            route=route_info
-        )
+        return RouteInfo(origin=origin, destination=destination, route=route_info)
 
     except requests.RequestException:
-        raise HTTPException(status_code=400, detail="Error fetching route information from Google Maps API")
+        raise HTTPException(
+            status_code=400,
+            detail="Error fetching route information from Google Maps API",
+        )
+
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

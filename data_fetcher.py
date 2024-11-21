@@ -249,7 +249,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
         else:  # text search
             dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
-        if dataset is not None:
+        if dataset:
             # Store the fetched data in storage
             bknd_dataset_id = await store_ggl_data_resp(req_dataset, dataset)
 
@@ -341,7 +341,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
         tcc_string = make_ggl_layer_filename(req_create_lyr)
         plan_name = f"plan_{tcc_string}"
         if req_dataset.text_search != "" and req_dataset.text_search is not None:
-            plan_name = plan_name + f"_text_search:"
+            plan_name = plan_name + f"_text_search="
         await save_plan(plan_name, string_list_plan)
         plan = string_list_plan
 

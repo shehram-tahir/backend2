@@ -136,7 +136,7 @@ def make_ggl_dataset_filename(req) -> str:
     try:
         name = f"{cord_string}_{type_string}_token={req.page_token}"
         if req.text_search != "" and req.text_search is not None:
-            name = name + f"_text_search:{req.text_search}_"
+            name = name + f"_text_search={req.text_search}_"
         return name
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
@@ -486,11 +486,8 @@ async def use_json(
             try:
                 async with aiofiles.open(file_path, mode="w") as file:
                     await file.write(json.dumps(json_content, indent=2))
-            except IOError:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error writing data file",
-                )
+            except IOError as e:
+                raise Exception(f"Error reading data file: {str(e)}")
 
         elif mode == "r":
             try:
@@ -499,16 +496,10 @@ async def use_json(
                         content = await file.read()
                         return json.loads(content)
                 return None
-            except json.JSONDecodeError:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error parsing data file",
-                )
-            except IOError:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error reading data file",
-                )
+            except json.JSONDecodeError as e:
+               raise Exception(f"Error parsing data file: {str(e)}")
+            except IOError as e:
+                raise Exception(f"Error reading data file: {str(e)}")
         else:
             raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
 
