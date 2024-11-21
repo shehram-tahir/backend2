@@ -92,7 +92,7 @@ from data_fetcher import (
     fetch_gradient_colors,
     gradient_color_based_on_zone,
     get_user_profile,
-    fetch_lyr_map_data_coordinates
+    fetch_lyr_map_data_coordinates,
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -105,7 +105,7 @@ from backend_common.dtypes.stripe_dtypes import (
     PaymentMethodReq,
     PaymentMethodUpdateReq,
     PaymentMethodRes,
-    PaymentMethodAttachReq
+    PaymentMethodAttachReq,
 )
 from backend_common.database import Database
 from backend_common.logging_wrapper import log_and_validate
@@ -167,24 +167,14 @@ async def shutdown_event():
 
 @app.get(CONF.fetch_acknowlg_id, response_model=ResModel[str])
 async def fetch_acknowlg_id():
-    response = await request_handling(
-        None,
-        None,
-        ResModel[str],
-        None,
-        wrap_output=True
-    )
+    response = await request_handling(None, None, ResModel[str], None, wrap_output=True)
     return response
 
 
 @app.get(CONF.catlog_collection, response_model=ResAllCards)
 async def catlog_collection():
     response = await request_handling(
-        None,
-        None,
-        ResAllCards,
-        fetch_catlog_collection,
-        wrap_output=True
+        None, None, ResAllCards, fetch_catlog_collection, wrap_output=True
     )
     return response
 
@@ -192,11 +182,7 @@ async def catlog_collection():
 @app.get(CONF.layer_collection, response_model=ResAllCards)
 async def layer_collection():
     response = await request_handling(
-        None,
-        None,
-        ResAllCards,
-        fetch_layer_collection,
-        wrap_output=True
+        None, None, ResAllCards, fetch_layer_collection, wrap_output=True
     )
     return response
 
@@ -204,11 +190,7 @@ async def layer_collection():
 @app.get(CONF.country_city, response_model=ResCountryCityData)
 async def country_city():
     response = await request_handling(
-        None,
-        None,
-        ResCountryCityData,
-        fetch_country_city_data,
-        wrap_output=True
+        None, None, ResCountryCityData, fetch_country_city_data, wrap_output=True
     )
     return response
 
@@ -216,78 +198,110 @@ async def country_city():
 @app.get(CONF.nearby_categories, response_model=ResNearbyCategories)
 async def nearby_categories():
     response = await request_handling(
-        None,
-        None,
-        ResNearbyCategories,
-        fetch_nearby_categories,
-        wrap_output=True
+        None, None, ResNearbyCategories, fetch_nearby_categories, wrap_output=True
     )
     return response
 
 
-@app.post(CONF.fetch_dataset, response_model=ResModel[ResFetchDataset], dependencies=[Depends(JWTBearer())])
+@app.post(
+    CONF.fetch_dataset,
+    response_model=ResModel[ResFetchDataset],
+    dependencies=[Depends(JWTBearer())],
+)
 async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     response = await request_handling(
         req.request_body,
         ReqFetchDataset,
         ResModel[ResFetchDataset],
         fetch_country_city_category_map_data,
-        wrap_output=True
+        wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())])
+@app.post(
+    CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())]
+)
 async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     response = await request_handling(
-        req.request_body, ReqSavePrdcerLyer, ResModel[str], save_lyr, wrap_output=True)
+        req.request_body, ReqSavePrdcerLyer, ResModel[str], save_lyr, wrap_output=True
+    )
     return response
 
 
 @app.post(CONF.user_layers, response_model=ResUserLayers)
 async def user_layers(req: ReqModel[ReqUserId]):
-    response = await request_handling(req.request_body, ReqUserId, ResUserLayers, aquire_user_lyrs, wrap_output=True)
+    response = await request_handling(
+        req.request_body, ReqUserId, ResUserLayers, aquire_user_lyrs, wrap_output=True
+    )
     return response
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResPrdcerLyrMapData)
 async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     response = await request_handling(
-        req.request_body, ReqPrdcerLyrMapData, ResPrdcerLyrMapData, fetch_lyr_map_data,
-        wrap_output=True
+        req.request_body,
+        ReqPrdcerLyrMapData,
+        ResPrdcerLyrMapData,
+        fetch_lyr_map_data,
+        wrap_output=True,
     )
     return response
 
-@app.post(CONF.nearest_lyr_map_data, 
-          description="Get Nearest Point",
-          response_model=ResNearestLocData)
+
+@app.post(
+    CONF.nearest_lyr_map_data,
+    description="Get Nearest Point",
+    response_model=ResNearestLocData,
+)
 async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
     response = await request_handling(
-        req.request_body, ReqNearestRoute, ResNearestLocData, fetch_lyr_map_data_coordinates,
-        wrap_output=True
+        req.request_body,
+        ReqNearestRoute,
+        ResNearestLocData,
+        fetch_lyr_map_data_coordinates,
+        wrap_output=True,
     )
     return response
 
-@app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg, dependencies=[Depends(JWTBearer())])
+
+@app.post(
+    CONF.save_producer_catalog,
+    response_model=ResSavePrdcerCtlg,
+    dependencies=[Depends(JWTBearer())],
+)
 async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
     response = await request_handling(
-        req.request_body, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, create_save_prdcer_ctlg,
-        wrap_output=True
+        req.request_body,
+        ReqSavePrdcerCtlg,
+        ResSavePrdcerCtlg,
+        create_save_prdcer_ctlg,
+        wrap_output=True,
     )
     return response
 
 
 @app.post(CONF.user_catalogs, response_model=ResUserCatalogs)
 async def user_catalogs(req: ReqModel[ReqUserId]):
-    response = await request_handling(req.request_body, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs,
-                                      wrap_output=True)
+    response = await request_handling(
+        req.request_body,
+        ReqUserId,
+        ResUserCatalogs,
+        fetch_prdcer_ctlgs,
+        wrap_output=True,
+    )
     return response
 
 
 @app.post(CONF.fetch_ctlg_lyrs, response_model=ResCtlgLyrs)
 async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
-    response = await request_handling(req.request_body, ReqFetchCtlgLyrs, ResCtlgLyrs, fetch_ctlg_lyrs,
-        wrap_output=True)
+    response = await request_handling(
+        req.request_body,
+        ReqFetchCtlgLyrs,
+        ResCtlgLyrs,
+        fetch_ctlg_lyrs,
+        wrap_output=True,
+    )
     return response
 
 
@@ -300,11 +314,13 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
 #     return response
 
 
-@app.post(CONF.login, response_model=ResUserLogin)
+# Authentication
+@app.post(CONF.login, response_model=ResUserLogin, tags=["Authentication"])
 async def login(req: ReqModel[ReqUserLogin]):
     if CONF.firebase_api_key != "":
-        response = await request_handling(req.request_body, ReqUserLogin, ResUserLogin, login_user,
-        wrap_output=True)
+        response = await request_handling(
+            req.request_body, ReqUserLogin, ResUserLogin, login_user, wrap_output=True
+        )
     else:
         response = {
             "message": "Request received",
@@ -324,12 +340,18 @@ async def login(req: ReqModel[ReqUserLogin]):
     return response
 
 
-@app.post(CONF.refresh_token, response_model=ResUserRefreshToken)
+@app.post(
+    CONF.refresh_token, response_model=ResUserRefreshToken, tags=["Authentication"]
+)
 async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
         if CONF.firebase_api_key != "":
             response = await request_handling(
-                req.request_body, ReqRefreshToken, ResUserRefreshToken, refresh_id_token, wrap_output=True
+                req.request_body,
+                ReqRefreshToken,
+                ResUserRefreshToken,
+                refresh_id_token,
+                wrap_output=True,
             )
         else:
             response = {
@@ -352,45 +374,76 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
         raise HTTPException(status_code=400, detail="Token refresh failed")
 
 
-@app.post(CONF.user_profile, response_model=ResUserProfile, dependencies=[Depends(JWTBearer())])
-async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
-    response = await request_handling(
-        req.request_body, ReqUserProfile, ResUserProfile, get_user_profile,
-        wrap_output=True
-    )
-    return response
-
-
-@app.post(CONF.reset_password, response_model=ResResetPassword)
+@app.post(CONF.reset_password, response_model=ResResetPassword, tags=["Authentication"])
 async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
     response = await request_handling(
-        req.request_body, ReqResetPassword, ResResetPassword, reset_password,
-        wrap_output=True
+        req.request_body,
+        ReqResetPassword,
+        ResResetPassword,
+        reset_password,
+        wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.confirm_reset, response_model=ResConfirmReset)
+@app.post(CONF.confirm_reset, response_model=ResConfirmReset, tags=["Authentication"])
 async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
-    response = await request_handling(req.request_body, ReqConfirmReset, ResConfirmReset, confirm_reset,
-                                      wrap_output=True)
+    response = await request_handling(
+        req.request_body,
+        ReqConfirmReset,
+        ResConfirmReset,
+        confirm_reset,
+        wrap_output=True,
+    )
     return response
 
 
-@app.post(CONF.change_password, response_model=ResModel[Dict[str, Any]], dependencies=[Depends(JWTBearer())])
+@app.post(
+    CONF.change_password,
+    response_model=ResModel[Dict[str, Any]],
+    dependencies=[Depends(JWTBearer())],
+    tags=["Authentication"],
+)
 async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
     response = await request_handling(
-        req.request_body, ReqChangePassword, ResModel[Dict[str, Any]], change_password,
-        wrap_output=True
+        req.request_body,
+        ReqChangePassword,
+        ResModel[Dict[str, Any]],
+        change_password,
+        wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.change_email, response_model=ResModel[Dict[str, Any]], dependencies=[Depends(JWTBearer())])
+@app.post(
+    CONF.change_email,
+    response_model=ResModel[Dict[str, Any]],
+    dependencies=[Depends(JWTBearer())],
+    tags=["Authentication"],
+)
 async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request):
     response = await request_handling(
-        req.request_body, ReqChangeEmail, ResModel[Dict[str, Any]], change_email,
-        wrap_output=True
+        req.request_body,
+        ReqChangeEmail,
+        ResModel[Dict[str, Any]],
+        change_email,
+        wrap_output=True,
+    )
+    return response
+
+
+@app.post(
+    CONF.user_profile,
+    response_model=ResUserProfile,
+    dependencies=[Depends(JWTBearer())],
+)
+async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqUserProfile,
+        ResUserProfile,
+        get_user_profile,
+        wrap_output=True,
     )
     return response
 
@@ -398,17 +451,29 @@ async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request)
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
 async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
     response = await request_handling(
-        req.request_body, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost, wrap_output=True
+        req.request_body,
+        ReqCostEstimate,
+        ResModel[ResCostEstimate],
+        calculate_cost,
+        wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.save_draft_catalog, response_model=ResSavePrdcerCtlg, dependencies=[Depends(JWTBearer())])
+@app.post(
+    CONF.save_draft_catalog,
+    response_model=ResSavePrdcerCtlg,
+    dependencies=[Depends(JWTBearer())],
+)
 async def save_draft_catalog_endpoint(
     req: ReqModel[ReqSavePrdcerCtlg], request: Request
 ):
     response = await request_handling(
-        req.request_body, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, wrap_output=True
+        req.request_body,
+        ReqSavePrdcerCtlg,
+        ResSavePrdcerCtlg,
+        save_draft_catalog,
+        wrap_output=True,
     )
     return response
 
@@ -433,7 +498,7 @@ async def gradient_color_based_on_zone_endpoint(
         ReqGradientColorBasedOnZone,
         ResModel[List[ResGradientColorBasedOnZone]],
         gradient_color_based_on_zone,
-        wrap_output = True
+        wrap_output=True,
     )
     return response
 
@@ -459,7 +524,7 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
         ReqStreeViewCheck,
         ResModel[Dict[str, Any]],
         check_street_view_availability,
-        wrap_output=True
+        wrap_output=True,
     )
     return response
 
@@ -680,8 +745,9 @@ async def update_stripe_payment_method_endpoint(
     tags=["stripe payment methods"],
 )
 async def attach_stripe_payment_method_endpoint(req: ReqModel[PaymentMethodAttachReq]):
-    data = await attach_payment_method(req.request_body.user_id,
-                                       req.request_body.payment_method_id)
+    data = await attach_payment_method(
+        req.request_body.user_id, req.request_body.payment_method_id
+    )
     response = ResModel(
         data=data,
         message="Payment method attached successfully",
@@ -729,7 +795,9 @@ async def list_stripe_payment_methods_endpoint(user_id: str):
     tags=["stripe payment methods"],
 )
 async def set_default_payment_method_endpoint(user_id: str, payment_method_id: str):
-    default_payment_method = await set_default_payment_method(user_id, payment_method_id)
+    default_payment_method = await set_default_payment_method(
+        user_id, payment_method_id
+    )
     response = ResModel(
         data=default_payment_method,
         message="Default payment method set successfully",
@@ -802,4 +870,3 @@ async def list_stripe_products_endpoint():
         request_id=str(uuid.uuid4()),
     )
     return response
-

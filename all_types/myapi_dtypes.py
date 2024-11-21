@@ -118,6 +118,12 @@ class ReqRealEstate(BaseModel):
     text_search: Optional[str] = ""
 
 
+class ReqCensus(BaseModel):
+    country_name: str
+    city_name: str
+    includedTypes: List[str]
+    page_token: Optional[str] = None
+
 class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
     color_grid_choice: list[str]
     change_lyr_id: str

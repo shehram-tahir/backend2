@@ -15,8 +15,4 @@ __pycache__/
 all_types/__pycache__/**
 
 # IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+**/.vscode/** */

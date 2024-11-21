@@ -15,10 +15,9 @@ from all_types.response_dtypes import (
     PrdcerLyrMapData,
     LayerInfo,
     UserCatalogInfo,
-    NearestPointRouteResponse
+    NearestPointRouteResponse,
 )
-from google_api_connector import (calculate_distance_traffic_route, fetch_from_google_maps_api,
-                                  text_fetch_from_google_maps_api)
+from google_api_connector import calculate_distance_traffic_route, fetch_from_google_maps_api,text_fetch_from_google_maps_api
 from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
@@ -27,7 +26,9 @@ from storage import (
     get_dataset_from_storage,
     store_ggl_data_resp,
     load_real_estate_categories,
+    load_census_categories,
     get_real_estate_dataset_from_storage,
+    get_census_dataset_from_storage,
     fetch_dataset_id,
     load_dataset,
     fetch_layer_owner,
@@ -186,6 +187,24 @@ def create_string_list(
             circles_to_process.append((sub_circle, new_number))
 
     return result
+
+
+async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchDataset):
+    next_page_token = req_dataset.page_token
+    plan_name = ""
+    action = req_create_lyr.action
+    bknd_dataset_id = ""
+
+    if action == "full data":
+        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+            await process_req_plan(req_dataset, req_create_lyr)
+        )
+
+    dataset, bknd_dataset_id = await get_census_dataset_from_storage(
+        req_dataset, bknd_dataset_id, action
+    )
+
+    return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
 async def fetch_real_estate_nearby(
@@ -469,6 +488,54 @@ async def fetch_country_city_data() -> Dict[str, List[Dict[str, float]]]:
     return data
 
 
+async def validate_city_data(country, city):
+    """Validates and returns city data"""
+    country_city_data = await fetch_country_city_data()
+    for c, cities in country_city_data.items():
+        if c == country:
+            for city_data in cities:
+                if city_data["name"] == city:
+                    return city_data
+    raise HTTPException(
+        status_code=404, detail="City not found in the specified country"
+    )
+
+
+def determine_data_type(included_types: List[str], categories: Dict) -> Optional[str]:
+    """
+    Determines the data type based on included types by checking against all category types
+    """
+    if not included_types:
+        return None
+
+    for category_type, type_list in categories.items():
+        # Handle both direct lists and nested dictionaries
+        if isinstance(type_list, list):
+            if set(included_types).intersection(set(type_list)):
+                return category_type
+        elif isinstance(type_list, dict):
+            # Flatten nested categories for comparison
+            all_subcategories = []
+            for subcategories in type_list.values():
+                if isinstance(subcategories, list):
+                    all_subcategories.extend(subcategories)
+            if set(included_types).intersection(set(all_subcategories)):
+                return category_type
+
+    return None
+
+
+def prepare_response(dataset, bknd_dataset_id, next_page_token):
+    """Prepares the final response"""
+    return {
+        "bknd_dataset_id": bknd_dataset_id,
+        "records_count": len(dataset["features"]),
+        "prdcer_lyr_id": generate_layer_id(),
+        "next_page_token": next_page_token,
+        **dataset,
+    }
+
+
 async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
@@ -482,70 +549,56 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     page_token = req.page_token
     text_search = req.text_search
 
-    existing_dataset = []
-    # Fetch country and city data
-    country_city_data = await fetch_country_city_data()
+    geojson_dataset = []
 
-    # Find the city data
-    city_data = None
-    for country, cities in country_city_data.items():
-        if country == dataset_country:
-            for city in cities:
-                if city["name"] == dataset_city:
-                    city_data = city
-                    break
-            if city_data:
-                break
+    # Fetch and validate city data
+    city_data = await validate_city_data(dataset_country, dataset_city)
 
-    if not city_data:
-        raise HTTPException(
-            status_code=404, detail="City not found in the specified country"
+    # Load all categories
+    categories = await fetch_nearby_categories()
+
+    # Determine the data type based on included types
+    data_type = determine_data_type(req.includedTypes, categories)
+
+    if data_type == "real_estate":
+        req_dataset = ReqRealEstate(
+            country_name=req.dataset_country,
+            city_name=req.dataset_city,
+            excludedTypes=req.excludedTypes,
+            includedTypes=req.includedTypes,
+            page_token=req.page_token,
+            text_search=req.text_search,
+        )
+        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
+            await fetch_real_estate_nearby(req_dataset, req_create_lyr=req)
         )
 
-    # TODO fix me
-    real_estate_categories = await load_real_estate_categories()
-
-    if not (
-        req.includedTypes != []
-        and (
-            set(req.includedTypes).intersection(
-                set(real_estate_categories["real_estate"])
-            )
+    elif data_type in ["demographics", "economic", "housing", "social"]:
+        req_dataset = ReqCensus(
+            country_name=req.dataset_country,
+            city_name=req.dataset_city,
+            includedTypes=req.includedTypes,
+            page_token=req.page_token,
         )
-        != set()
-    ):
+        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
+            await fetch_census_data(req_dataset, req_create_lyr=req)
+        )
 
-        # Create new dataset request
+    else:
+        # Default to Google Maps API
         req_dataset = ReqLocation(
             lat=city_data["lat"],
             lng=city_data["lng"],
             radius=30000,
             excludedTypes=req.excludedTypes,
             includedTypes=req.includedTypes,
-            page_token=page_token,
-            text_search=text_search,
+            page_token=req.page_token,
+            text_search=req.text_search,
         )
-
-        # Fetch data from Google Maps API
         dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
             req_dataset, req_create_lyr=req
         )
-
-        # Append new data to existing dataset
-        existing_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-    else:
-        req_dataset = ReqRealEstate(
-            country_name=req.dataset_country,
-            city_name=req.dataset_city,
-            excludedTypes=req.excludedTypes,
-            includedTypes=req.includedTypes,
-            page_token=page_token,
-            text_search=text_search,
-        )
-
-        existing_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_real_estate_nearby(req_dataset, req_create_lyr=req)
-        )
+        geojson_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
     # if request action was "full data" then store dataset id in the user profile
     # the name of the dataset will be the action + cct_layer name
@@ -557,11 +610,11 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         ] = plan_name
         await update_user_profile(req.user_id, user_data)
 
-    existing_dataset["bknd_dataset_id"] = bknd_dataset_id
-    existing_dataset["records_count"] = len(existing_dataset["features"])
-    existing_dataset["prdcer_lyr_id"] = generate_layer_id()
-    existing_dataset["next_page_token"] = next_page_token
-    return existing_dataset
+    geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
+    geojson_dataset["records_count"] = len(geojson_dataset["features"])
+    geojson_dataset["prdcer_lyr_id"] = generate_layer_id()
+    geojson_dataset["next_page_token"] = next_page_token
+    return geojson_dataset
 
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
@@ -667,22 +720,35 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         raise HTTPException(
             status_code=500, detail=f"An error occurred: {str(e)}"
         ) from e
-    
 
-async def fetch_lyr_map_data_coordinates(req: ReqNearestRoute) -> List[NearestPointRouteResponse]:
+
+async def fetch_lyr_map_data_coordinates(
+    req: ReqNearestRoute,
+) -> List[NearestPointRouteResponse]:
     """
     Fetches detailed map data for a specific producer layer.
     """
     try:
         dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
         all_datasets = await load_dataset(dataset_id)
-        coordinates_list = [{"latitude": item["location"]["latitude"], "longitude": item["location"]["longitude"]} for item in all_datasets]
+        coordinates_list = [
+            {
+                "latitude": item["location"]["latitude"],
+                "longitude": item["location"]["longitude"],
+            }
+            for item in all_datasets
+        ]
 
-        business_target_coordinates = [{"latitude": point.latitude, "longitude": point.longitude} for point in req.points]
+        business_target_coordinates = [
+            {"latitude": point.latitude, "longitude": point.longitude}
+            for point in req.points
+        ]
 
-        nearest_points=await calculate_nearest_points(coordinates_list,business_target_coordinates)
+        nearest_points = await calculate_nearest_points(
+            coordinates_list, business_target_coordinates
+        )
 
-        Gmap_response=await calculate_nearest_points_Gmap(nearest_points)
+        Gmap_response = await calculate_nearest_points_Gmap(nearest_points)
         return Gmap_response
     except HTTPException:
         raise
@@ -691,24 +757,44 @@ async def fetch_lyr_map_data_coordinates(req: ReqNearestRoute) -> List[NearestPo
             status_code=400, detail=f"An error occurred: {str(e)}"
         ) from e
 
+
 async def calculate_nearest_points(
-    category_coordinates: List[Dict[str, float]], 
-    bussiness_target_coordinates: List[Dict[str, float]]
+    category_coordinates: List[Dict[str, float]],
+    bussiness_target_coordinates: List[Dict[str, float]],
 ) -> List[Dict[str, Any]]:
     nearest_locations = []
     for target in bussiness_target_coordinates:
         distances = []
         for loc in category_coordinates:
-            dist = calculate_distance_km((target["longitude"], target["latitude"]), (loc["longitude"], loc["latitude"]))
-            distances.append({"latitude": loc["latitude"], "longitude": loc["longitude"], "distance": dist})
-        
+            dist = calculate_distance_km(
+                (target["longitude"], target["latitude"]),
+                (loc["longitude"], loc["latitude"]),
+            )
+            distances.append(
+                {
+                    "latitude": loc["latitude"],
+                    "longitude": loc["longitude"],
+                    "distance": dist,
+                }
+            )
+
         # Sort distances and get the nearest 3
         nearest = sorted(distances, key=lambda x: x["distance"])[:3]
-        nearest_locations.append({"target": target, "nearest_coordinates": [(loc["latitude"], loc["longitude"]) for loc in nearest]})
-    
+        nearest_locations.append(
+            {
+                "target": target,
+                "nearest_coordinates": [
+                    (loc["latitude"], loc["longitude"]) for loc in nearest
+                ],
+            }
+        )
+
     return nearest_locations
 
-async def calculate_nearest_points_Gmap(nearest_locations: List[Dict[str, Any]])-> List[NearestPointRouteResponse]:
+
+async def calculate_nearest_points_Gmap(
+    nearest_locations: List[Dict[str, Any]]
+) -> List[NearestPointRouteResponse]:
     results = []
     for item in nearest_locations:
         target = item["target"]
@@ -732,6 +818,7 @@ async def calculate_nearest_points_Gmap(nearest_locations: List[Dict[str, Any]])
         results.append(target_routes)
 
     return results
+
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     """
@@ -1028,17 +1115,14 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
 
 async def fetch_nearby_categories() -> Dict:
     """
-    Provides a comprehensive list of nearby place categories, organized into
-    broader categories. This function returns a large, predefined dictionary
-    of categories and subcategories, covering various aspects of urban life
-    such as automotive, culture, education, entertainment, and more.
+    Provides a comprehensive list of place categories, including Google places,
+    real estate, census data, and other custom categories.
     """
     google_categories = load_google_categories()
     real_estate_categories = await load_real_estate_categories()
-
-    # combine google categories and real estate categories
-    categories = {**google_categories, **real_estate_categories}
-
+    census_categories = await load_census_categories()
+    # combine all category types
+    categories = {**google_categories, **real_estate_categories, **census_categories}
     return categories
 
 

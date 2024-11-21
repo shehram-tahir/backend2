@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 from backend_common.database import Database
-
+import pandas as pd
 from backend_common.dtypes.auth_dtypes import ReqUserProfile
 from sql_object import SqlObject
 from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
@@ -38,7 +38,14 @@ RIYADH_VILLA_ALLROOMS = (
     "Backend/riyadh_villa_allrooms.json"  # to be change to real estate id needed
 )
 REAL_ESTATE_CATEGORIES_PATH = "Backend/real_estate_categories.json"
-
+# Add a new constant for census categories path
+CENSUS_CATEGORIES_PATH = "Backend/census_categories.json"
+# Map census types to their respective CSV files
+CENSUS_FILE_MAPPING = {
+    "household": "Backend/census_data/Final_household_all.csv",
+    "population": "Backend/census_data/Final_population_all.csv",
+    "housing": "Backend/census_data/Final_housing_all.csv",
+}
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
@@ -461,6 +468,12 @@ async def load_real_estate_categories() -> dict:
     return json_data
 
 
+async def load_census_categories() -> dict:
+    file_path = CENSUS_CATEGORIES_PATH
+    json_data = await use_json(file_path, "r")
+    return json_data
+
+
 def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
 
@@ -551,6 +564,69 @@ async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
     files = os.listdir(folder_path)
     files = [file.split(".json")[0] for file in files]
     return files
+
+
+async def get_census_dataset_from_storage(
+    req: ReqRealEstate, filename: str, action: str
+) -> tuple[dict, str]:
+    """
+    Retrieves census data from CSV files based on the data type requested.
+    Returns data in GeoJSON format for consistency with other dataset types.
+    """
+
+    # Determine which CSV file to use based on included types
+    data_type = req.includedTypes[0]  # Using first type for now
+    csv_file = None
+
+    if any(type in data_type for type in ["household", "degree"]):
+        csv_file = CENSUS_FILE_MAPPING["household"]
+    elif any(type in data_type for type in ["population", "demographics"]):
+        csv_file = CENSUS_FILE_MAPPING["population"]
+    elif any(type in data_type for type in ["housing", "units"]):
+        csv_file = CENSUS_FILE_MAPPING["housing"]
+
+    if not csv_file:
+        raise HTTPException(
+            status_code=404, detail="Invalid census data type requested"
+        )
+
+    # Read CSV file
+    df = pd.read_csv(csv_file)
+    df = df[df["Zoom Level"] == 3]
+
+    # Filter for requested city
+    city_data = df[df["Location"] == req.city_name]
+
+    if city_data.empty:
+        raise HTTPException(
+            status_code=404, detail=f"No data found for {req.city_name}"
+        )
+
+    # Convert to GeoJSON format
+    features = []
+    for _, row in city_data.iterrows():
+        # Parse coordinates from Degree column
+        coords_str = row["Degree"].split()
+        coordinates = [float(coords_str[0]), float(coords_str[1])]
+
+        # Create properties dict excluding certain columns
+        properties = row.drop(["Location", "Selector", "Degree"]).to_dict()
+
+        feature = {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": coordinates},
+            "properties": properties,
+        }
+        features.append(feature)
+
+    # Create GeoJSON structure similar to Google Maps API response
+    geojson_data = {"type": "FeatureCollection", "features": features}
+
+    # Generate a unique filename if one isn't provided
+    if not filename:
+        filename = f"census_{req.city_name.lower()}_{data_type}"
+
+    return geojson_data, filename
 
 
 async def get_real_estate_dataset_from_storage(
