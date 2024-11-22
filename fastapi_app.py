@@ -870,3 +870,35 @@ async def list_stripe_products_endpoint():
         request_id=str(uuid.uuid4()),
     )
     return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@app.post("/fastapi/create_user_profile", response_model=list[Dict[str, str]])
+async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
+
+    response_1 = await request_handling(
+        req.request_body, ReqCreateUserProfile, dict[str, str], create_firebase_user,
+        wrap_output=True,
+    )
+    response_2 = await request_handling(
+        response_1["data"]["user_id"], None, dict[str, str], create_stripe_customer,
+        wrap_output=True,
+    )
+    response = [response_1, response_2]
+    return response
