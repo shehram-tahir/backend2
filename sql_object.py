@@ -15,3 +15,13 @@ class SqlObject:
             draft_ctlgs = $5; 
     """
     load_user_profile_query: str = """SELECT * FROM user_data WHERE user_id = $1;"""
+
+    population_w_city: str = """SELECT * FROM "schema_marketplace".population
+                                    where "Location" = $1;
+                                    """
+    housing_w_city: str = """SELECT * FROM "schema_marketplace".housing
+                                    where "Location" = $1;
+                                    """
+    household_w_city: str = """SELECT * FROM "schema_marketplace".household
+                                    where "Location" = $1;
+                                    """

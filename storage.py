@@ -571,37 +571,40 @@ async def get_census_dataset_from_storage(
 
     if any(type in data_type for type in ["household", "degree"]):
         csv_file = CENSUS_FILE_MAPPING["household"]
+        query = SqlObject.household_w_city
     elif any(type in data_type for type in ["population", "demographics"]):
         csv_file = CENSUS_FILE_MAPPING["population"]
+        query = SqlObject.population_w_city
     elif any(type in data_type for type in ["housing", "units"]):
         csv_file = CENSUS_FILE_MAPPING["housing"]
+        query = SqlObject.housing_w_city
 
     if not csv_file:
         raise HTTPException(
             status_code=404, detail="Invalid census data type requested"
         )
 
+    city_data = await Database.fetch(query, req.city_name)
+    city_df = pd.DataFrame([dict(record) for record in city_data])
+
     # Read CSV file
-    df = pd.read_csv(csv_file)
-    df = df[df["Zoom Level"] == 3]
+    # df = pd.read_csv(csv_file)
+    city_df = city_df[city_df["Zoom Level"] == "3"]
 
-    # Filter for requested city
-    city_data = df[df["Location"] == req.city_name]
-
-    if city_data.empty:
+    if city_df.empty:
         raise HTTPException(
             status_code=404, detail=f"No data found for {req.city_name}"
         )
 
     # Convert to GeoJSON format
     features = []
-    for _, row in city_data.iterrows():
+    for _, row in city_df.iterrows():
         # Parse coordinates from Degree column
         coords_str = row["Degree"].split()
         coordinates = [float(coords_str[0]), float(coords_str[1])]
 
         # Create properties dict excluding certain columns
-        properties = row.drop(["Location", "Selector", "Degree"]).to_dict()
+        properties = row.drop(["Location", "Degree"]).to_dict()
 
         feature = {
             "type": "Feature",
