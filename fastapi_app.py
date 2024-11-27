@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List, Dict
+from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List
 
 import stripe
 from fastapi import Body, HTTPException, status, FastAPI, Request, Depends
@@ -13,12 +13,13 @@ from backend_common.dtypes.auth_dtypes import (
     ReqChangeEmail,
     ReqChangePassword,
     ReqConfirmReset,
-    ReqCreateUserProfile,
+    ReqCreateFirebaseUser,
     ReqResetPassword,
     ReqUserId,
     ReqUserLogin,
     ReqUserProfile,
     ReqRefreshToken,
+    ReqCreateUserProfile,
 )
 
 from all_types.myapi_dtypes import (
@@ -34,7 +35,7 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
 )
 from backend_common.request_processor import request_handling
-from backend_common.auth import JWTBearer
+from backend_common.auth import JWTBearer, create_user_profile
 
 
 from all_types.response_dtypes import (
@@ -400,7 +401,7 @@ async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
 
 @app.post(
     CONF.change_password,
-    response_model=ResModel[Dict[str, Any]],
+    response_model=ResModel[dict[str, Any]],
     dependencies=[Depends(JWTBearer())],
     tags=["Authentication"],
 )
@@ -408,7 +409,7 @@ async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Re
     response = await request_handling(
         req.request_body,
         ReqChangePassword,
-        ResModel[Dict[str, Any]],
+        ResModel[dict[str, Any]],
         change_password,
         wrap_output=True,
     )
@@ -417,7 +418,7 @@ async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Re
 
 @app.post(
     CONF.change_email,
-    response_model=ResModel[Dict[str, Any]],
+    response_model=ResModel[dict[str, Any]],
     dependencies=[Depends(JWTBearer())],
     tags=["Authentication"],
 )
@@ -425,7 +426,7 @@ async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request)
     response = await request_handling(
         req.request_body,
         ReqChangeEmail,
-        ResModel[Dict[str, Any]],
+        ResModel[dict[str, Any]],
         change_email,
         wrap_output=True,
     )
@@ -517,12 +518,12 @@ async def gradient_color_based_on_zone_endpoint(
 #     return response
 
 
-@app.post(CONF.check_street_view, response_model=ResModel[Dict[str, bool]])
+@app.post(CONF.check_street_view, response_model=ResModel[dict[str, bool]])
 async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     response = await request_handling(
         req.request_body,
         ReqStreeViewCheck,
-        ResModel[Dict[str, Any]],
+        ResModel[dict[str, Any]],
         check_street_view_availability,
         wrap_output=True,
     )
@@ -880,25 +881,40 @@ async def list_stripe_products_endpoint():
 
 
 
-
-
-
-
-
-
-
-
-
-@app.post("/fastapi/create_user_profile", response_model=list[Dict[str, str]])
-async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
+@app.post("/fastapi/create_user_profile", response_model=list[dict[Any, Any]])
+async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
 
     response_1 = await request_handling(
-        req.request_body, ReqCreateUserProfile, dict[str, str], create_firebase_user,
+        req.request_body,
+        ReqCreateFirebaseUser,
+        dict[Any, Any],
+        create_firebase_user,
         wrap_output=True,
     )
+
+
     response_2 = await request_handling(
-        response_1["data"]["user_id"], None, dict[str, str], create_stripe_customer,
+        response_1["data"]["user_id"],
+        None,
+        dict[Any, Any],
+        create_stripe_customer,
         wrap_output=True,
     )
-    response = [response_1, response_2]
+
+
+    req_user_profile = ReqCreateUserProfile(
+        user_id=response_1["data"]["user_id"],
+        username=req.request_body.username,
+        password=req.request_body.password,
+        email=req.request_body.email,
+    )
+
+    response_3 = await request_handling(
+        req_user_profile,
+        None,
+        dict[Any, Any],
+        create_user_profile,
+        wrap_output=True,
+    )
+    response = [response_1, response_2, response_3]
     return response

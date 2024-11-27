@@ -1,1 +1,8 @@
-{}
+{
+  "census_jeddah_population": {
+    "records_count": 9191919,
+    "prdcer_lyrs": [
+      "l729fa798-5f21-4333-b26e-ee59c0326900"
+    ]
+  }
+}

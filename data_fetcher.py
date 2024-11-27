@@ -8,6 +8,7 @@ import numpy as np
 from fastapi import HTTPException
 from fastapi import status
 import requests
+from backend_common.auth import load_user_profile, update_user_profile
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
@@ -32,11 +33,9 @@ from storage import (
     fetch_dataset_id,
     load_dataset,
     fetch_layer_owner,
-    load_user_profile,
     update_dataset_layer_matching,
     update_user_layer_matching,
     fetch_user_catalogs,
-    update_user_profile,
     load_dataset_layer_matching,
     fetch_user_layers,
     load_store_catalogs,

@@ -9,6 +9,7 @@ import aiofiles
 from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
+from backend_common.auth import load_user_profile
 from backend_common.database import Database
 import pandas as pd
 from backend_common.dtypes.auth_dtypes import ReqUserProfile
@@ -220,75 +221,6 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error parsing user layer matching file",
-        )
-
-
-async def create_user_profile(user_id: str, email: str = "", username: str = ""):
-    user_data = {
-        "user_id": user_id,
-        "email": email,
-        "username": username,
-        "prdcer": {
-            "prdcer_dataset": {},
-            "prdcer_lyrs": {},
-            "prdcer_ctlgs": {},
-            "draft_ctlgs": {},
-        },
-    }
-    await update_user_profile(user_id, user_data)
-
-    return user_data
-
-
-async def load_user_profile(user_id: str) -> Dict:
-    """
-    Loads user data from a database based on the user ID.
-    If the user doesn't exist, creates an empty profile.
-    """
-    try:
-        user_data = await Database.fetchrow(SqlObject.load_user_profile_query, user_id)
-
-        if user_data is None:
-            # User doesn't exist, create an empty profile
-            data = await create_user_profile(user_id)
-
-        else:
-            dict_data = dict(user_data)
-            data = {
-                "user_id": dict_data["user_id"],
-                "prdcer": {
-                    "prdcer_dataset": json.loads(dict_data["prdcer_dataset"]),
-                    "prdcer_lyrs": json.loads(dict_data["prdcer_lyrs"]),
-                    "prdcer_ctlgs": json.loads(dict_data["prdcer_ctlgs"]),
-                    "draft_ctlgs": json.loads(dict_data["draft_ctlgs"]),
-                },
-            }
-
-        return data
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-async def update_user_profile(user_id: str, user_data: Dict):
-    try:
-        values = (
-            user_data["user_id"],
-            json.dumps(user_data.get("prdcer", {}).get("prdcer_dataset", {})),
-            json.dumps(user_data.get("prdcer", {}).get("prdcer_lyrs", {})),
-            json.dumps(user_data.get("prdcer", {}).get("prdcer_ctlgs", {})),
-            json.dumps(user_data.get("prdcer", {}).get("draft_ctlgs", {})),
-        )
-        await Database.execute(SqlObject.upsert_user_profile_query, *values)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating user profile",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 
