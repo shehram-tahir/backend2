@@ -168,13 +168,13 @@ async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
         )
 
 
-def fetch_dataset_id(lyr_id: str) -> Tuple[str, Dict]:
+async def fetch_dataset_id(lyr_id: str) -> Tuple[str, Dict]:
     """
     Searches for the dataset ID associated with a given layer ID. This function
     reads the dataset-layer matching file and iterates through it to find the
     corresponding dataset for a given layer.
     """
-    dataset_layer_matching = load_dataset_layer_matching()
+    dataset_layer_matching = await load_dataset_layer_matching()
 
     for d_id, dataset_info in dataset_layer_matching.items():
         if lyr_id in dataset_info["prdcer_lyrs"]:
@@ -305,11 +305,7 @@ async def update_dataset_layer_matching(
     
     dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
     
-    update_data = dataset_layer_matching.copy()
-    update_data['updated_at'] = firestore.SERVER_TIMESTAMP
-    doc_ref.set(update_data)
-    
-    del update_data['updated_at']
+    doc_ref.set(dataset_layer_matching)
     return dataset_layer_matching
 
 async def load_user_layer_matching() -> Dict:
@@ -331,14 +327,8 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
         user_layer_matching = {}
     
     user_layer_matching[layer_id] = layer_owner_id
-    
-    update_data = user_layer_matching.copy()
-    update_data['updated_at'] = firestore.SERVER_TIMESTAMP
-    doc_ref.set(update_data)
-    
-    del update_data['updated_at']
+    doc_ref.set(user_layer_matching)
     return user_layer_matching
-
 
 async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
     try:

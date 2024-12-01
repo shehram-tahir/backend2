@@ -661,7 +661,7 @@ async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():
         try:
-            dataset_id, dataset_info = fetch_dataset_id(lyr_id)
+            dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
             records_count = dataset_info["records_count"]
 
             user_layers_metadata.append(
@@ -705,7 +705,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
                 status_code=404, detail="Producer layer not found for this user"
             ) from ke
 
-        dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
+        dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
         all_datasets = await load_dataset(dataset_id)
         trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(all_datasets)
 
@@ -732,7 +732,7 @@ async def fetch_lyr_map_data_coordinates(
     Fetches detailed map data for a specific producer layer.
     """
     try:
-        dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
+        dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
         all_datasets = await load_dataset(dataset_id)
         coordinates_list = [
             {
@@ -914,7 +914,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         ctlg_lyrs_map_data = []
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
-            dataset_id, dataset_info = fetch_dataset_id(lyr_id)
+            dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
             dataset = await load_dataset(dataset_id)
             trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
 
@@ -1065,7 +1065,7 @@ async def given_layer_fetch_dataset(layer_id: str):
             status_code=404, detail="Producer layer not found for this user"
         ) from ke
 
-    dataset_id, dataset_info = fetch_dataset_id(layer_id)
+    dataset_id, dataset_info = await fetch_dataset_id(layer_id)
     all_datasets = await load_dataset(dataset_id)
 
     return all_datasets
