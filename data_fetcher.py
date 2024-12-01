@@ -25,7 +25,6 @@ from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import generate_layer_id
 from storage import (
-    # get_dataset_from_storage,
     store_ggl_data_resp,
     load_real_estate_categories,
     load_census_categories,
@@ -37,7 +36,7 @@ from storage import (
     update_dataset_layer_matching,
     update_user_layer_matching,
     fetch_user_catalogs,
-    load_dataset_layer_matching,
+    load_user_layer_matching,
     fetch_user_layers,
     load_store_catalogs,
     convert_to_serializable,
@@ -693,7 +692,8 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
     Fetches detailed map data for a specific producer layer.
     """
     try:
-        layer_owner_id = fetch_layer_owner(req.prdcer_lyr_id)
+        user_layer_matching = await load_user_layer_matching()
+        layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
         layer_owner_data = await load_user_profile(layer_owner_id)
 
         try:
@@ -707,7 +707,8 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
 
         dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
         all_datasets = await load_dataset(dataset_id)
-        trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(all_datasets)
+        if all_datasets:
+            trans_dataset = orjson.loads(all_datasets)
 
         return PrdcerLyrMapData(
             type="FeatureCollection",
@@ -1056,7 +1057,8 @@ async def fetch_gradient_colors() -> List[List]:
 
 async def given_layer_fetch_dataset(layer_id: str):
     # given layer id get dataset
-    layer_owner_id = fetch_layer_owner(layer_id)
+    user_layer_matching = await load_user_layer_matching()
+    layer_owner_id = user_layer_matching.get(layer_id)
     layer_owner_data = await load_user_profile(layer_owner_id)
     try:
         layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][layer_id]

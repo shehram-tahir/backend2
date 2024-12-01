@@ -188,25 +188,15 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
     """
     Fetches the owner of a layer based on the producer layer ID.
     """
-    try:
-        with open(USER_LAYER_MATCHING_PATH, "r") as f:
-            user_layer_matching = json.load(f)
-        layer_owner_id = user_layer_matching.get(prdcer_lyr_id)
-        if not layer_owner_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Layer owner not found"
-            )
-        return layer_owner_id
-    except FileNotFoundError:
+    with open(USER_LAYER_MATCHING_PATH, "r") as f:
+        user_layer_matching = json.load(f)
+    layer_owner_id = user_layer_matching.get(prdcer_lyr_id)
+    if not layer_owner_id:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User layer matching file not found",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Layer owner not found"
         )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing user layer matching file",
-        )
+    return layer_owner_id
+
 
 
 # def load_dataset_layer_matching() -> Dict:
