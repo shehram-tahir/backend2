@@ -17,6 +17,9 @@ from sql_object import SqlObject
 from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
+from backend_common.auth import db
+from firebase_admin import firestore
+import asyncpg
 
 logging.basicConfig(
     level=logging.INFO,
@@ -165,24 +168,6 @@ async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
         )
 
 
-def load_dataset_layer_matching() -> Dict:
-    """ """
-    try:
-        with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
-            dataset_layer_matching = json.load(f)
-        return dataset_layer_matching
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dataset layer matching file not found",
-        )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing dataset layer matching file",
-        )
-
-
 def fetch_dataset_id(lyr_id: str) -> Tuple[str, Dict]:
     """
     Searches for the dataset ID associated with a given layer ID. This function
@@ -224,49 +209,135 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
         )
 
 
-def update_dataset_layer_matching(
-    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+# def load_dataset_layer_matching() -> Dict:
+#     """ """
+#     try:
+#         with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
+#             dataset_layer_matching = json.load(f)
+#         return dataset_layer_matching
+#     except FileNotFoundError:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Dataset layer matching file not found",
+#         )
+#     except json.JSONDecodeError:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Error parsing dataset layer matching file",
+#         )
+
+
+# def update_dataset_layer_matching(
+#     prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+# ):
+#     try:
+#         if os.path.exists(DATASET_LAYER_MATCHING_PATH):
+#             with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
+#                 dataset_layer_matching = json.load(f)
+#         else:
+#             dataset_layer_matching = {}
+
+#         if bknd_dataset_id not in dataset_layer_matching:
+#             dataset_layer_matching[bknd_dataset_id] = {
+#                 "records_count": records_count,
+#                 "prdcer_lyrs": [],
+#             }
+
+#         if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
+#             dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(prdcer_lyr_id)
+
+#         dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
+
+#         with open(DATASET_LAYER_MATCHING_PATH, "w") as f:
+#             json.dump(dataset_layer_matching, f, indent=2)
+#     except IOError:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Error updating dataset layer matching",
+#         )
+
+
+# def update_user_layer_matching(layer_id: str, layer_owner_id: str):
+#     try:
+#         with open(USER_LAYER_MATCHING_PATH, "r+") as f:
+#             user_layer_matching = json.load(f)
+#             user_layer_matching[layer_id] = layer_owner_id
+#             f.seek(0)
+#             json.dump(user_layer_matching, f, indent=2)
+#             f.truncate()
+#     except IOError:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Error updating user layer matching",
+#         )
+
+
+async def load_dataset_layer_matching() -> Dict:
+    """Load dataset layer matching from Firestore"""
+    doc_ref = db.collection('layer_matchings').document('dataset_matching')
+    doc = doc_ref.get()
+    if doc.exists:
+        return doc.to_dict()
+    return {}
+
+async def update_dataset_layer_matching(
+    prdcer_lyr_id: str, 
+    bknd_dataset_id: str, 
+    records_count: int = 9191919
 ):
-    try:
-        if os.path.exists(DATASET_LAYER_MATCHING_PATH):
-            with open(DATASET_LAYER_MATCHING_PATH, "r") as f:
-                dataset_layer_matching = json.load(f)
-        else:
-            dataset_layer_matching = {}
+    """Update dataset layer matching in Firestore"""
+    doc_ref = db.collection('layer_matchings').document('dataset_matching')
+    doc = doc_ref.get()
+    
+    if doc.exists:
+        dataset_layer_matching = doc.to_dict()
+    else:
+        dataset_layer_matching = {}
 
-        if bknd_dataset_id not in dataset_layer_matching:
-            dataset_layer_matching[bknd_dataset_id] = {
-                "records_count": records_count,
-                "prdcer_lyrs": [],
-            }
+    if bknd_dataset_id not in dataset_layer_matching:
+        dataset_layer_matching[bknd_dataset_id] = {
+            "records_count": records_count,
+            "prdcer_lyrs": [],
+        }
+    
+    if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
+        dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(prdcer_lyr_id)
+    
+    dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
+    
+    update_data = dataset_layer_matching.copy()
+    update_data['updated_at'] = firestore.SERVER_TIMESTAMP
+    doc_ref.set(update_data)
+    
+    del update_data['updated_at']
+    return dataset_layer_matching
 
-        if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
-            dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(prdcer_lyr_id)
+async def load_user_layer_matching() -> Dict:
+    """Load user layer matching from Firestore"""
+    doc_ref = db.collection('layer_matchings').document('user_matching')
+    doc = doc_ref.get()
+    if doc.exists:
+        return doc.to_dict()
+    return {}
 
-        dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
-
-        with open(DATASET_LAYER_MATCHING_PATH, "w") as f:
-            json.dump(dataset_layer_matching, f, indent=2)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating dataset layer matching",
-        )
-
-
-def update_user_layer_matching(layer_id: str, layer_owner_id: str):
-    try:
-        with open(USER_LAYER_MATCHING_PATH, "r+") as f:
-            user_layer_matching = json.load(f)
-            user_layer_matching[layer_id] = layer_owner_id
-            f.seek(0)
-            json.dump(user_layer_matching, f, indent=2)
-            f.truncate()
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating user layer matching",
-        )
+async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
+    """Update user layer matching in Firestore"""
+    doc_ref = db.collection('layer_matchings').document('user_matching')
+    doc = doc_ref.get()
+    
+    if doc.exists:
+        user_layer_matching = doc.to_dict()
+    else:
+        user_layer_matching = {}
+    
+    user_layer_matching[layer_id] = layer_owner_id
+    
+    update_data = user_layer_matching.copy()
+    update_data['updated_at'] = firestore.SERVER_TIMESTAMP
+    doc_ref.set(update_data)
+    
+    del update_data['updated_at']
+    return user_layer_matching
 
 
 async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
@@ -429,7 +500,7 @@ async def use_json(
                         return json.loads(content)
                 return None
             except json.JSONDecodeError as e:
-               raise Exception(f"Error parsing data file: {str(e)}")
+                raise Exception(f"Error parsing data file: {str(e)}")
             except IOError as e:
                 raise Exception(f"Error reading data file: {str(e)}")
         else:
@@ -452,33 +523,6 @@ async def get_plan(plan_name):
     return json_content
 
 
-async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
-    """
-    Stores data in a file based on the location request.
-    """
-    # TODO add time stamp to the dataset , when it was retrived
-    filename = make_ggl_dataset_filename(req)
-    file_path = f"{STORAGE_DIR}/{filename}.json"
-    await use_json(file_path, "w", dataset)
-
-    return filename
-
-
-async def get_dataset_from_storage(
-    req: ReqLocation,
-) -> tuple[Optional[Dict], Optional[str]]:
-    """
-    Retrieves data from storage based on the location request.
-    """
-    filename = make_ggl_dataset_filename(req)
-    file_path = f"{STORAGE_DIR}/{filename}.json"
-
-    json_data = await use_json(file_path, "r")
-    if json_data is not None:
-        return json_data, filename
-    return None, None
-
-
 async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
     country = req.country_name.lower().replace(" ", "_")
     folder_path = (
@@ -487,6 +531,108 @@ async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
     files = os.listdir(folder_path)
     files = [file.split(".json")[0] for file in files]
     return files
+
+
+async def load_gradient_colors() -> Optional[List[List]]:
+    """ """
+    json_data = await use_json(COLOR_PATH, "r")
+    return json_data
+
+
+async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
+    """
+    Stores Google Maps data in the database, creating the table if needed.
+    
+    Args:
+        req: Location request object
+        dataset: Response data from Google Maps
+    
+    Returns:
+        str: Filename/ID used as the primary key
+    """
+    try:
+        filename = make_ggl_dataset_filename(req)
+        
+        # Convert request object to dictionary using Pydantic's model_dump
+        req_dict = req.model_dump()
+        
+        await Database.execute(
+            SqlObject.store_dataset,
+            filename,
+            json.dumps(req_dict),
+            json.dumps(dataset),
+            datetime.utcnow()
+        )
+        
+        return filename
+        
+    except asyncpg.exceptions.UndefinedTableError:
+        # If table doesn't exist, create it and retry
+        await Database.execute(SqlObject.create_datasets_table)
+        return await store_ggl_data_resp(req, dataset)
+
+
+# async def get_dataset_from_storage(
+#     req: ReqLocation,
+# ) -> tuple[Optional[Dict], Optional[str]]:
+#     """
+#     Retrieves data from storage based on the location request.
+#     """
+#     filename = make_ggl_dataset_filename(req)
+#     file_path = f"{STORAGE_DIR}/{filename}.json"
+
+#     json_data = await use_json(file_path, "r")
+#     if json_data is not None:
+#         return json_data, filename
+#     return None, None
+
+
+async def load_dataset(dataset_id: str) -> Dict:
+    """
+    Loads a dataset from file based on its ID.
+    """
+    # if the dataset_id contains the word plan '21.57445341427591_39.1728_2000.0_mosque__plan_mosque_Saudi Arabia_Jeddah@#$9'
+    # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
+    # load the plan's json file
+    # from the dataset_id isolate the page number which is after @#$ = 9
+    # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
+    # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
+    # else load dataset with dataset id
+    if "plan" in dataset_id:
+        # Extract plan name and page number
+        plan_name, page_number = dataset_id.split("@#$")
+        dataset_prefix, plan_name = plan_name.split("page_token=")
+        page_number = int(page_number)
+        # Load the plan
+        plan = await get_plan(plan_name)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        # Initialize an empty list to store all datasets
+        all_datasets = []
+        # Load and concatenate all datasets up to the current page number
+        for i in range(page_number):
+            if i == 0:
+                continue
+            # dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
+            # json_content = await use_json(dataset_filepath, "r")
+            json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            if json_content:
+                all_datasets.extend(json_content['response_data'])
+
+    else:
+        # dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
+        # all_datasets = await use_json(dataset_filepath, "r")
+        try:
+            all_datasets = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+        except asyncpg.exceptions.UndefinedTableError:
+            # If table doesn't exist, create it and retry
+            await Database.execute(SqlObject.create_datasets_table)
+            all_datasets = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            
+        if all_datasets:
+            all_datasets = all_datasets['response_data']
+
+    return all_datasets
 
 
 async def get_census_dataset_from_storage(
@@ -578,59 +724,6 @@ async def get_real_estate_dataset_from_storage(
         filename = files[0].split(".json")[0]
     json_data = await use_json(file_path, "r")
     return json_data, filename
-
-
-async def load_dataset(dataset_id: str) -> Dict:
-    """
-    Loads a dataset from file based on its ID.
-    """
-    # if the dataset_id contains the word plan '21.57445341427591_39.1728_2000.0_mosque__plan_mosque_Saudi Arabia_Jeddah@#$9'
-    # isolate the plan's name from the dataset_id = mosque__plan_mosque_Saudi Arabia_Jeddah
-    # load the plan's json file
-    # from the dataset_id isolate the page number which is after @#$ = 9
-    # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
-    # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
-    # else load dataset with dataset id
-    if "plan" in dataset_id:
-        # Extract plan name and page number
-        plan_name, page_number = dataset_id.split("@#$")
-        dataset_prefix, plan_name = plan_name.split("page_token=")
-        page_number = int(page_number)
-        # Load the plan
-        plan = await get_plan(plan_name)
-        if not plan:
-            raise HTTPException(status_code=404, detail="Plan not found")
-        # Initialize an empty list to store all datasets
-        all_datasets = []
-        # Load and concatenate all datasets up to the current page number
-        for i in range(page_number):
-            if i == 0:
-                continue
-            dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
-            json_content = await use_json(dataset_filepath, "r")
-            all_datasets.extend(json_content)
-
-    else:
-        dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
-        all_datasets = await use_json(dataset_filepath, "r")
-
-    return all_datasets
-
-
-async def save_to_json_file(folder_name: str, file_name: str, data: dict) -> None:
-    if not os.path.exists(f"Backend/{folder_name}"):
-        os.makedirs(f"Backend/{folder_name}")
-
-    file_path = f"Backend/{folder_name}/{file_name}.json"
-
-    json_content = await use_json(file_path, "r")
-    return json_content
-
-
-async def load_gradient_colors() -> Optional[List[List]]:
-    """ """
-    json_data = await use_json(COLOR_PATH, "r")
-    return json_data
 
 
 # Apply the decorator to all functions in this module

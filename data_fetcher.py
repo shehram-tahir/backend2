@@ -3,6 +3,7 @@ import math
 import uuid
 from typing import List, Dict, Any
 import json
+import orjson
 from geopy.distance import geodesic
 import numpy as np
 from fastapi import HTTPException
@@ -24,7 +25,7 @@ from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import generate_layer_id
 from storage import (
-    get_dataset_from_storage,
+    # get_dataset_from_storage,
     store_ggl_data_resp,
     load_real_estate_categories,
     load_census_categories,
@@ -44,6 +45,7 @@ from storage import (
     get_plan,
     create_real_estate_plan,
     load_gradient_colors,
+    make_ggl_dataset_filename
 )
 from storage import (
     load_google_categories,
@@ -235,8 +237,11 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
             await process_req_plan(req_dataset, req_create_lyr)
         )
-
-    dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
+    bknd_dataset_id = make_ggl_dataset_filename(req_dataset)
+    dataset = await load_dataset(bknd_dataset_id)
+    if dataset:
+        dataset = orjson.loads(dataset)
+    # dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
 
     if not dataset:
 
@@ -248,8 +253,11 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
         else:  # text search
             dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
+
+
         if dataset:
             # Store the fetched data in storage
+            dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
             bknd_dataset_id = await store_ggl_data_resp(req_dataset, dataset)
 
     # if dataset is less than 20 or none and action is full data
@@ -594,10 +602,10 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             page_token=req.page_token,
             text_search=req.text_search,
         )
-        dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
+        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
             req_dataset, req_create_lyr=req
         )
-        geojson_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+        
 
     # if request action was "full data" then store dataset id in the user profile
     # the name of the dataset will be the action + cct_layer name
@@ -627,8 +635,8 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
 
         # Save updated user data
         await update_user_profile(req.user_id, user_data)
-        update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
-        update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
+        await update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
+        await update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
     except KeyError as ke:
         logger.error(f"Invalid user data structure for user_id: {req.user_id}")
         raise HTTPException(
@@ -715,10 +723,6 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"An error occurred: {str(e)}"
-        ) from e
 
 
 async def fetch_lyr_map_data_coordinates(
@@ -942,122 +946,6 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         raise HTTPException(
             status_code=500, detail=f"An error occurred: {str(e)}"
         ) from e
-
-
-# async def apply_zone_layers(req: ReqApplyZoneLayers) -> List[PrdcerLyrMapData]:
-#     """
-#     Applies zone layer transformations to a set of layers.
-#     """
-#     try:
-#         non_zone_layers = req.lyrs.copy()
-#         zone_layers = []
-#         for layer in req.lyrs_as_zone:
-#             zone_lyr_id = list(layer.keys())[0]
-#             zone_layers.append(zone_lyr_id)
-#             non_zone_layers.remove(zone_lyr_id)
-
-#         dataset_layer_matching = load_dataset_layer_matching()
-
-#         non_zone_data = []
-#         for lyr_id in non_zone_layers:
-#             dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
-#             if dataset_id:
-#                 dataset = await load_dataset(dataset_id)
-#                 lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-#                 non_zone_data.extend(lyr_data["features"])
-
-#         zone_data = {}
-#         for lyr_id in zone_layers:
-#             dataset_id, _ = fetch_dataset_id(lyr_id, dataset_layer_matching)
-#             if dataset_id:
-#                 dataset = await load_dataset(dataset_id)
-#                 lyr_data = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-#                 zone_data[lyr_id] = lyr_data
-
-#         transformed_layers = []
-#         for layer in req.lyrs_as_zone:
-#             zone_lyr_id = list(layer.keys())[0]
-#             zone_property_key = list(layer.values())[0]
-#             zone_transformed = apply_zone_transformation(
-#                 zone_data[zone_lyr_id], non_zone_data, zone_property_key, zone_lyr_id
-#             )
-#             transformed_layers.extend(zone_transformed)
-
-#         return transformed_layers
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500, detail=f"An error occurred: {str(e)}"
-#         ) from e
-
-
-# def apply_zone_transformation(
-#     zone_layer_data: Dict[str, Any],
-#     non_zone_points: List[Dict[str, Any]],
-#     zone_property: str,
-#     zone_lyr_id: str,
-# ) -> List[PrdcerLyrMapData]:
-#     """
-#     This function applies zone transformations to a set of points.
-#     """
-#     try:
-#         zone_property = zone_property.split("features.properties.")[-1]
-#         property_values = [
-#             feature["properties"].get(zone_property, 9191919191)
-#             for feature in zone_layer_data["features"]
-#         ]
-#         arr = np.array(property_values)
-#         avg = np.mean(arr[arr != 9191919191.0])
-#         new_arr = np.where(arr == 9191919191.0, avg, arr)
-#         property_values = new_arr.tolist()
-#         thresholds = calculate_thresholds(property_values)
-
-#         new_layers = [
-#             PrdcerLyrMapData(
-#                 type="FeatureCollection",
-#                 features=[],
-#                 prdcer_layer_name=f"{zone_layer_data.get('prdcer_layer_name', 'Layer')} ({category})",
-#                 prdcer_lyr_id=f"zy{zone_lyr_id}_applied_{i + 1}",
-#                 points_color=color,
-#                 layer_legend=f"{zone_layer_data.get('layer_legend', 'Layer')} {category} {zone_property}",
-#                 records_count=0,
-#                 is_zone_lyr="False",
-#                 bknd_dataset_id=zone_layer_data.get("bknd_dataset_id", ""),
-#                 layer_description=zone_layer_data.get("layer_description", ""),
-#             )
-#             for i, (category, color) in enumerate(
-#                 [
-#                     ("low", "grey"),
-#                     ("medium", "cyan"),
-#                     ("high", "red"),
-#                     ("non-zone-overlap", "blue"),
-#                 ]
-#             )
-#         ]
-
-#         for point in non_zone_points:
-#             point_coords = point["geometry"]["coordinates"]
-#             for zone_feature in zone_layer_data["features"]:
-#                 zone_point = zone_feature["geometry"]["coordinates"]
-#                 if calculate_distance_km(point_coords, zone_point) <= 2:
-#                     value = zone_feature["properties"].get(zone_property, 0)
-#                     if value <= thresholds[0]:
-#                         new_layers[0].features.append(create_feature(point))
-#                     elif value <= thresholds[1]:
-#                         new_layers[1].features.append(create_feature(point))
-#                     else:
-#                         new_layers[2].features.append(create_feature(point))
-#                     break
-#                 else:
-#                     new_layers[3].features.append(create_feature(point))
-
-#         for layer in new_layers:
-#             layer.records_count = len(layer.features)
-
-#         return new_layers
-#     except Exception as e:
-#         raise ValueError(f"Error in apply_zone_transformation: {str(e)}")
 
 
 def calculate_thresholds(values: List[float]) -> List[float]:

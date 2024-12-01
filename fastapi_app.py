@@ -918,3 +918,30 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
     )
     response = [response_1, response_2, response_3]
     return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store
+
+# vector_store = create_vector_store()
+
+
+# @app.post("/analyze-business-prompt")
+# async def analyze_business_prompt(request: BusinessPromptRequest):
+
+#     response = await analyze_prompt_completeness(request.user_prompt, vector_store=vector_store)
+#     return response

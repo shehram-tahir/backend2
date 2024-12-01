@@ -25,3 +25,30 @@ class SqlObject:
     household_w_city: str = """SELECT * FROM "schema_marketplace".household
                                     where "Location" = $1;
                                     """
+    create_datasets_table: str = """
+    CREATE SCHEMA IF NOT EXISTS "schema_marketplace";
+    
+    CREATE TABLE IF NOT EXISTS "schema_marketplace"."datasets" (
+        filename TEXT PRIMARY KEY,
+        request_data JSONB,
+        response_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+    
+    store_dataset: str = """
+    INSERT INTO "schema_marketplace"."datasets" 
+    (filename, request_data, response_data, created_at)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (filename) 
+    DO UPDATE SET 
+        request_data = $2,
+        response_data = $3,
+        created_at = $4;
+    """
+    
+    load_dataset: str = """
+    SELECT response_data 
+    FROM "schema_marketplace"."datasets" 
+    WHERE filename = $1;
+    """
