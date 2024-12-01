@@ -410,22 +410,93 @@ def get_country_code(country_name: str) -> str:
 def load_country_city():
     data = {
         "United Arab Emirates": [
-            {"name": "Dubai", "lat": 25.2048, "lng": 55.2708},
-            {"name": "Abu Dhabi", "lat": 24.4539, "lng": 54.3773},
-            {"name": "Sharjah", "lat": 25.3573, "lng": 55.4033},
+            {
+                "name": "Dubai",
+                "lat": 25.2048,
+                "lng": 55.2708,
+                "borders": {
+                    "northeast": {"lat": 25.3960, "lng": 55.5643},
+                    "southwest": {"lat": 24.7921, "lng": 54.8911}
+                }
+            },
+            {
+                "name": "Abu Dhabi",
+                "lat": 24.4539,
+                "lng": 54.3773,
+                "borders": {
+                    "northeast": {"lat": 24.5649, "lng": 54.5485},
+                    "southwest": {"lat": 24.3294, "lng": 54.2783}
+                }
+            },
+            {
+                "name": "Sharjah",
+                "lat": 25.3573,
+                "lng": 55.4033,
+                "borders": {
+                    "northeast": {"lat": 25.4283, "lng": 55.5843},
+                    "southwest": {"lat": 25.2865, "lng": 55.2723}
+                }
+            },
         ],
         "Saudi Arabia": [
-            {"name": "Riyadh", "lat": 24.7136, "lng": 46.6753},
-            {"name": "Jeddah", "lat": 21.5433, "lng": 39.1728},
-            {"name": "Mecca", "lat": 21.4225, "lng": 39.8262},
+            {
+                "name": "Riyadh",
+                "lat": 24.7136,
+                "lng": 46.6753,
+                "borders": {
+                    "northeast": {"lat": 24.9182, "lng": 46.8482},
+                    "southwest": {"lat": 24.5634, "lng": 46.5023}
+                }
+            },
+            {
+                "name": "Jeddah",
+                "lat": 21.5433,
+                "lng": 39.1728,
+                "borders": {
+                    "northeast": {"lat": 21.7432, "lng": 39.2745},
+                    "southwest": {"lat": 21.3234, "lng": 39.0728}
+                }
+            },
+            {
+                "name": "Mecca",
+                "lat": 21.4225,
+                "lng": 39.8262,
+                "borders": {
+                    "northeast": {"lat": 21.5432, "lng": 39.9283},
+                    "southwest": {"lat": 21.3218, "lng": 39.7241}
+                }
+            },
         ],
         "Canada": [
-            {"name": "Toronto", "lat": 43.6532, "lng": -79.3832},
-            {"name": "Vancouver", "lat": 49.2827, "lng": -123.1207},
-            {"name": "Montreal", "lat": 45.5017, "lng": -73.5673},
+            {
+                "name": "Toronto",
+                "lat": 43.6532,
+                "lng": -79.3832,
+                "borders": {
+                    "northeast": {"lat": 43.8554, "lng": -79.1168},
+                    "southwest": {"lat": 43.5810, "lng": -79.6396}
+                }
+            },
+            {
+                "name": "Vancouver",
+                "lat": 49.2827,
+                "lng": -123.1207,
+                "borders": {
+                    "northeast": {"lat": 49.3932, "lng": -122.9856},
+                    "southwest": {"lat": 49.1986, "lng": -123.2642}
+                }
+            },
+            {
+                "name": "Montreal",
+                "lat": 45.5017,
+                "lng": -73.5673,
+                "borders": {
+                    "northeast": {"lat": 45.7058, "lng": -73.4734},
+                    "southwest": {"lat": 45.4139, "lng": -73.7089}
+                }
+            },
         ],
     }
-
     return data
 
 
