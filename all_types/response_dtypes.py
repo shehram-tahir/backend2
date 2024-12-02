@@ -63,6 +63,7 @@ class CityData(BaseModel):
     name: str
     lat: float
     lng: float
+    borders: Any
     type: str = None
 
 

@@ -3,12 +3,13 @@ import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List
 
 import stripe
-from fastapi import Body, HTTPException, status, FastAPI, Request, Depends
+from fastapi import Body, HTTPException, status, FastAPI, Request, Depends, BackgroundTasks
+from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pydantic import ValidationError
-
+import asyncio
 from backend_common.dtypes.auth_dtypes import (
     ReqChangeEmail,
     ReqChangePassword,
@@ -35,8 +36,19 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
 )
 from backend_common.request_processor import request_handling
-from backend_common.auth import JWTBearer, create_user_profile
-
+from backend_common.auth import (
+    create_firebase_user,
+    login_user,
+    my_verify_id_token,
+    reset_password,
+    confirm_reset,
+    change_password,
+    refresh_id_token,
+    change_email,
+    db,
+    JWTBearer, 
+    create_user_profile
+)
 
 from all_types.response_dtypes import (
     ResModel,
@@ -63,16 +75,7 @@ from all_types.response_dtypes import (
     ResUserRefreshToken,
     ResGetPaymentMethods,
 )
-from backend_common.auth import (
-    create_firebase_user,
-    login_user,
-    my_verify_id_token,
-    reset_password,
-    confirm_reset,
-    change_password,
-    refresh_id_token,
-    change_email,
-)
+
 from google_api_connector import check_street_view_availability
 from config_factory import CONF
 from cost_calculator import calculate_cost
@@ -154,16 +157,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.middleware("http")
+async def background_tasks_middleware(request, call_next):
+    background_tasks = BackgroundTasks()
+    set_background_tasks(background_tasks)
+    response = await call_next(request)
+    response.background = background_tasks
+    return response
 
 
 @app.on_event("startup")
 async def startup_event():
     await Database.create_pool()
+    await db.initialize_all()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await Database.close_pool()
+    # Run cleanup in a thread to not block
+    await asyncio.get_event_loop().run_in_executor(None, db.cleanup)
+    # Wait a moment to ensure threads are cleaned up
+    await asyncio.sleep(1)
 
 
 @app.get(CONF.fetch_acknowlg_id, response_model=ResModel[str])
@@ -873,14 +888,6 @@ async def list_stripe_products_endpoint():
     return response
 
 
-
-
-
-
-
-
-
-
 @app.post("/fastapi/create_user_profile", response_model=list[dict[Any, Any]])
 async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
 
@@ -892,7 +899,6 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
         wrap_output=True,
     )
 
-
     response_2 = await request_handling(
         response_1["data"]["user_id"],
         None,
@@ -900,7 +906,6 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
         create_stripe_customer,
         wrap_output=True,
     )
-
 
     req_user_profile = ReqCreateUserProfile(
         user_id=response_1["data"]["user_id"],
@@ -918,21 +923,6 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
     )
     response = [response_1, response_2, response_3]
     return response
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store

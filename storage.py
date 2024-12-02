@@ -20,6 +20,7 @@ from backend_common.logging_wrapper import apply_decorator_to_module
 from backend_common.auth import db
 from firebase_admin import firestore
 import asyncpg
+from backend_common.background import get_background_tasks
 
 logging.basicConfig(
     level=logging.INFO,
@@ -198,7 +199,6 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
     return layer_owner_id
 
 
-
 # def load_dataset_layer_matching() -> Dict:
 #     """ """
 #     try:
@@ -264,60 +264,82 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
 
 async def load_dataset_layer_matching() -> Dict:
     """Load dataset layer matching from Firestore"""
-    doc_ref = db.collection('layer_matchings').document('dataset_matching')
-    doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict()
-    return {}
+    try:
+        return await db.get_document("layer_matchings", "dataset_matching")
+    except HTTPException as e:
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            return {}
+        raise e
+
 
 async def update_dataset_layer_matching(
-    prdcer_lyr_id: str, 
-    bknd_dataset_id: str, 
-    records_count: int = 9191919
+    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
 ):
-    """Update dataset layer matching in Firestore"""
-    doc_ref = db.collection('layer_matchings').document('dataset_matching')
-    doc = doc_ref.get()
+    collection_name = "layer_matchings"
+    document_id = "dataset_matching"
     
-    if doc.exists:
-        dataset_layer_matching = doc.to_dict()
-    else:
-        dataset_layer_matching = {}
+    try:
+        dataset_layer_matching = await db.get_document(collection_name, document_id)
+    except HTTPException as e:
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            dataset_layer_matching = {}
+        else:
+            raise e
 
     if bknd_dataset_id not in dataset_layer_matching:
         dataset_layer_matching[bknd_dataset_id] = {
             "records_count": records_count,
             "prdcer_lyrs": [],
         }
-    
+
     if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
         dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(prdcer_lyr_id)
-    
+
     dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
+
+    # Update cache immediately
+    db._cache[collection_name][document_id] = dataset_layer_matching
     
-    doc_ref.set(dataset_layer_matching)
+    async def _background_update():
+        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        await doc_ref.set(dataset_layer_matching)
+    
+    get_background_tasks().add_task(_background_update)
     return dataset_layer_matching
+
 
 async def load_user_layer_matching() -> Dict:
     """Load user layer matching from Firestore"""
-    doc_ref = db.collection('layer_matchings').document('user_matching')
-    doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict()
-    return {}
+    try:
+        return await db.get_document("layer_matchings", "user_matching")
+    except HTTPException as e:
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            return {}
+        raise e
+
 
 async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
-    """Update user layer matching in Firestore"""
-    doc_ref = db.collection('layer_matchings').document('user_matching')
-    doc = doc_ref.get()
+    collection_name = "layer_matchings"
+    document_id = "user_matching"
     
-    if doc.exists:
-        user_layer_matching = doc.to_dict()
-    else:
-        user_layer_matching = {}
-    
+    try:
+        user_layer_matching = await db.get_document(collection_name, document_id)
+    except HTTPException as e:
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            user_layer_matching = {}
+        else:
+            raise e
+
     user_layer_matching[layer_id] = layer_owner_id
-    doc_ref.set(user_layer_matching)
+
+    # Update cache immediately
+    db._cache[collection_name][document_id] = user_layer_matching
+    
+    async def _background_update():
+        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        await doc_ref.set(user_layer_matching)
+    
+    get_background_tasks().add_task(_background_update)
     return user_layer_matching
 
 async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
@@ -331,15 +353,10 @@ async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
 
 
 async def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
-    try:
-        user_data = await load_user_profile(user_id)
-        user_catalogs = user_data.get("prdcer", {}).get("prdcer_ctlgs", {})
-        return user_catalogs
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user catalogs: {str(e)}",
-        )
+
+    user_data = await load_user_profile(user_id)
+    user_catalogs = user_data.get("prdcer", {}).get("prdcer_ctlgs", {})
+    return user_catalogs
 
 
 # def create_new_user(user_id: str, username: str, email: str) -> None:
@@ -378,28 +395,17 @@ def load_store_catalogs() -> Dict[str, Any]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Store catalogs file not found",
         )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing store catalogs file",
-        )
 
 
 def update_metastore(ccc_filename: str, bknd_dataset_id: str):
     """Update the metastore with the new layer information"""
     if bknd_dataset_id is not None:
-        try:
-            metastore_data = {
-                "bknd_dataset_id": bknd_dataset_id,
-                "created_at": datetime.now().isoformat(),
-            }
-            with open(f"{METASTORE_PATH}/{ccc_filename}", "w") as f:
-                json.dump(metastore_data, f)
-        except IOError:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error updating metastore",
-            )
+        metastore_data = {
+            "bknd_dataset_id": bknd_dataset_id,
+            "created_at": datetime.now().isoformat(),
+        }
+        with open(f"{METASTORE_PATH}/{ccc_filename}", "w") as f:
+            json.dump(metastore_data, f)
 
 
 def get_country_code(country_name: str) -> str:
@@ -416,8 +422,8 @@ def load_country_city():
                 "lng": 55.2708,
                 "borders": {
                     "northeast": {"lat": 25.3960, "lng": 55.5643},
-                    "southwest": {"lat": 24.7921, "lng": 54.8911}
-                }
+                    "southwest": {"lat": 24.7921, "lng": 54.8911},
+                },
             },
             {
                 "name": "Abu Dhabi",
@@ -425,8 +431,8 @@ def load_country_city():
                 "lng": 54.3773,
                 "borders": {
                     "northeast": {"lat": 24.5649, "lng": 54.5485},
-                    "southwest": {"lat": 24.3294, "lng": 54.2783}
-                }
+                    "southwest": {"lat": 24.3294, "lng": 54.2783},
+                },
             },
             {
                 "name": "Sharjah",
@@ -434,8 +440,8 @@ def load_country_city():
                 "lng": 55.4033,
                 "borders": {
                     "northeast": {"lat": 25.4283, "lng": 55.5843},
-                    "southwest": {"lat": 25.2865, "lng": 55.2723}
-                }
+                    "southwest": {"lat": 25.2865, "lng": 55.2723},
+                },
             },
         ],
         "Saudi Arabia": [
@@ -445,8 +451,8 @@ def load_country_city():
                 "lng": 46.6753,
                 "borders": {
                     "northeast": {"lat": 24.9182, "lng": 46.8482},
-                    "southwest": {"lat": 24.5634, "lng": 46.5023}
-                }
+                    "southwest": {"lat": 24.5634, "lng": 46.5023},
+                },
             },
             {
                 "name": "Jeddah",
@@ -454,8 +460,8 @@ def load_country_city():
                 "lng": 39.1728,
                 "borders": {
                     "northeast": {"lat": 21.7432, "lng": 39.2745},
-                    "southwest": {"lat": 21.3234, "lng": 39.0728}
-                }
+                    "southwest": {"lat": 21.3234, "lng": 39.0728},
+                },
             },
             {
                 "name": "Mecca",
@@ -463,8 +469,8 @@ def load_country_city():
                 "lng": 39.8262,
                 "borders": {
                     "northeast": {"lat": 21.5432, "lng": 39.9283},
-                    "southwest": {"lat": 21.3218, "lng": 39.7241}
-                }
+                    "southwest": {"lat": 21.3218, "lng": 39.7241},
+                },
             },
         ],
         "Canada": [
@@ -474,8 +480,8 @@ def load_country_city():
                 "lng": -79.3832,
                 "borders": {
                     "northeast": {"lat": 43.8554, "lng": -79.1168},
-                    "southwest": {"lat": 43.5810, "lng": -79.6396}
-                }
+                    "southwest": {"lat": 43.5810, "lng": -79.6396},
+                },
             },
             {
                 "name": "Vancouver",
@@ -483,8 +489,8 @@ def load_country_city():
                 "lng": -123.1207,
                 "borders": {
                     "northeast": {"lat": 49.3932, "lng": -122.9856},
-                    "southwest": {"lat": 49.1986, "lng": -123.2642}
-                }
+                    "southwest": {"lat": 49.1986, "lng": -123.2642},
+                },
             },
             {
                 "name": "Montreal",
@@ -492,8 +498,8 @@ def load_country_city():
                 "lng": -73.5673,
                 "borders": {
                     "northeast": {"lat": 45.7058, "lng": -73.4734},
-                    "southwest": {"lat": 45.4139, "lng": -73.7089}
-                }
+                    "southwest": {"lat": 45.4139, "lng": -73.7089},
+                },
             },
         ],
     }
@@ -593,30 +599,30 @@ async def load_gradient_colors() -> Optional[List[List]]:
 async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
     """
     Stores Google Maps data in the database, creating the table if needed.
-    
+
     Args:
         req: Location request object
         dataset: Response data from Google Maps
-    
+
     Returns:
         str: Filename/ID used as the primary key
     """
     try:
         filename = make_ggl_dataset_filename(req)
-        
+
         # Convert request object to dictionary using Pydantic's model_dump
         req_dict = req.model_dump()
-        
+
         await Database.execute(
             SqlObject.store_dataset,
             filename,
             json.dumps(req_dict),
             json.dumps(dataset),
-            datetime.utcnow()
+            datetime.utcnow(),
         )
-        
+
         return filename
-        
+
     except asyncpg.exceptions.UndefinedTableError:
         # If table doesn't exist, create it and retry
         await Database.execute(SqlObject.create_datasets_table)
@@ -668,7 +674,7 @@ async def load_dataset(dataset_id: str) -> Dict:
             # json_content = await use_json(dataset_filepath, "r")
             json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
             if json_content:
-                all_datasets.extend(json_content['response_data'])
+                all_datasets.extend(json_content["response_data"])
 
     else:
         # dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
@@ -679,9 +685,9 @@ async def load_dataset(dataset_id: str) -> Dict:
             # If table doesn't exist, create it and retry
             await Database.execute(SqlObject.create_datasets_table)
             all_datasets = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
-            
+
         if all_datasets:
-            all_datasets = all_datasets['response_data']
+            all_datasets = all_datasets["response_data"]
 
     return all_datasets
 
