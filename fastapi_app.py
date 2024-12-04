@@ -222,7 +222,7 @@ async def nearby_categories():
 @app.post(
     CONF.fetch_dataset,
     response_model=ResModel[ResFetchDataset],
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[],
 )
 async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     response = await request_handling(

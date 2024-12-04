@@ -1,0 +1,76 @@
+{
+    "Automotive": {
+        "car_dealer": 0.9,
+        "car_rental": 0.8,
+        "car_repair": 0.9,
+        "car_wash": 0.7,
+        "electric_vehicle_charging_station": 0.6,
+        "gas_station": 0.9,
+        "parking": 0.8,
+        "rest_stop": 0.6
+    },
+    "Culture": {
+        "art_gallery": 0.8,
+        "museum": 0.9,
+        "performing_arts_theater": 0.7
+    },
+    "Education": {
+        "library": 0.9,
+        "preschool": 0.9,
+        "primary_school": 0.9,
+        "school": 0.9,
+        "secondary_school": 0.9,
+        "university": 0.9
+    },
+    "Entertainment and Recreation": {
+        "amusement_center": 0.7,
+        "amusement_park": 0.7,
+        "aquarium": 0.6,
+        "banquet_hall": 0.8,
+        "bowling_alley": 0.5,
+        "community_center": 0.8,
+        "convention_center": 0.8,
+        "movie_theater": 0.9,
+        "park": 0.9,
+        "tourist_attraction": 0.9
+    },
+    "Finance": {
+        "accounting": 0.9,
+        "atm": 0.9,
+        "bank": 0.9
+    },
+    "Food and Drink": {
+        "american_restaurant": 0.8,
+        "bakery": 0.9,
+        "bar": 0.8,
+        "fast_food_restaurant": 0.9,
+        "cafe": 0.9,
+        "restaurant": 0.9
+    },
+    "Health and Wellness": {
+        "doctor": 0.9,
+        "dentist": 0.8,
+        "pharmacy": 0.9,
+        "hospital": 0.9
+    },
+    "Lodging": {
+        "hotel": 0.9,
+        "resort_hotel": 0.8,
+        "bed_and_breakfast": 0.6
+    },
+    "Shopping": {
+        "clothing_store": 0.9,
+        "electronics_store": 0.8,
+        "supermarket": 0.9
+    },
+    "Sports": {
+        "gym": 0.8,
+        "fitness_center": 0.8,
+        "stadium": 0.7
+    },
+    "Transportation": {
+        "airport": 0.9,
+        "bus_station": 0.8,
+        "taxi_stand": 0.9
+    }
+}
