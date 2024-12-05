@@ -125,7 +125,7 @@ def make_include_exclude_name(include_list, exclude_list):
     return type_string
 
 
-def make_ggl_dataset_cord_filename(lng: str, lat: str, radius: str):
+def make_ggl_dataset_cord_string(lng: str, lat: str, radius: str):
     return f"{lng}_{lat}_{radius}"
 
 
@@ -135,8 +135,8 @@ def make_ggl_layer_filename(req: ReqFetchDataset) -> str:
     return tcc_string
 
 
-def make_ggl_dataset_filename(req) -> str:
-    cord_string = make_ggl_dataset_cord_filename(req.lng, req.lat, req.radius)
+def make_dataset_filename(req) -> str:
+    cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
     type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
     try:
         name = f"{cord_string}_{type_string}_token={req.page_token}"
@@ -596,7 +596,7 @@ async def load_gradient_colors() -> Optional[List[List]]:
     return json_data
 
 
-async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
+async def store_data_resp(req: ReqLocation, dataset: Dict, file_name:str) -> str:
     """
     Stores Google Maps data in the database, creating the table if needed.
 
@@ -608,25 +608,23 @@ async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
         str: Filename/ID used as the primary key
     """
     try:
-        filename = make_ggl_dataset_filename(req)
-
         # Convert request object to dictionary using Pydantic's model_dump
         req_dict = req.model_dump()
 
         await Database.execute(
             SqlObject.store_dataset,
-            filename,
+            file_name,
             json.dumps(req_dict),
             json.dumps(dataset),
             datetime.utcnow(),
         )
 
-        return filename
+        return file_name
 
     except asyncpg.exceptions.UndefinedTableError:
         # If table doesn't exist, create it and retry
         await Database.execute(SqlObject.create_datasets_table)
-        return await store_ggl_data_resp(req, dataset)
+        return await store_data_resp(req, dataset, file_name)
 
 
 # async def get_dataset_from_storage(

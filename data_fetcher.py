@@ -1,7 +1,7 @@
 import logging
 import math
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union, Tuple
 import json
 import orjson
 from geopy.distance import geodesic
@@ -19,13 +19,20 @@ from all_types.response_dtypes import (
     UserCatalogInfo,
     NearestPointRouteResponse,
 )
-from google_api_connector import calculate_distance_traffic_route, fetch_from_google_maps_api,text_fetch_from_google_maps_api
-from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
+from google_api_connector import (
+    calculate_distance_traffic_route,
+    fetch_from_google_maps_api,
+    text_fetch_from_google_maps_api,
+)
+from backend_common.logging_wrapper import (
+    apply_decorator_to_module,
+    preserve_validate_decorator,
+)
 from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import generate_layer_id
 from storage import (
-    store_ggl_data_resp,
+    store_data_resp,
     load_real_estate_categories,
     load_census_categories,
     get_real_estate_dataset_from_storage,
@@ -44,7 +51,7 @@ from storage import (
     get_plan,
     create_real_estate_plan,
     load_gradient_colors,
-    make_ggl_dataset_filename
+    make_dataset_filename,
 )
 from storage import (
     load_google_categories,
@@ -188,8 +195,38 @@ def create_string_list(
 
     return result
 
+def to_location_req(req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation]) -> ReqLocation:
+    # If it's already a ReqLocation, return it directly
+    if isinstance(req_dataset, ReqLocation):
+        return req_dataset
+        
+    # Load country/city data
+    country_city_data = load_country_city()
+    
+    # Find the city coordinates
+    city_data = None
+    if req_dataset.country_name in country_city_data:
+        for city in country_city_data[req_dataset.country_name]:
+            if city["name"] == req_dataset.city_name:
+                city_data = city
+                break
+    
+    if not city_data:
+        raise ValueError(f"City {req_dataset.city_name} not found in {req_dataset.country_name}")
+    
+    # Create ReqLocation object
+    return ReqLocation(
+        lat=city_data["lat"],
+        lng=city_data["lng"],
+        radius=5000,  # Default radius
+        includedTypes=req_dataset.includedTypes,
+        excludedTypes=[],  # Default empty list for excludedTypes
+        page_token=req_dataset.page_token or ""
+    )
 
-async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchDataset):
+async def fetch_census_realestate(
+    req_dataset: Union[ReqCensus, ReqRealEstate], req_create_lyr: ReqFetchDataset
+) -> Tuple[Any, str, str, str]:
     next_page_token = req_dataset.page_token
     plan_name = ""
     action = req_create_lyr.action
@@ -200,31 +237,77 @@ async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchData
             await process_req_plan(req_dataset, req_create_lyr)
         )
 
-    dataset, bknd_dataset_id = await get_census_dataset_from_storage(
-        req_dataset, bknd_dataset_id, action
-    )
+    temp_req = to_location_req(req_dataset)
+    bknd_dataset_id = make_dataset_filename(temp_req)
+    dataset = await load_dataset(bknd_dataset_id)
 
-    return dataset, bknd_dataset_id, next_page_token, plan_name
-
-
-async def fetch_real_estate_nearby(
-    req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset
-):
-    next_page_token = req_dataset.page_token
-    plan_name = ""
-    action = req_create_lyr.action
-    bknd_dataset_id = ""
-
-    if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr)
+    if not dataset:
+        if isinstance(req_dataset, ReqCensus):
+            get_dataset_func = get_census_dataset_from_storage
+        elif isinstance(req_dataset, ReqRealEstate):
+            get_dataset_func = get_real_estate_dataset_from_storage
+        
+        dataset, bknd_dataset_id = await get_dataset_func(
+            req_dataset, bknd_dataset_id, action
         )
-
-    dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
-        req_dataset, bknd_dataset_id, action
-    )
+        if dataset:
+            bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
+    else:
+        dataset = orjson.loads(dataset)
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
+
+# async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchDataset):
+#     next_page_token = req_dataset.page_token
+#     plan_name = ""
+#     action = req_create_lyr.action
+#     bknd_dataset_id = ""
+
+#     if action == "full data":
+#         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+#             await process_req_plan(req_dataset, req_create_lyr)
+#         )
+    
+#     temp_req = to_location_req(req_dataset)
+#     bknd_dataset_id = make_dataset_filename(temp_req)
+#     dataset = await load_dataset(bknd_dataset_id)
+#     if not dataset:
+#         dataset, bknd_dataset_id = await get_census_dataset_from_storage(
+#             req_dataset, bknd_dataset_id, action
+#         )
+#         if dataset:
+#             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
+#     else:
+#         dataset = orjson.loads(dataset)
+
+#     return dataset, bknd_dataset_id, next_page_token, plan_name
+
+
+# async def fetch_real_estate_nearby(
+#     req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset
+# ):
+#     next_page_token = req_dataset.page_token
+#     plan_name = ""
+#     action = req_create_lyr.action
+#     bknd_dataset_id = ""
+
+#     if action == "full data":
+#         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+#             await process_req_plan(req_dataset, req_create_lyr)
+#         )
+#     temp_req = to_location_req(req_dataset)
+#     bknd_dataset_id = make_dataset_filename(temp_req)
+#     dataset = await load_dataset(bknd_dataset_id)
+#     if not dataset:
+#         dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
+#             req_dataset, bknd_dataset_id, action
+#         )
+#         if dataset:
+#             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
+#     else:
+#         dataset = orjson.loads(dataset)
+
+#     return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
 async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
@@ -236,7 +319,8 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
             await process_req_plan(req_dataset, req_create_lyr)
         )
-    bknd_dataset_id = make_ggl_dataset_filename(req_dataset)
+    temp_req = to_location_req(req_dataset)
+    bknd_dataset_id = make_dataset_filename(temp_req)
     dataset = await load_dataset(bknd_dataset_id)
     if dataset:
         dataset = orjson.loads(dataset)
@@ -246,18 +330,13 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
 
         if "default" in search_type or "new nearby search" in search_type:
             dataset, _ = await fetch_from_google_maps_api(req_dataset)
-        # elif "default" in search_type or "old nearby search" in search_type:
-        #     dataset, next_page_token = await old_fetch_from_google_maps_api(req_dataset)
-        # elif 'nearby but actually text search' in search_type:
-        #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
-        else:  # text search
+        else:
             dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
-
 
         if dataset:
             # Store the fetched data in storage
             dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-            bknd_dataset_id = await store_ggl_data_resp(req_dataset, dataset)
+            bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
 
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
@@ -576,7 +655,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             text_search=req.text_search,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_real_estate_nearby(req_dataset, req_create_lyr=req)
+            await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
 
     elif data_type in ["demographics", "economic", "housing", "social"]:
@@ -587,7 +666,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             page_token=req.page_token,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_data(req_dataset, req_create_lyr=req)
+            await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
 
     else:
@@ -601,10 +680,9 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             page_token=req.page_token,
             text_search=req.text_search,
         )
-        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
-            req_dataset, req_create_lyr=req
+        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
+            await fetch_ggl_nearby(req_dataset, req_create_lyr=req)
         )
-        
 
     # if request action was "full data" then store dataset id in the user profile
     # the name of the dataset will be the action + cct_layer name

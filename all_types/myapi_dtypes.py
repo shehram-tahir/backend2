@@ -48,17 +48,6 @@ class ZoneLayerInfo(BaseModel):
     property_key: str
 
 
-# Request models
-class ReqLocation(BaseModel):
-    lat: float
-    lng: float
-    radius: int
-    excludedTypes: list[str]
-    includedTypes: list[str]
-    page_token: Optional[str] = ""
-    text_search: Optional[str] = ""
-
-
 class ReqCatalogId(BaseModel):
     catalogue_dataset_id: str
 
@@ -71,12 +60,15 @@ class Coordinate(BaseModel):
     latitude: float
     longitude: float
 
+
 class ReqPrdcerLyrMapData(BaseModel):
     prdcer_lyr_id: str
     user_id: str
 
+
 class ReqNearestRoute(ReqPrdcerLyrMapData):
     points: List[Coordinate]
+
 
 class ReqFetchDataset(BaseModel):
     dataset_country: str
@@ -109,6 +101,17 @@ class ReqCostEstimate(BaseModel):
     country: str
 
 
+# Request models
+class ReqLocation(BaseModel):
+    lat: float
+    lng: float
+    radius: int
+    excludedTypes: list[str]
+    includedTypes: list[str]
+    page_token: Optional[str] = ""
+    text_search: Optional[str] = ""
+
+
 class ReqRealEstate(BaseModel):
     country_name: str
     city_name: str
@@ -123,6 +126,7 @@ class ReqCensus(BaseModel):
     city_name: str
     includedTypes: List[str]
     page_token: Optional[str] = None
+
 
 class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
     color_grid_choice: list[str]
