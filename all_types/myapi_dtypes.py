@@ -30,6 +30,7 @@ class ReqSavePrdcerLyer(BaseModel):
     points_color: str
     layer_legend: str
     layer_description: str
+    city_name: str
     user_id: str
 
 

@@ -44,16 +44,6 @@ class card_metadata(BaseModel):
     can_access: int
 
 
-class LayerInfo(BaseModel):
-    prdcer_lyr_id: str
-    prdcer_layer_name: str
-    points_color: str
-    layer_legend: str
-    layer_description: str
-    records_count: int
-    is_zone_lyr: str
-
-
 class MapData(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
@@ -87,7 +77,7 @@ class UserCatalogInfo(BaseModel):
     ctlg_owner_user_id: str
 
 
-class PrdcerLyrMapData(MapData):
+class LayerInfo(BaseModel):
     prdcer_layer_name: str
     prdcer_lyr_id: str
     bknd_dataset_id: str
@@ -95,30 +85,42 @@ class PrdcerLyrMapData(MapData):
     layer_legend: str
     layer_description: str
     records_count: int
+    city_name: str
     is_zone_lyr: str
+
+
+class ResLyrMapData(MapData, LayerInfo):
+    pass
+
+
 class TrafficCondition(BaseModel):
     start_index: int
     end_index: int
     speed: Optional[str]
 
+
 class LegInfo(BaseModel):
-    start_location: dict 
-    end_location: dict    
+    start_location: dict
+    end_location: dict
     distance: float
     duration: str
     static_duration: str
     polyline: str
     traffic_conditions: List[TrafficCondition]
 
+
 class RouteInfo(BaseModel):
-    origin: str 
-    destination: str  
+    origin: str
+    destination: str
     route: List[LegInfo]
+
 
 class NearestPointRouteResponse(BaseModel):
     target: dict
-    routes: List[Union[RouteInfo, dict]] 
-class ResGradientColorBasedOnZone(PrdcerLyrMapData):
+    routes: List[Union[RouteInfo, dict]]
+
+
+class ResGradientColorBasedOnZone(ResLyrMapData):
     sub_lyr_id: str  # This is the additional property
 
 
@@ -135,30 +137,3 @@ class PaymentMethod(BaseModel):
 
 class ResGetPaymentMethods(BaseModel):
     payment_methods: List[PaymentMethod]
-
-
-ResAllCards = ResModel[List[card_metadata]]
-
-ResUserLayers = ResModel[List[LayerInfo]]
-
-ResCtlgLyrs = ResModel[List[PrdcerLyrMapData]]
-# ResApplyZoneLayers = ResModel[List[PrdcerLyrMapData]]
-ResCreateUserProfile = ResModel[Dict[str, str]]
-ResSavePrdcerCtlg = ResModel[str]
-ResTypeMapData = ResModel[MapData]
-
-ResCountryCityData = ResModel[Dict[str, List[CityData]]]
-ResNearbyCategories = ResModel[Dict[str, List[str]]]
-ResPrdcerLyrMapData = ResModel[PrdcerLyrMapData]
-ResNearestLocData=ResModel[List[NearestPointRouteResponse]]
-ResOldNearbyCategories = ResModel[List[str]]
-ResUserCatalogs = ResModel[List[UserCatalogInfo]]
-ResUserLogin = ResModel[Dict[str, Any]]
-ResUserProfile = ResModel[Dict[str, Any]]
-ResResetPassword = ResModel[Dict[str, Any]]
-ResConfirmReset = ResModel[Dict[str, Any]]
-ResfetchGradientColors = ResModel[list[list[str]]]
-
-
-## Added for Refresh token
-ResUserRefreshToken = ResModel[Dict[str, Any]]  ## Change

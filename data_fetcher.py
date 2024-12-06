@@ -14,7 +14,7 @@ from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
     ResGradientColorBasedOnZone,
-    PrdcerLyrMapData,
+    ResLyrMapData,
     LayerInfo,
     UserCatalogInfo,
     NearestPointRouteResponse,
@@ -225,15 +225,16 @@ def to_location_req(req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation]) -
     )
 
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCensus, ReqRealEstate], req_create_lyr: ReqFetchDataset, action: str = ''
+    req_dataset: Union[ReqCensus, ReqRealEstate], req_create_lyr: ReqFetchDataset
 ) -> Tuple[Any, str, str, str]:
     next_page_token = req_dataset.page_token
     plan_name = ""
+    action = req_create_lyr.action
     bknd_dataset_id = ""
 
     if action == "full data":
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr, action)
+            await process_req_plan(req_dataset, req_create_lyr)
         )
 
     temp_req = to_location_req(req_dataset)
@@ -309,14 +310,14 @@ async def fetch_census_realestate(
 #     return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
-async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset, action: str = ''):
+async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
     search_type = req_create_lyr.search_type
     next_page_token = req_dataset.page_token
     plan_name = ""
 
-    if action == "full data":
+    if req_create_lyr.action == "full data":
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr, action)
+            await process_req_plan(req_dataset, req_create_lyr)
         )
     temp_req = to_location_req(req_dataset)
     bknd_dataset_id = make_dataset_filename(temp_req)
@@ -340,7 +341,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
-    if len(dataset) < 20 and action == "full data":
+    if len(dataset) < 20 and req_create_lyr.action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
             next_page_token = ""
@@ -397,7 +398,8 @@ def add_skip_to_subcircles(plan: list, token_plan_index: str):
     return modified_plan
 
 
-async def process_req_plan(req_dataset, req_create_lyr, action: str = ''):
+async def process_req_plan(req_dataset, req_create_lyr):
+    action = req_create_lyr.action
     plan: List[str] = []
     current_plan_index = 0
     bknd_dataset_id = ""
@@ -619,7 +621,7 @@ def prepare_response(dataset, bknd_dataset_id, next_page_token):
     }
 
 
-async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str = ''):
+async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,
@@ -653,7 +655,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
             text_search=req.text_search,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(req_dataset, req_create_lyr=req, action=action)
+            await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
 
     elif data_type in ["demographics", "economic", "housing", "social"]:
@@ -664,7 +666,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
             page_token=req.page_token,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(req_dataset, req_create_lyr=req, action=action)
+            await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
 
     else:
@@ -679,13 +681,13 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
             text_search=req.text_search,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_ggl_nearby(req_dataset, req_create_lyr=req, action=action)
+            await fetch_ggl_nearby(req_dataset, req_create_lyr=req)
         )
 
     # if request action was "full data" then store dataset id in the user profile
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
-    if action == "full data":
+    if req.action == "full data":
         user_data = await load_user_profile(req.user_id)
         user_data["prdcer"]["prdcer_dataset"][
             plan_name.replace("plan_", "")
@@ -699,18 +701,18 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
     return geojson_dataset
 
 
-async def full_data_fetch_country_city_category_map_data(req: ReqFetchDataset):
-    """
-    Handle data fatch based on action
-    """
-    return await fetch_country_city_category_map_data(req, action="full data")
+# async def full_data_fetch_country_city_category_map_data(req: ReqFetchDataset):
+#     """
+#     Handle data fatch based on action
+#     """
+#     return await fetch_country_city_category_map_data(req, action="full data")
 
 
-async def default_fetch_country_city_category_map_data(req: ReqFetchDataset):
-    """
-    Handle data fatch based on action
-    """
-    return await fetch_country_city_category_map_data(req)
+# async def default_fetch_country_city_category_map_data(req: ReqFetchDataset):
+#     """
+#     Handle data fatch based on action
+#     """
+#     return await fetch_country_city_category_map_data(req)
 
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
@@ -761,7 +763,9 @@ async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
                     layer_legend=lyr_data["layer_legend"],
                     layer_description=lyr_data["layer_description"],
                     records_count=records_count,
-                    is_zone_lyr="false",  # Default to "false" as string
+                    city_name = lyr_data["city_name"],
+                    bknd_dataset_id=lyr_data["bknd_dataset_id"],
+                    is_zone_lyr="false",
                 )
             )
         except KeyError as e:
@@ -777,7 +781,7 @@ async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     return user_layers_metadata
 
 
-async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
+async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
     """
     Fetches detailed map data for a specific producer layer.
     """
@@ -800,7 +804,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         if all_datasets:
             trans_dataset = orjson.loads(all_datasets)
 
-        return PrdcerLyrMapData(
+        return ResLyrMapData(
             type="FeatureCollection",
             features=trans_dataset["features"],
             prdcer_layer_name=layer_metadata["prdcer_layer_name"],
@@ -974,7 +978,7 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
         ) from e
 
 
-async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
+async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
     """
     Fetches all layers associated with a specific catalog.
     """
@@ -1014,7 +1018,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
             )
 
             ctlg_lyrs_map_data.append(
-                PrdcerLyrMapData(
+                ResLyrMapData(
                     type="FeatureCollection",
                     features=trans_dataset["features"],
                     prdcer_layer_name=lyr_metadata.get(

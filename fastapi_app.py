@@ -1,9 +1,17 @@
 import logging
 import uuid
-from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List
+from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
 
 import stripe
-from fastapi import Body, HTTPException, status, FastAPI, Request, Depends, BackgroundTasks
+from fastapi import (
+    Body,
+    HTTPException,
+    status,
+    FastAPI,
+    Request,
+    Depends,
+    BackgroundTasks,
+)
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -46,34 +54,23 @@ from backend_common.auth import (
     refresh_id_token,
     change_email,
     db,
-    JWTBearer, 
-    create_user_profile
+    JWTBearer,
+    create_user_profile,
 )
 
 from all_types.response_dtypes import (
     ResModel,
-    ResAllCards,
-    ResUserLayers,
-    ResCtlgLyrs,
-    ResCreateUserProfile,
-    ResSavePrdcerCtlg,
-    ResTypeMapData,
-    ResCountryCityData,
-    ResNearbyCategories,
-    ResPrdcerLyrMapData,
-    ResNearestLocData,
     ResFetchDataset,
-    ResUserCatalogs,
-    ResUserLogin,
-    ResUserProfile,
-    ResResetPassword,
-    ResConfirmReset,
     ResCostEstimate,
     ResAddPaymentMethod,
-    ResfetchGradientColors,
     ResGradientColorBasedOnZone,
-    ResUserRefreshToken,
     ResGetPaymentMethods,
+    ResLyrMapData,
+    card_metadata,
+    CityData,
+    NearestPointRouteResponse,
+    UserCatalogInfo,
+    LayerInfo
 )
 
 from google_api_connector import check_street_view_availability
@@ -83,21 +80,19 @@ from data_fetcher import (
     fetch_country_city_data,
     fetch_catlog_collection,
     fetch_layer_collection,
-    default_fetch_country_city_category_map_data,
-    full_data_fetch_country_city_category_map_data,
     save_lyr,
     aquire_user_lyrs,
     fetch_lyr_map_data,
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    # apply_zone_layers,
     fetch_nearby_categories,
     save_draft_catalog,
     fetch_gradient_colors,
     gradient_color_based_on_zone,
     get_user_profile,
     fetch_lyr_map_data_coordinates,
+    fetch_country_city_category_map_data,
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -158,6 +153,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 @app.middleware("http")
 async def background_tasks_middleware(request, call_next):
     background_tasks = BackgroundTasks()
@@ -188,56 +185,56 @@ async def fetch_acknowlg_id():
     return response
 
 
-@app.get(CONF.catlog_collection, response_model=ResAllCards)
+@app.get(CONF.catlog_collection, response_model=ResModel[list[card_metadata]])
 async def catlog_collection():
     response = await request_handling(
-        None, None, ResAllCards, fetch_catlog_collection, wrap_output=True
+        None,
+        None,
+        ResModel[list[card_metadata]],
+        fetch_catlog_collection,
+        wrap_output=True,
     )
     return response
 
 
-@app.get(CONF.layer_collection, response_model=ResAllCards)
+@app.get(CONF.layer_collection, response_model=ResModel[list[card_metadata]])
 async def layer_collection():
     response = await request_handling(
-        None, None, ResAllCards, fetch_layer_collection, wrap_output=True
+        None,
+        None,
+        ResModel[list[card_metadata]],
+        fetch_layer_collection,
+        wrap_output=True,
     )
     return response
 
 
-@app.get(CONF.country_city, response_model=ResCountryCityData)
+@app.get(CONF.country_city, response_model=ResModel[dict[str, list[CityData]]])
 async def country_city():
     response = await request_handling(
-        None, None, ResCountryCityData, fetch_country_city_data, wrap_output=True
+        None,
+        None,
+        ResModel[dict[str, list[CityData]]],
+        fetch_country_city_data,
+        wrap_output=True,
     )
     return response
 
 
-@app.get(CONF.nearby_categories, response_model=ResNearbyCategories)
+@app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
 async def nearby_categories():
     response = await request_handling(
-        None, None, ResNearbyCategories, fetch_nearby_categories, wrap_output=True
-    )
-    return response
-
-
-@app.post(
-    CONF.fetch_dataset,
-    response_model=ResModel[ResFetchDataset],
-    dependencies=[],
-)
-async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
-    response = await request_handling(
-        req.request_body,
-        ReqFetchDataset,
-        ResModel[ResFetchDataset],
-        default_fetch_country_city_category_map_data,
+        None,
+        None,
+        ResModel[dict[str, list[str]]],
+        fetch_nearby_categories,
         wrap_output=True,
     )
     return response
 
 
 @app.post(
-    CONF.fetch_dataset_full_data,
+    CONF.fetch_dataset,
     response_model=ResModel[ResFetchDataset],
     dependencies=[Depends(JWTBearer())],
 )
@@ -246,10 +243,26 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
         req.request_body,
         ReqFetchDataset,
         ResModel[ResFetchDataset],
-        full_data_fetch_country_city_category_map_data,
+        fetch_country_city_category_map_data,
         wrap_output=True,
     )
     return response
+
+
+# @app.post(
+#     CONF.fetch_dataset_full_data,
+#     response_model=ResModel[ResFetchDataset],
+#     dependencies=[Depends(JWTBearer())],
+# )
+# async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
+#     response = await request_handling(
+#         req.request_body,
+#         ReqFetchDataset,
+#         ResModel[ResFetchDataset],
+#         full_data_fetch_country_city_category_map_data,
+#         wrap_output=True,
+#     )
+#     return response
 
 
 @app.post(
@@ -262,20 +275,24 @@ async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     return response
 
 
-@app.post(CONF.user_layers, response_model=ResUserLayers)
+@app.post(CONF.user_layers, response_model=ResModel[list[LayerInfo]])
 async def user_layers(req: ReqModel[ReqUserId]):
     response = await request_handling(
-        req.request_body, ReqUserId, ResUserLayers, aquire_user_lyrs, wrap_output=True
+        req.request_body,
+        ReqUserId,
+        ResModel[list[LayerInfo]],
+        aquire_user_lyrs,
+        wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.prdcer_lyr_map_data, response_model=ResPrdcerLyrMapData)
+@app.post(CONF.prdcer_lyr_map_data, response_model=ResModel[ResLyrMapData])
 async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     response = await request_handling(
         req.request_body,
         ReqPrdcerLyrMapData,
-        ResPrdcerLyrMapData,
+        ResModel[ResLyrMapData],
         fetch_lyr_map_data,
         wrap_output=True,
     )
@@ -285,13 +302,13 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
 @app.post(
     CONF.nearest_lyr_map_data,
     description="Get Nearest Point",
-    response_model=ResNearestLocData,
+    response_model=ResModel[list[NearestPointRouteResponse]],
 )
 async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
     response = await request_handling(
         req.request_body,
         ReqNearestRoute,
-        ResNearestLocData,
+        ResModel[list[NearestPointRouteResponse]],
         fetch_lyr_map_data_coordinates,
         wrap_output=True,
     )
@@ -300,59 +317,63 @@ async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
 
 @app.post(
     CONF.save_producer_catalog,
-    response_model=ResSavePrdcerCtlg,
+    response_model=ResModel[str],
     dependencies=[Depends(JWTBearer())],
 )
 async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
     response = await request_handling(
         req.request_body,
         ReqSavePrdcerCtlg,
-        ResSavePrdcerCtlg,
+        ResModel[str],
         create_save_prdcer_ctlg,
         wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.user_catalogs, response_model=ResUserCatalogs)
+@app.post(CONF.user_catalogs, response_model=ResModel[list[UserCatalogInfo]])
 async def user_catalogs(req: ReqModel[ReqUserId]):
     response = await request_handling(
         req.request_body,
         ReqUserId,
-        ResUserCatalogs,
+        ResModel[list[UserCatalogInfo]],
         fetch_prdcer_ctlgs,
         wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.fetch_ctlg_lyrs, response_model=ResCtlgLyrs)
+@app.post(CONF.fetch_ctlg_lyrs, response_model=ResModel[list[ResLyrMapData]])
 async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
     response = await request_handling(
         req.request_body,
         ReqFetchCtlgLyrs,
-        ResCtlgLyrs,
+        ResModel[list[ResLyrMapData]],
         fetch_ctlg_lyrs,
         wrap_output=True,
     )
     return response
 
 
-# @app.post(CONF.create_firebase_stripe_user, response_model=ResCreateUserProfile)
+# @app.post(CONF.create_firebase_stripe_user, response_model=ResModel[dict[str, str]])
 # async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 #     response = await request_handling(
-#         req.request_body, ReqCreateUserProfile, ResCreateUserProfile, create_firebase_user,
+#         req.request_body, ReqCreateUserProfile, ResModel[dict[str, str]], create_firebase_user,
 #         wrap_output=True
 #     )
 #     return response
 
 
 # Authentication
-@app.post(CONF.login, response_model=ResUserLogin, tags=["Authentication"])
+@app.post(CONF.login, response_model=ResModel[dict[str, Any]], tags=["Authentication"])
 async def login(req: ReqModel[ReqUserLogin]):
     if CONF.firebase_api_key != "":
         response = await request_handling(
-            req.request_body, ReqUserLogin, ResUserLogin, login_user, wrap_output=True
+            req.request_body,
+            ReqUserLogin,
+            ResModel[dict[str, Any]],
+            login_user,
+            wrap_output=True,
         )
     else:
         response = {
@@ -374,7 +395,7 @@ async def login(req: ReqModel[ReqUserLogin]):
 
 
 @app.post(
-    CONF.refresh_token, response_model=ResUserRefreshToken, tags=["Authentication"]
+    CONF.refresh_token, response_model=ResModel[dict[str, Any]], tags=["Authentication"]
 )
 async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
@@ -382,7 +403,7 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
             response = await request_handling(
                 req.request_body,
                 ReqRefreshToken,
-                ResUserRefreshToken,
+                ResModel[dict[str, Any]],
                 refresh_id_token,
                 wrap_output=True,
             )
@@ -407,24 +428,30 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
         raise HTTPException(status_code=400, detail="Token refresh failed")
 
 
-@app.post(CONF.reset_password, response_model=ResResetPassword, tags=["Authentication"])
+@app.post(
+    CONF.reset_password,
+    response_model=ResModel[dict[str, Any]],
+    tags=["Authentication"],
+)
 async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
     response = await request_handling(
         req.request_body,
         ReqResetPassword,
-        ResResetPassword,
+        ResModel[dict[str, Any]],
         reset_password,
         wrap_output=True,
     )
     return response
 
 
-@app.post(CONF.confirm_reset, response_model=ResConfirmReset, tags=["Authentication"])
+@app.post(
+    CONF.confirm_reset, response_model=ResModel[dict[str, Any]], tags=["Authentication"]
+)
 async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
     response = await request_handling(
         req.request_body,
         ReqConfirmReset,
-        ResConfirmReset,
+        ResModel[dict[str, Any]],
         confirm_reset,
         wrap_output=True,
     )
@@ -467,14 +494,14 @@ async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request)
 
 @app.post(
     CONF.user_profile,
-    response_model=ResUserProfile,
+    response_model=ResModel[dict[str, Any]],
     dependencies=[Depends(JWTBearer())],
 )
 async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
     response = await request_handling(
         req.request_body,
         ReqUserProfile,
-        ResUserProfile,
+        ResModel[dict[str, Any]],
         get_user_profile,
         wrap_output=True,
     )
@@ -495,7 +522,7 @@ async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Requ
 
 @app.post(
     CONF.save_draft_catalog,
-    response_model=ResSavePrdcerCtlg,
+    response_model=ResModel[str],
     dependencies=[Depends(JWTBearer())],
 )
 async def save_draft_catalog_endpoint(
@@ -504,24 +531,24 @@ async def save_draft_catalog_endpoint(
     response = await request_handling(
         req.request_body,
         ReqSavePrdcerCtlg,
-        ResSavePrdcerCtlg,
+        ResModel[str],
         save_draft_catalog,
         wrap_output=True,
     )
     return response
 
 
-@app.get(CONF.fetch_gradient_colors, response_model=ResfetchGradientColors)
+@app.get(CONF.fetch_gradient_colors, response_model=ResModel[list[list[str]]])
 async def fetch_gradient_colors_endpoint():
     response = await request_handling(
-        None, None, ResfetchGradientColors, fetch_gradient_colors, wrap_output=True
+        None, None, ResModel[list[list[str]]], fetch_gradient_colors, wrap_output=True
     )
     return response
 
 
 @app.post(
     CONF.gradient_color_based_on_zone,
-    response_model=ResModel[List[ResGradientColorBasedOnZone]],
+    response_model=ResModel[list[ResGradientColorBasedOnZone]],
 )
 async def gradient_color_based_on_zone_endpoint(
     req: ReqModel[ReqGradientColorBasedOnZone], request: Request
@@ -529,7 +556,7 @@ async def gradient_color_based_on_zone_endpoint(
     response = await request_handling(
         req.request_body,
         ReqGradientColorBasedOnZone,
-        ResModel[List[ResGradientColorBasedOnZone]],
+        ResModel[list[ResGradientColorBasedOnZone]],
         gradient_color_based_on_zone,
         wrap_output=True,
     )
@@ -616,13 +643,13 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
 
 @app.get(
     CONF.list_stripe_customers,
-    response_model=ResModel[List[dict]],
-    description="List all customers in stripe",
+    response_model=ResModel[list[dict]],
+    description="list all customers in stripe",
     tags=["stripe customers"],
 )
 async def list_stripe_customers_endpoint():
     response = await request_handling(
-        None, None, ResModel[List[dict]], list_customers, wrap_output=True
+        None, None, ResModel[list[dict]], list_customers, wrap_output=True
     )
     return response
 
@@ -807,8 +834,8 @@ async def delete_stripe_payment_method_endpoint(payment_method_id: str):
 
 @app.get(
     CONF.list_stripe_payment_methods,
-    response_model=ResModel[List[dict]],
-    description="List all payment methods in stripe",
+    response_model=ResModel[list[dict]],
+    description="list all payment methods in stripe",
     tags=["stripe payment methods"],
 )
 async def list_stripe_payment_methods_endpoint(user_id: str):
@@ -891,7 +918,7 @@ async def delete_stripe_product_endpoint(product_id: str):
 
 @app.get(
     CONF.list_stripe_products,
-    description="List all subscription products in stripe",
+    description="list all subscription products in stripe",
     tags=["stripe products"],
     response_model=ResModel[list[dict]],
 )
