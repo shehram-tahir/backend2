@@ -813,6 +813,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
             points_color=layer_metadata["points_color"],
             layer_legend=layer_metadata["layer_legend"],
             layer_description=layer_metadata["layer_description"],
+            city_name=layer_metadata["city_name"],
             records_count=dataset_info["records_count"],
             is_zone_lyr="false",
         )
