@@ -29,8 +29,18 @@ class MapBoxConnector:
     async def new_ggl_to_boxmap(cls, ggl_api_resp) -> MapData:
         if ggl_api_resp is None:
             raise HTTPException(status_code=404, detail="no data")
-
+        
         features = [cls.assign_point_properties(place) for place in ggl_api_resp]
-
-        business_data = MapData(type="FeatureCollection", features=features)
+        
+        # Get property keys from the first feature if features exist
+        feature_properties = []
+        if features:
+            # Extract all property keys from the first feature's properties
+            feature_properties = list(features[0]["properties"].keys())
+        
+        business_data = MapData(
+            type="FeatureCollection", 
+            features=features, 
+            properties=feature_properties
+        )
         return business_data.model_dump()

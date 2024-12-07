@@ -804,9 +804,16 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
         if all_datasets:
             trans_dataset = orjson.loads(all_datasets)
 
+        # Extract properties from first feature if available
+        properties = []
+        if trans_dataset.get("features") and len(trans_dataset["features"]) > 0:
+            first_feature = trans_dataset["features"][0]
+            properties = list(first_feature.get("properties", {}).keys())
+
         return ResLyrMapData(
             type="FeatureCollection",
             features=trans_dataset["features"],
+            properties=properties,  # Add the properties list here
             prdcer_layer_name=layer_metadata["prdcer_layer_name"],
             prdcer_lyr_id=req.prdcer_lyr_id,
             bknd_dataset_id=dataset_id,
@@ -990,7 +997,6 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
             .get("prdcer_ctlgs", {})
             .get(req.prdcer_ctlg_id, {})
         )
-
         if not ctlg:
             store_ctlgs = load_store_catalogs()
             ctlg = next(
@@ -1001,27 +1007,33 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
                 ),
                 {},
             )
-
         if not ctlg:
             raise HTTPException(status_code=404, detail="Catalog not found")
 
         ctlg_owner_data = await load_user_profile(ctlg["ctlg_owner_user_id"])
-
         ctlg_lyrs_map_data = []
+        
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
             dataset = await load_dataset(dataset_id)
             trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-
+            
+            # Extract properties from first feature if available
+            properties = []
+            if trans_dataset.get("features") and len(trans_dataset["features"]) > 0:
+                first_feature = trans_dataset["features"][0]
+                properties = list(first_feature.get("properties", {}).keys())
+            
             lyr_metadata = (
                 ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
             )
-
+            
             ctlg_lyrs_map_data.append(
                 ResLyrMapData(
                     type="FeatureCollection",
                     features=trans_dataset["features"],
+                    properties=properties,  # Add the properties list here
                     prdcer_layer_name=lyr_metadata.get(
                         "prdcer_layer_name", f"Layer {lyr_id}"
                     ),
@@ -1034,14 +1046,10 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
                     is_zone_lyr="false",
                 )
             )
-
         return ctlg_lyrs_map_data
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"An error occurred: {str(e)}"
-        ) from e
+
 
 
 def calculate_thresholds(values: List[float]) -> List[float]:
@@ -1253,10 +1261,17 @@ async def gradient_color_based_on_zone(
                     f"Influence Score {thresholds[i-1]:.2f} - {thresholds[i]:.2f}"
                 )
 
+            # Extract properties from first feature if available
+            properties = []
+            if data and len(data) > 0:
+                first_feature = data[0]
+                properties = list(first_feature.get("properties", {}).keys())
+
             new_layers.append(
                 ResGradientColorBasedOnZone(
                     type="FeatureCollection",
                     features=data,
+                    properties=properties,  # Add the properties list here
                     prdcer_layer_name=layer_name,
                     prdcer_lyr_id=req.change_lyr_id,
                     sub_lyr_id=f"{req.change_lyr_id}_gradient_{i+1}",

@@ -47,6 +47,7 @@ class card_metadata(BaseModel):
 class MapData(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
+    properties:list[str]
 
 
 class CityData(BaseModel):

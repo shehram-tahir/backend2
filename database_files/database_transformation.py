@@ -57,21 +57,23 @@ async def insert_geojson_to_table(
 
 
 def create_feature_collection(rows: list) -> MapData:
-    keys = list(dict(rows[0]).keys())
+    if not rows:
+        raise ValueError("No data provided")
 
-    # do your transofmration
+    keys = list(dict(rows[0]).keys())
     features = []
+    
+    # Filter out lat/lng keys
+    customKeys = [
+        x for x in keys 
+        if x != "additional__weblisting_uri___location_lat" 
+        and x != "additional__weblisting_uri___location_lng"
+    ]
+
     for row in rows:
         lng = row["additional__weblisting_uri___location_lat"]
         lat = row["additional__weblisting_uri___location_lng"]
-        # keys without lat and lng
-        customKeys = [
-            x
-            for x in keys
-            if x != "additional__weblisting_uri___location_lat"
-            and x != "additional__weblisting_uri___location_lng"
-        ]
-
+        
         feature = {
             "type": "Feature",
             "properties": {key: row[key] for key in customKeys},
@@ -79,7 +81,14 @@ def create_feature_collection(rows: list) -> MapData:
         }
         features.append(feature)
 
-    data = MapData(type="FeatureCollection", features=features)
-    # usea method in storage.py to save to JSON file
+    # Get all property keys from the first feature's properties
+    properties = list(features[0]["properties"].keys()) if features else []
+
+    data = MapData(
+        type="FeatureCollection", 
+        features=features,
+        properties=properties
+    )
+    
     serializable_data = convert_to_serializable(data)
     return serializable_data
