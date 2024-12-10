@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from fastapi import status
 import requests
 from backend_common.auth import load_user_profile, update_user_profile
+from backend_common.utils.utils import convert_strings_to_ints
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
@@ -698,6 +699,8 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     geojson_dataset["records_count"] = len(geojson_dataset["features"])
     geojson_dataset["prdcer_lyr_id"] = generate_layer_id()
     geojson_dataset["next_page_token"] = next_page_token
+
+    geojson_dataset = convert_strings_to_ints(geojson_dataset)
     return geojson_dataset
 
 
@@ -809,8 +812,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
         if trans_dataset.get("features") and len(trans_dataset["features"]) > 0:
             first_feature = trans_dataset["features"][0]
             properties = list(first_feature.get("properties", {}).keys())
-
-        return ResLyrMapData(
+        response = dict(
             type="FeatureCollection",
             features=trans_dataset["features"],
             properties=properties,  # Add the properties list here
@@ -824,6 +826,8 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
             records_count=dataset_info["records_count"],
             is_zone_lyr="false",
         )
+        response = convert_strings_to_ints(response)
+        return ResLyrMapData(**response)
     except HTTPException:
         raise
 
@@ -1028,9 +1032,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
             lyr_metadata = (
                 ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
             )
-            
-            ctlg_lyrs_map_data.append(
-                ResLyrMapData(
+            response = dict(
                     type="FeatureCollection",
                     features=trans_dataset["features"],
                     properties=properties,  # Add the properties list here
@@ -1043,8 +1045,11 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
                     layer_legend=lyr_metadata.get("layer_legend", ""),
                     layer_description=lyr_metadata.get("layer_description", ""),
                     records_count=len(trans_dataset["features"]),
-                    is_zone_lyr="false",
-                )
+                    is_zone_lyr="false"
+            )
+            response = convert_strings_to_ints(response)
+            ctlg_lyrs_map_data.append(
+                ResLyrMapData(**response)
             )
         return ctlg_lyrs_map_data
     except HTTPException:
