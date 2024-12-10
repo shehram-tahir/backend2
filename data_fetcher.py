@@ -252,6 +252,7 @@ async def fetch_census_realestate(
             req_dataset, bknd_dataset_id, action
         )
         if dataset:
+            dataset = convert_strings_to_ints(dataset)
             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
     else:
         dataset = orjson.loads(dataset)
@@ -337,6 +338,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         if dataset:
             # Store the fetched data in storage
             dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+            dataset = convert_strings_to_ints(dataset)
             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
 
     # if dataset is less than 20 or none and action is full data
@@ -694,13 +696,11 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             plan_name.replace("plan_", "")
         ] = plan_name
         await update_user_profile(req.user_id, user_data)
-
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
     geojson_dataset["records_count"] = len(geojson_dataset["features"])
     geojson_dataset["prdcer_lyr_id"] = generate_layer_id()
     geojson_dataset["next_page_token"] = next_page_token
 
-    geojson_dataset = convert_strings_to_ints(geojson_dataset)
     return geojson_dataset
 
 
@@ -826,7 +826,6 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
             records_count=dataset_info["records_count"],
             is_zone_lyr="false",
         )
-        response = convert_strings_to_ints(response)
         return ResLyrMapData(**response)
     except HTTPException:
         raise
@@ -1047,7 +1046,6 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
                     records_count=len(trans_dataset["features"]),
                     is_zone_lyr="false"
             )
-            response = convert_strings_to_ints(response)
             ctlg_lyrs_map_data.append(
                 ResLyrMapData(**response)
             )
