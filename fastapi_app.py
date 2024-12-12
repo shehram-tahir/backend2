@@ -29,7 +29,6 @@ from backend_common.dtypes.auth_dtypes import (
     ReqUserProfile,
     ReqRefreshToken,
     ReqCreateUserProfile,
-    ReqStripeFireBaseID
 )
 
 from all_types.myapi_dtypes import (
@@ -131,7 +130,6 @@ from backend_common.stripe_backend import (
     testing_create_card_payment_source,
     charge_wallet,
     fetch_wallet,
-    save_customer_mapping
 )
 
 # TODO: Add stripe secret key
@@ -935,7 +933,7 @@ async def list_stripe_products_endpoint():
 
 
 @app.post("/fastapi/create_user_profile", response_model=list[dict[Any, Any]])
-async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser], background_tasks: BackgroundTasks):
+async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
 
     response_1 = await request_handling(
         req.request_body,
@@ -952,11 +950,7 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser], bac
         create_stripe_customer,
         wrap_output=True,
     )
-    await request_handling(
-        ReqStripeFireBaseID(firebase_uid=response_2['user_id'], stripe_customer_id=response_2['id'],
-                            background_tasks=background_tasks) , None, dict[Any, Any],
-        save_customer_mapping
-    )
+
     req_user_profile = ReqCreateUserProfile(
         user_id=response_1["data"]["user_id"],
         username=req.request_body.username,
