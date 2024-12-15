@@ -330,9 +330,9 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
 
     if not dataset:
 
-        if "default" in search_type or "new nearby search" in search_type:
+        if "default" in search_type or "category_search" in search_type:
             dataset, _ = await fetch_from_google_maps_api(req_dataset)
-        else:
+        elif "text_search" in search_type:
             dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
 
         if dataset:

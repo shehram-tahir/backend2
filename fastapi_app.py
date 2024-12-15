@@ -1,7 +1,7 @@
 import logging
 import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
-
+from backend_common.common_endpoints import app
 import stripe
 from fastapi import (
     Body,
@@ -141,7 +141,7 @@ T = TypeVar("T", bound=BaseModel)
 U = TypeVar("U", bound=BaseModel)
 
 
-app = FastAPI()
+# app = FastAPI()
 
 # Enable CORS
 origins = [CONF.enable_CORS_url]
