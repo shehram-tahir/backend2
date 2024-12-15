@@ -332,7 +332,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
 
         if "default" in search_type or "category_search" in search_type:
             dataset, _ = await fetch_from_google_maps_api(req_dataset)
-        elif "text_search" in search_type:
+        elif "keyword_search" in search_type:
             dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
 
         if dataset:
@@ -702,20 +702,6 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     geojson_dataset["prdcer_lyr_id"] = generate_layer_id()
     geojson_dataset["next_page_token"] = next_page_token
     return geojson_dataset
-
-
-# async def full_data_fetch_country_city_category_map_data(req: ReqFetchDataset):
-#     """
-#     Handle data fatch based on action
-#     """
-#     return await fetch_country_city_category_map_data(req, action="full data")
-
-
-# async def default_fetch_country_city_category_map_data(req: ReqFetchDataset):
-#     """
-#     Handle data fatch based on action
-#     """
-#     return await fetch_country_city_category_map_data(req)
 
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
