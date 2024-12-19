@@ -21,6 +21,7 @@ from backend_common.auth import db
 from firebase_admin import firestore
 import asyncpg
 from backend_common.background import get_background_tasks
+import orjson
 
 logging.basicConfig(
     level=logging.INFO,
@@ -687,6 +688,9 @@ async def load_dataset(dataset_id: str) -> Dict:
         if all_datasets:
             all_datasets = all_datasets["response_data"]
 
+    if all_datasets:
+        all_datasets = orjson.loads(all_datasets)
+    
     return all_datasets
 
 

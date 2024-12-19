@@ -1,5 +1,5 @@
 from typing import Dict, List, TypeVar, Generic, Optional, Any
-
+from fastapi import UploadFile, File
 from pydantic import BaseModel, Field
 
 from all_types.response_dtypes import LyrInfoInCtlgSave
@@ -42,6 +42,8 @@ class ReqSavePrdcerCtlg(BaseModel):
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     user_id: str
     thumbnail_url: str
+    display_elements: dict
+    catalog_layer_options: dict
 
 
 class ZoneLayerInfo(BaseModel):
@@ -129,11 +131,13 @@ class ReqCensus(BaseModel):
     page_token: Optional[str] = None
 
 
-class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
+class ReqGradientColorBasedOnZone(BaseModel):
     color_grid_choice: list[str]
     change_lyr_id: str
+    change_lyr_name:str
     based_on_lyr_id: str
-    radius_offset: float
+    based_on_lyr_name:str
+    offset_value: float
     color_based_on: str
 
 

@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional, Type, Callable, Awaitable, Any, TypeVar
+from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, Union
 from backend_common.common_endpoints import app
 import stripe
 from fastapi import (
@@ -11,7 +11,11 @@ from fastapi import (
     Request,
     Depends,
     BackgroundTasks,
+    UploadFile,
+    File,
+    Form,
 )
+import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -70,7 +74,7 @@ from all_types.response_dtypes import (
     CityData,
     NearestPointRouteResponse,
     UserCatalogInfo,
-    LayerInfo
+    LayerInfo,
 )
 
 from google_api_connector import check_street_view_availability
@@ -83,7 +87,7 @@ from data_fetcher import (
     save_lyr,
     aquire_user_lyrs,
     fetch_lyr_map_data,
-    create_save_prdcer_ctlg,
+    save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
     fetch_nearby_categories,
@@ -91,7 +95,7 @@ from data_fetcher import (
     fetch_gradient_colors,
     gradient_color_based_on_zone,
     get_user_profile,
-    fetch_lyr_map_data_coordinates,
+    fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
 )
 from backend_common.dtypes.stripe_dtypes import (
@@ -139,6 +143,53 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 U = TypeVar("U", bound=BaseModel)
+
+
+def create_formatted_example(model_class):
+    """Create a formatted JSON example string"""
+    schema = model_class.model_json_schema()
+
+    def get_default_value(field_type):
+        if field_type == "string":
+            return "string"
+        elif field_type == "integer" or field_type == "number":
+            return 0
+        elif field_type == "array":
+            return []
+        elif field_type == "object":
+            return {}
+        return None
+
+    def create_example_from_properties(properties, required_fields):
+        example = {}
+        for field_name, field_info in properties.items():
+            if field_info.get("type") == "array" and "items" in field_info:
+                items = field_info["items"]
+                if "$ref" in items:
+                    ref_name = items["$ref"].split("/")[-1]
+                    ref_schema = schema["$defs"][ref_name]
+                    example[field_name] = [
+                        create_example_from_properties(
+                            ref_schema["properties"], ref_schema.get("required", [])
+                        )
+                    ]
+                else:
+                    example[field_name] = [get_default_value(items["type"])]
+            else:
+                example[field_name] = get_default_value(
+                    field_info.get("type", "string")
+                )
+        return example
+
+    example = {
+        "message": "string",
+        "request_info": {},
+        "request_body": create_example_from_properties(
+            schema["properties"], schema.get("required", [])
+        ),
+    }
+
+    return example
 
 
 # app = FastAPI()
@@ -249,22 +300,6 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     return response
 
 
-# @app.post(
-#     CONF.fetch_dataset_full_data,
-#     response_model=ResModel[ResFetchDataset],
-#     dependencies=[Depends(JWTBearer())],
-# )
-# async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
-#     response = await request_handling(
-#         req.request_body,
-#         ReqFetchDataset,
-#         ResModel[ResFetchDataset],
-#         full_data_fetch_country_city_category_map_data,
-#         wrap_output=True,
-#     )
-#     return response
-
-
 @app.post(
     CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())]
 )
@@ -309,7 +344,7 @@ async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
         req.request_body,
         ReqNearestRoute,
         ResModel[list[NearestPointRouteResponse]],
-        fetch_lyr_map_data_coordinates,
+        fetch_nearest_points_Gmap,
         wrap_output=True,
     )
     return response
@@ -320,12 +355,29 @@ async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
     response_model=ResModel[str],
     dependencies=[Depends(JWTBearer())],
 )
-async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
+async def ep_save_producer_catalog(
+    req: Union[str, dict[str, Any]] = Form(
+        ...,
+        description=(
+            "Expected request format:\n\n"
+            "```json\n"
+            f"{json.dumps(create_formatted_example(ReqSavePrdcerCtlg), indent=2)}\n"
+            "```"
+        ),
+        example=create_formatted_example(ReqSavePrdcerCtlg),
+    ),
+    image: Optional[UploadFile] = File(None),
+):
+    if isinstance(req, str):
+        req = json.loads(req)
+    req_model = ReqModel(**req)
+    req_model.request_body["image"] = image
+
     response = await request_handling(
-        req.request_body,
+        req_model.request_body,
         ReqSavePrdcerCtlg,
         ResModel[str],
-        create_save_prdcer_ctlg,
+        save_prdcer_ctlg,
         wrap_output=True,
     )
     return response
@@ -353,15 +405,6 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
         wrap_output=True,
     )
     return response
-
-
-# @app.post(CONF.create_firebase_stripe_user, response_model=ResModel[dict[str, str]])
-# async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
-#     response = await request_handling(
-#         req.request_body, ReqCreateUserProfile, ResModel[dict[str, str]], create_firebase_user,
-#         wrap_output=True
-#     )
-#     return response
 
 
 # Authentication
@@ -563,20 +606,6 @@ async def gradient_color_based_on_zone_endpoint(
     return response
 
 
-# @app.post(CONF.add_payment_method, response_model=ResModel[ResAddPaymentMethod])
-# async def add_payment_method_endpoint(
-#     req: ReqModel[ReqAddPaymentMethod], request: Request
-# ):
-#     response = await request_handling(
-#         req.request_body,
-#         ReqAddPaymentMethod,
-#         ResModel[ResAddPaymentMethod],
-#         add_payment_method,
-#         request,
-#     )
-#     return response
-
-
 @app.post(CONF.check_street_view, response_model=ResModel[dict[str, bool]])
 async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     response = await request_handling(
@@ -587,34 +616,6 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
         wrap_output=True,
     )
     return response
-
-
-# @app.post(CONF.get_payment_methods, response_model=ResModel[ResGetPaymentMethods])
-# async def get_payment_methods_endpoint(
-#     req: ReqModel[ReqGetPaymentMethods], request: Request
-# ):
-#     response = await request_handling(
-#         req.request_body,
-#         ReqGetPaymentMethods,
-#         ResModel[ResGetPaymentMethods],
-#         get_payment_methods,
-#         request,
-#     )
-#     return response
-
-
-# Stripe Customers
-# @app.post(
-#     CONF.create_stripe_customer,
-#     response_model=ResModel[dict],
-#     description="Create a new customer in stripe",
-#     tags=["stripe customers"],
-# )
-# async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
-#     response = await request_handling(
-#         req.request_body, CustomerReq, ResModel[dict], create_stripe_customer, wrap_output=True
-#     )
-#     return response
 
 
 @app.put(
@@ -628,17 +629,6 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
         req.request_body, CustomerReq, ResModel[dict], update_customer, wrap_output=True
     )
     return response
-
-
-# @app.delete(
-#     CONF.delete_stripe_customer,
-#     response_model=ResModel[dict],
-#     description="Delete an existing customer in stripe",
-#     tags=["stripe customers"],
-# )
-# async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
-#     response = await request_handling(req.request_body, ReqUserId, ResModel[str], delete_customer, wrap_output=True)
-#     return response
 
 
 @app.get(
@@ -700,16 +690,6 @@ async def fetch_wallet_endpoint(user_id: str):
     return response
 
 
-# @app.post(
-#     CONF.deduct_wallet,
-#     response_model=ResModel[str],
-#     description="Deduct from a customer's wallet in stripe",
-#     tags=["stripe wallet"],
-# )
-# async def deduct_wallet_endpoint(req: ReqModel[CustomerReq]):
-#     pass
-
-
 # Stripe Subscriptions
 @app.post(
     CONF.create_stripe_subscription,
@@ -759,25 +739,6 @@ async def deactivate_stripe_subscription_endpoint(subscription_id: str):
         request_id=str(uuid.uuid4()),
     )
     return response
-
-
-# Stripe Payment methods
-# @app.post(
-#     CONF.create_stripe_payment_method,
-#     response_model=ResModel[PaymentMethodRes],
-#     description="Create a new payment method in stripe",
-#     tags=["stripe payment methods"],
-# )
-# async def create_stripe_payment_method_endpoint(
-#     user_id: str, req: ReqModel[PaymentMethodReq]
-# ):
-#     payment_method = await create_payment_method(user_id, req.request_body)
-#     response = ResModel(
-#         data=payment_method,
-#         message="Payment method created successfully",
-#         request_id=str(uuid.uuid4()),
-#     )
-#     return response
 
 
 @app.put(
