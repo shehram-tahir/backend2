@@ -783,6 +783,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
     Fetches detailed map data for a specific producer layer.
     """
     try:
+        dataset={}
         user_layer_matching = await load_user_layer_matching()
         layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
         layer_owner_data = await load_user_profile(layer_owner_id)
@@ -797,17 +798,17 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
             ) from ke
 
         dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
-        all_datasets = await load_dataset(dataset_id)
+        dataset = await load_dataset(dataset_id)
 
         # Extract properties from first feature if available
         properties = []
-        if trans_dataset.get("features") and len(trans_dataset["features"]) > 0:
-            first_feature = trans_dataset["features"][0]
+        if dataset.get("features") and len(dataset["features"]) > 0:
+            first_feature = dataset["features"][0]
             properties = list(first_feature.get("properties", {}).keys())
 
         return ResLyrMapData(
             type="FeatureCollection",
-            features=trans_dataset["features"],
+            features=dataset["features"],
             properties=properties,  # Add the properties list here
             prdcer_layer_name=layer_metadata["prdcer_layer_name"],
             prdcer_lyr_id=req.prdcer_lyr_id,
