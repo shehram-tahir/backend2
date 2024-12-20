@@ -1027,8 +1027,8 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
-            dataset = await load_dataset(dataset_id)
-            trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+            trans_dataset = await load_dataset(dataset_id)
+            # trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(trans_dataset)
 
             # Extract properties from first feature if available
             properties = []
@@ -1054,6 +1054,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
                     layer_legend=lyr_metadata.get("layer_legend", ""),
                     layer_description=lyr_metadata.get("layer_description", ""),
                     records_count=len(trans_dataset["features"]),
+                    city_name=lyr_metadata["city_name"],
                     is_zone_lyr="false",
                 )
             )
