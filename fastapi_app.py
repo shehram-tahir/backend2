@@ -375,7 +375,7 @@ async def ep_save_producer_catalog(
 
     response = await request_handling(
         req_model.request_body,
-        ReqSavePrdcerCtlg,
+        None,
         ResModel[str],
         save_prdcer_ctlg,
         wrap_output=True,
