@@ -41,7 +41,7 @@ class ReqSavePrdcerCtlg(BaseModel):
     total_records: int
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     user_id: str
-    thumbnail_url: str
+    # thumbnail_url: str
     display_elements: dict
     catalog_layer_options: dict
 

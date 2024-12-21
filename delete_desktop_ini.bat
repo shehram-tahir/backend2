@@ -12,6 +12,7 @@ echo $CurrentDirectory = Get-Location
 echo # Find and delete all desktop.ini files
 echo Get-ChildItem -Path $CurrentDirectory -Recurse -Force -Filter "desktop.ini" ^| ForEach-Object {
 echo     Remove-Item $_.FullName -Force
+echo     Write-Output "Deleted: $($_.FullName)"
 echo }
 echo Write-Output "Done!"
 ) > "%tempPSScript%"
