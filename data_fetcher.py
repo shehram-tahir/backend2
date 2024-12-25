@@ -264,7 +264,6 @@ async def fetch_census_realestate(
                 req_dataset, dataset, bknd_dataset_id
             )
 
-
     return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
@@ -783,7 +782,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
     Fetches detailed map data for a specific producer layer.
     """
     try:
-        dataset={}
+        dataset = {}
         user_layer_matching = await load_user_layer_matching()
         layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
         layer_owner_data = await load_user_profile(layer_owner_id)
@@ -863,7 +862,7 @@ async def fetch_nearest_points_Gmap(
 async def calculate_nearest_points(
     category_coordinates: List[Dict[str, float]],
     bussiness_target_coordinates: List[Dict[str, float]],
-    num_points_per_target=3
+    num_points_per_target=3,
 ) -> List[Dict[str, Any]]:
     nearest_locations = []
     for target in bussiness_target_coordinates:
@@ -1186,77 +1185,75 @@ async def given_layer_fetch_dataset(layer_id: str):
     return all_datasets, layer_metadata
 
 
-async def gradient_color_based_on_zone(
+def assign_point_properties(point):
+    return {
+        "type": "Feature",
+        "geometry": point["geometry"],
+        "properties": point.get("properties", {}),
+    }
+
+
+async def process_color_based_on(
     req: ReqGradientColorBasedOnZone,
 ) -> List[ResGradientColorBasedOnZone]:
-    change_layer_dataset, change_layer_metadata = await given_layer_fetch_dataset(req.change_lyr_id)
-    based_on_layer_dataset, based_on_layer_metadata = await given_layer_fetch_dataset(req.based_on_lyr_id)
+    change_layer_dataset, change_layer_metadata = await given_layer_fetch_dataset(
+        req.change_lyr_id
+    )
+    based_on_layer_dataset, based_on_layer_metadata = await given_layer_fetch_dataset(
+        req.based_on_lyr_id
+    )
+    based_on_coordinates = [
+        {
+            "latitude": point["geometry"]["coordinates"][1],
+            "longitude": point["geometry"]["coordinates"][0],
+        }
+        for point in based_on_layer_dataset["features"]
+    ]
 
+    to_be_changed_coordinates = [
+        {
+            "latitude": point["geometry"]["coordinates"][1],
+            "longitude": point["geometry"]["coordinates"][0],
+        }
+        for point in change_layer_dataset["features"]
+    ]
     if req.color_based_on == "drive_time":
-        # Prepare coordinates in the required format
-        based_on_coordinates = [
-            {
-                "latitude": point["geometry"]["coordinates"][1],
-                "longitude": point["geometry"]["coordinates"][0]
-            }
-            for point in based_on_layer_dataset["features"]
-        ]
-        
-        to_be_changed_coordinates = [
-            {
-                "latitude": point["geometry"]["coordinates"][1],
-                "longitude": point["geometry"]["coordinates"][0]
-            }
-            for point in change_layer_dataset["features"]
-        ]
-
         # Get nearest points
         # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
         nearest_locations = await calculate_nearest_points(
-            based_on_coordinates,
-            to_be_changed_coordinates,
-            num_points_per_target=2
+            based_on_coordinates, to_be_changed_coordinates, num_points_per_target=2
         )
 
-        
         # Convert desired drive time (assumed to be in minutes) to estimated distance in meters
         # Assuming average urban speed of 40 km/h = 11.11 m/s
-        AVERAGE_SPEED_MPS = 11.11  
+        AVERAGE_SPEED_MPS = 11.11
         desired_time_seconds = req.offset_value * 60  # Convert minutes to seconds
         estimated_distance_meters = AVERAGE_SPEED_MPS * desired_time_seconds
-
 
         # Filter nearest locations but keep all targets
         filtered_nearest_locations = []
         for location in nearest_locations:
             target = location["target"]
             filtered_coords = []
-            
+
             for nearest_coord in location["nearest_coordinates"]:
                 actual_distance = geodesic(
-                    (target["latitude"], target["longitude"]),
-                    nearest_coord
+                    (target["latitude"], target["longitude"]), nearest_coord
                 ).meters
-                
+
                 if actual_distance <= estimated_distance_meters:
                     filtered_coords.append(nearest_coord)
-            
+
             # Always add the target, even if no points are within range
-            filtered_nearest_locations.append({
-                "target": target,
-                "nearest_coordinates": filtered_coords  # This might be empty
-            })
+            filtered_nearest_locations.append(
+                {
+                    "target": target,
+                    "nearest_coordinates": filtered_coords,  # This might be empty
+                }
+            )
 
         # Calculate routes with Google Maps
         route_results = await calculate_nearest_points_Gmap(filtered_nearest_locations)
-        
-        
-        def assign_point_properties(point):
-            return {
-                "type": "Feature",
-                "geometry": point["geometry"],
-                "properties": point.get("properties", {})
-            }
 
         # Main function
         within_time_features = []
@@ -1264,22 +1261,26 @@ async def gradient_color_based_on_zone(
         unallocated_features = []
 
         for target_routes in route_results:
-            min_static_time = float('inf')
-            
+            min_static_time = float("inf")
+
             # Get minimum static drive time from routes
             for route in target_routes.routes:
                 if route.route and route.route[0].static_duration:
-                    static_time = int(route.route[0].static_duration.replace('s', ''))
+                    static_time = int(route.route[0].static_duration.replace("s", ""))
                     min_static_time = min(min_static_time, static_time)
-            
+
             # Find the point with matching coordinates
             for point in change_layer_dataset["features"]:
-                if (point["geometry"]["coordinates"][1] == target_routes.target["latitude"] and 
-                    point["geometry"]["coordinates"][0] == target_routes.target["longitude"]):
-                    
+                if (
+                    point["geometry"]["coordinates"][1]
+                    == target_routes.target["latitude"]
+                    and point["geometry"]["coordinates"][0]
+                    == target_routes.target["longitude"]
+                ):
+
                     feature = assign_point_properties(point)
-                    
-                    if min_static_time != float('inf'):
+
+                    if min_static_time != float("inf"):
                         drive_time_minutes = min_static_time / 60
                         if drive_time_minutes <= req.offset_value:
                             within_time_features.append(feature)
@@ -1300,7 +1301,7 @@ async def gradient_color_based_on_zone(
                 "name_suffix": "Within Drive Time",
                 "color": req.color_grid_choice[0],
                 "legend": f"Drive Time ≤ {req.offset_value} m",
-                "description": f"Points within {req.offset_value} minutes drive time"
+                "description": f"Points within {req.offset_value} minutes drive time",
             },
             {
                 "features": outside_time_features,
@@ -1308,16 +1309,16 @@ async def gradient_color_based_on_zone(
                 "name_suffix": "Outside Drive Time",
                 "color": req.color_grid_choice[-1],
                 "legend": f"Drive Time > {req.offset_value} m",
-                "description": f"Points outside {req.offset_value} minutes drive time"
+                "description": f"Points outside {req.offset_value} minutes drive time",
             },
             {
                 "features": unallocated_features,
                 "category": "unallocated_drivetime",
                 "name_suffix": "Unallocated Drive Time",
-                "color": "white",
+                "color": "#FFFFFF",
                 "legend": "No route available",
-                "description": "Points with no available route information"
-            }
+                "description": "Points with no available route information",
+            },
         ]
 
         for config in layer_configs:
@@ -1326,7 +1327,9 @@ async def gradient_color_based_on_zone(
                     ResGradientColorBasedOnZone(
                         type="FeatureCollection",
                         features=config["features"],
-                        properties=list(config["features"][0].get("properties", {}).keys()),
+                        properties=list(
+                            config["features"][0].get("properties", {}).keys()
+                        ),
                         prdcer_layer_name=f"{base_layer_name} ({config['name_suffix']})",
                         prdcer_lyr_id=str(uuid.uuid4()),
                         sub_lyr_id=f"{req.change_lyr_id}_{config['category']}_{req.based_on_lyr_id}",
@@ -1335,24 +1338,33 @@ async def gradient_color_based_on_zone(
                         layer_legend=config["legend"],
                         layer_description=f"{config['description']}. Layer {req.change_lyr_id} based on {req.based_on_lyr_id}",
                         records_count=len(config["features"]),
-                        city_name=change_layer_metadata.get("city_name", ""),  # Added city_name field
+                        city_name=change_layer_metadata.get(
+                            "city_name", ""
+                        ),  # Added city_name field
                         is_zone_lyr="true",
                     )
                 )
 
         return new_layers
     else:
+
         def calculate_distance(lat1, lon1, lat2, lon2):
             return geodesic((lat1, lon1), (lat2, lon2)).meters
 
         def get_nearby_average_metric(color_based_on, point, based_on_dataset, radius):
-            lat, lon = point["geometry"]["coordinates"][1], point["geometry"]["coordinates"][0]
+            lat, lon = (
+                point["geometry"]["coordinates"][1],
+                point["geometry"]["coordinates"][0],
+            )
             nearby_metric_value = [
                 point_2[color_based_on]
                 for point_2 in based_on_dataset["features"]
                 if color_based_on in point_2
                 and calculate_distance(
-                    lat, lon, point_2["geometry"]["coordinates"][1], point_2["geometry"]["coordinates"][2]
+                    lat,
+                    lon,
+                    point_2["geometry"]["coordinates"][1],
+                    point_2["geometry"]["coordinates"][2],
                 )
                 <= radius
             ]
@@ -1404,7 +1416,9 @@ async def gradient_color_based_on_zone(
         for i, data in enumerate(layer_data):
             if data:
                 color = (
-                    req.color_grid_choice[i] if i < len(req.color_grid_choice) else "white"
+                    req.color_grid_choice[i]
+                    if i < len(req.color_grid_choice)
+                    else "white"
                 )
                 if i == len(layer_data) - 1:
                     layer_name = "Unallocated Points"

@@ -93,7 +93,7 @@ from data_fetcher import (
     fetch_nearby_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    gradient_color_based_on_zone,
+    process_color_based_on,
     get_user_profile,
     fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
@@ -582,7 +582,7 @@ async def save_draft_catalog_endpoint(
 
 
 @app.get(CONF.fetch_gradient_colors, response_model=ResModel[list[list[str]]])
-async def fetch_gradient_colors_endpoint():
+async def ep_fetch_gradient_colors():
     response = await request_handling(
         None, None, ResModel[list[list[str]]], fetch_gradient_colors, wrap_output=True
     )
@@ -593,14 +593,14 @@ async def fetch_gradient_colors_endpoint():
     CONF.gradient_color_based_on_zone,
     response_model=ResModel[list[ResGradientColorBasedOnZone]],
 )
-async def gradient_color_based_on_zone_endpoint(
+async def ep_process_color_based_on(
     req: ReqModel[ReqGradientColorBasedOnZone], request: Request
 ):
     response = await request_handling(
         req.request_body,
         ReqGradientColorBasedOnZone,
         ResModel[list[ResGradientColorBasedOnZone]],
-        gradient_color_based_on_zone,
+        process_color_based_on,
         wrap_output=True,
     )
     return response
