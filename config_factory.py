@@ -12,7 +12,11 @@ class ApiConfig(CommonApiConfig):
     nearby_search: str = ggl_base_url + "searchNearby"
     search_text: str = ggl_base_url + "searchText"
     place_details: str = ggl_base_url + "details/json"
-    enable_CORS_url: str = "http://localhost:3000"
+    enable_CORS_url: list[str] = origins = [
+    "https://s-locator.northernacs.com:3000",  # Production
+    "http://37.27.195.216:3000",               # Development
+    "http://localhost:3000"                    # Local development
+]
     catlog_collection: str = backend_base_uri + "catlog_collection"
     layer_collection: str = backend_base_uri + "layer_collection"
     fetch_acknowlg_id: str = backend_base_uri + "fetch_acknowlg_id"

@@ -195,7 +195,7 @@ def create_formatted_example(model_class):
 # app = FastAPI()
 
 # Enable CORS
-origins = [CONF.enable_CORS_url]
+origins = CONF.enable_CORS_url
 
 app.add_middleware(
     CORSMiddleware,
