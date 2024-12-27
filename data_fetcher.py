@@ -680,7 +680,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
             await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
-    elif data_type == "commercial" and req.dataset_country.lower() == "canada":
+    elif data_type == "commercial":
         req_dataset = ReqCommercial(
             country_name=req.dataset_country,
             city_name=req.dataset_city,
