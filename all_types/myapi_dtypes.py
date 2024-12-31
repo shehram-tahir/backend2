@@ -144,8 +144,9 @@ class ReqGradientColorBasedOnZone(BaseModel):
     change_lyr_name:str
     based_on_lyr_id: str
     based_on_lyr_name:str
-    offset_value: float
-    color_based_on: str
+    coverage_value: float # [10min , 20min or 300 m or 500m]
+    coverage_property: str #[Drive_time or Radius]
+    color_based_on: str # ["rating" or "user_ratings_total"]
 
 
 class ReqStreeViewCheck(BaseModel):

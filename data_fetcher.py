@@ -1228,7 +1228,7 @@ async def process_color_based_on(
         }
         for point in change_layer_dataset["features"]
     ]
-    if req.color_based_on == "drive_time":
+    if req.coverage_property == "drive_time": # currently drive does not take into account ANY based on property
         # Get nearest points
         # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
         nearest_locations = await calculate_nearest_points(
@@ -1238,7 +1238,7 @@ async def process_color_based_on(
         # Convert desired drive time (assumed to be in minutes) to estimated distance in meters
         # Assuming average urban speed of 40 km/h = 11.11 m/s
         AVERAGE_SPEED_MPS = 11.11
-        desired_time_seconds = req.offset_value * 60  # Convert minutes to seconds
+        desired_time_seconds = req.coverage_value * 60  # Convert minutes to seconds
         estimated_distance_meters = AVERAGE_SPEED_MPS * desired_time_seconds
 
         # Filter nearest locations but keep all targets
@@ -1293,7 +1293,7 @@ async def process_color_based_on(
 
                     if min_static_time != float("inf"):
                         drive_time_minutes = min_static_time / 60
-                        if drive_time_minutes <= req.offset_value:
+                        if drive_time_minutes <= req.coverage_value:
                             within_time_features.append(feature)
                         else:
                             outside_time_features.append(feature)
@@ -1311,16 +1311,16 @@ async def process_color_based_on(
                 "category": "within_drivetime",
                 "name_suffix": "Within Drive Time",
                 "color": req.color_grid_choice[0],
-                "legend": f"Drive Time ≤ {req.offset_value} m",
-                "description": f"Points within {req.offset_value} minutes drive time",
+                "legend": f"Drive Time ≤ {req.coverage_value} m",
+                "description": f"Points within {req.coverage_value} minutes drive time",
             },
             {
                 "features": outside_time_features,
                 "category": "outside_drivetime",
                 "name_suffix": "Outside Drive Time",
                 "color": req.color_grid_choice[-1],
-                "legend": f"Drive Time > {req.offset_value} m",
-                "description": f"Points outside {req.offset_value} minutes drive time",
+                "legend": f"Drive Time > {req.coverage_value} m",
+                "description": f"Points outside {req.coverage_value} minutes drive time",
             },
             {
                 "features": unallocated_features,
@@ -1386,7 +1386,7 @@ async def process_color_based_on(
         point_influence_map = {}
         for point in change_layer_dataset:
             avg_metric = get_nearby_average_metric(
-                req.color_based_on, point, based_on_layer_dataset, req.offset_value
+                req.color_based_on, point, based_on_layer_dataset, req.coverage_value
             )
             if avg_metric is not None:
                 influence_scores.append(avg_metric)
