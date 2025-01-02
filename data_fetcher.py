@@ -1309,15 +1309,15 @@ async def process_color_based_on(
                     min_static_time = min(min_static_time, static_time)
 
             # Find the point with matching coordinates
-            for point in change_layer_dataset["features"]:
+            for change_point in change_layer_dataset["features"]:
                 if (
-                    point["geometry"]["coordinates"][1]
+                    change_point["geometry"]["coordinates"][1]
                     == target_routes.target["latitude"]
-                    and point["geometry"]["coordinates"][0]
+                    and change_point["geometry"]["coordinates"][0]
                     == target_routes.target["longitude"]
                 ):
 
-                    feature = assign_point_properties(point)
+                    feature = assign_point_properties(change_point)
 
                     if min_static_time != float("inf"):
                         drive_time_minutes = min_static_time / 60
@@ -1390,35 +1390,46 @@ async def process_color_based_on(
         def calculate_distance(lat1, lon1, lat2, lon2):
             return geodesic((lat1, lon1), (lat2, lon2)).meters
 
-        def get_nearby_average_metric(color_based_on, point, based_on_dataset, radius):
+        def average_metric_of_surrounding_points(color_based_on, point, based_on_dataset, radius):
             lat, lon = (
                 point["geometry"]["coordinates"][1],
                 point["geometry"]["coordinates"][0],
             )
-            nearby_metric_value = [
-                point_2[color_based_on]
-                for point_2 in based_on_dataset["features"]
-                if color_based_on in point_2
-                and calculate_distance(
+            
+            nearby_metric_value = []
+            
+            for point_2 in based_on_dataset["features"]:
+                if color_based_on not in point_2["properties"]:
+                    continue
+                    
+                distance = calculate_distance(
                     lat,
                     lon,
                     point_2["geometry"]["coordinates"][1],
-                    point_2["geometry"]["coordinates"][2],
+                    point_2["geometry"]["coordinates"][0],
                 )
-                <= radius
-            ]
-            return np.mean(nearby_metric_value) if nearby_metric_value else None
+                
+                if distance <= radius:
+                    nearby_metric_value.append(point_2['properties'][color_based_on])
+            
+            
+            if nearby_metric_value:
+                return np.mean(nearby_metric_value) 
+            else: 
+                return None
+
 
         # Calculate influence scores for change_layer_dataset and store them
         influence_scores = []
         point_influence_map = {}
-        for point in change_layer_dataset:
-            avg_metric = get_nearby_average_metric(
-                req.color_based_on, point, based_on_layer_dataset, req.coverage_value
+        for change_point in change_layer_dataset['features']:
+            change_point["id"] = str(uuid.uuid4())
+            surrounding_metric_avg = average_metric_of_surrounding_points(
+                req.color_based_on, change_point, based_on_layer_dataset, req.coverage_value
             )
-            if avg_metric is not None:
-                influence_scores.append(avg_metric)
-                point_influence_map[point["id"]] = avg_metric
+            if surrounding_metric_avg is not None:
+                influence_scores.append(surrounding_metric_avg)
+                point_influence_map[change_point["id"]] = surrounding_metric_avg
 
         # Calculate thresholds based on influence scores
         percentiles = [16.67, 33.33, 50, 66.67, 83.33]
@@ -1431,11 +1442,11 @@ async def process_color_based_on(
         ]  # +1 for above highest threshold, +1 for unallocated
 
         # Assign points to layers
-        for point in change_layer_dataset:
-            avg_metric = point_influence_map.get(point["id"])
-            feature = MapBoxConnector.assign_point_properties(point)
+        for change_point in change_layer_dataset['features']:
+            surrounding_metric_avg = point_influence_map.get(change_point["id"])
+            feature = assign_point_properties(change_point)
 
-            if avg_metric is None:
+            if surrounding_metric_avg is None:
                 layer_index = -1  # Last layer (unallocated)
                 feature["properties"]["influence_score"] = None
             else:
@@ -1443,11 +1454,11 @@ async def process_color_based_on(
                     (
                         i
                         for i, threshold in enumerate(thresholds)
-                        if avg_metric <= threshold
+                        if surrounding_metric_avg <= threshold
                     ),
                     len(thresholds),
                 )
-                feature["properties"]["influence_score"] = avg_metric
+                feature["properties"]["influence_score"] = surrounding_metric_avg
 
             layer_data[layer_index].append(feature)
 
@@ -1457,7 +1468,7 @@ async def process_color_based_on(
                 color = (
                     req.color_grid_choice[i]
                     if i < len(req.color_grid_choice)
-                    else "white"
+                    else "#FFFFFF"
                 )
                 if i == len(layer_data) - 1:
                     layer_name = "Unallocated Points"
@@ -1493,6 +1504,7 @@ async def process_color_based_on(
                         layer_legend=layer_legend,
                         layer_description=f"Gradient layer based on nearby {req.color_based_on} influence",
                         records_count=len(data),
+                        city_name=change_layer_metadata.get("city_name", ""),
                         is_zone_lyr="true",
                     )
                 )
