@@ -40,13 +40,14 @@ from all_types.myapi_dtypes import (
     ReqModel,
     ReqFetchDataset,
     ReqPrdcerLyrMapData,
-    ReqNearestRoute,
+    # ReqNearestRoute,
     ReqCostEstimate,
     ReqSavePrdcerCtlg,
     ReqGradientColorBasedOnZone,
     ReqStreeViewCheck,
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
+    ReqCityCountry,
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -91,12 +92,12 @@ from data_fetcher import (
     save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    fetch_nearby_categories,
+    city_categories,
     save_draft_catalog,
     fetch_gradient_colors,
     process_color_based_on,
     get_user_profile,
-    fetch_nearest_points_Gmap,
+    # fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
 )
 from backend_common.dtypes.stripe_dtypes import (
@@ -276,12 +277,16 @@ async def country_city():
 
 
 @app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
-async def nearby_categories():
+async def ep_city_categories(
+    # req: ReqModel[ReqCityCountry]
+    ):
     response = await request_handling(
         None,
         None,
+        # req.request_body,
+        # ReqCityCountry,
         ResModel[dict[str, list[str]]],
-        fetch_nearby_categories,
+        city_categories,
         wrap_output=True,
     )
     return response
@@ -337,20 +342,20 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     return response
 
 
-@app.post(
-    CONF.nearest_lyr_map_data,
-    description="Get Nearest Point",
-    response_model=ResModel[list[NearestPointRouteResponse]],
-)
-async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
-    response = await request_handling(
-        req.request_body,
-        ReqNearestRoute,
-        ResModel[list[NearestPointRouteResponse]],
-        fetch_nearest_points_Gmap,
-        wrap_output=True,
-    )
-    return response
+# @app.post(
+#     CONF.nearest_lyr_map_data,
+#     description="Get Nearest Point",
+#     response_model=ResModel[list[NearestPointRouteResponse]],
+# )
+# async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
+#     response = await request_handling(
+#         req.request_body,
+#         ReqNearestRoute,
+#         ResModel[list[NearestPointRouteResponse]],
+#         fetch_nearest_points_Gmap,
+#         wrap_output=True,
+#     )
+#     return response
 
 
 @app.post(

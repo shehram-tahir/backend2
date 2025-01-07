@@ -38,8 +38,8 @@ class SqlObject:
     """
 
     saudi_real_estate_w_bounding_box_and_category: str = """
-        SELECT url, price, city, latitude, longitude FROM "schema_marketplace".saudi_real_estate
-        WHERE "category" = $1
+        SELECT url, price, city, latitude, longitude, category FROM "schema_marketplace".saudi_real_estate
+        WHERE "category" = ANY($1)
             AND latitude BETWEEN $2 AND $3
             AND longitude BETWEEN $4 AND $5
         LIMIT 20;

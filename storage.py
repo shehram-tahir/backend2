@@ -14,7 +14,7 @@ from backend_common.database import Database
 import pandas as pd
 from backend_common.dtypes.auth_dtypes import ReqUserProfile
 from sql_object import SqlObject
-from all_types.myapi_dtypes import ReqCommercial, ReqLocation, ReqFetchDataset, ReqRealEstate
+from all_types.myapi_dtypes import Dict, ReqCustomData, ReqLocation, ReqFetchDataset, ReqCustomData,ReqCustomData
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 from backend_common.auth import db
@@ -53,6 +53,7 @@ CENSUS_FILE_MAPPING = {
     "housing": "Backend/census_data/Final_housing_all.csv",
     "economic": "Backend/census_data/Final_economic_all.csv",
 }
+
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
@@ -132,14 +133,16 @@ def make_ggl_dataset_cord_string(lng: str, lat: str, radius: str):
 
 
 def make_ggl_layer_filename(req: ReqFetchDataset) -> str:
-    type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
-    tcc_string = f"{type_string}_{req.dataset_country}_{req.dataset_city}"
+    # type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
+    type_string = req.boolean_query.replace(" ", "_")
+    tcc_string = f"{type_string}_{req.country_name}_{req.city_name}"
     return tcc_string
 
 
 def make_dataset_filename(req) -> str:
     cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
-    type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
+    # type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
+    type_string = req.boolean_query.replace(" ", "_")
     try:
         name = f"{cord_string}_{type_string}_token={req.page_token}"
         if req.text_search != "" and req.text_search is not None:
@@ -591,14 +594,14 @@ async def get_plan(plan_name):
     return json_content
 
 
-async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
-    country = req.country_name.lower().replace(" ", "_")
-    folder_path = (
-        f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
-    )
-    files = os.listdir(folder_path)
-    files = [file.split(".json")[0] for file in files]
-    return files
+# async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
+#     country = req.country_name.lower().replace(" ", "_")
+#     folder_path = (
+#         f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
+#     )
+#     files = os.listdir(folder_path)
+#     files = [file.split(".json")[0] for file in files]
+#     return files
 
 
 async def load_gradient_colors() -> Optional[List[List]]:
@@ -705,7 +708,7 @@ async def load_dataset(dataset_id: str) -> Dict:
 
 
 async def get_census_dataset_from_storage(
-    req: ReqRealEstate, filename: str, action: str, request_location: ReqLocation
+    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation
 ) -> tuple[dict, str]:
     """
     Retrieves census data from CSV files based on the data type requested.
@@ -772,7 +775,7 @@ async def get_census_dataset_from_storage(
 
 
 async def get_commercial_properties_dataset_from_storage(
-    req: ReqCommercial, filename: str, action: str, request_location: ReqLocation
+    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation
 ) -> tuple[dict, str]:
     """
     Retrieves commercial properties data from database based on the data type requested.
@@ -819,17 +822,18 @@ async def get_commercial_properties_dataset_from_storage(
 
 
 async def get_real_estate_dataset_from_storage(
-    req: ReqRealEstate, filename: str, action: str, request_location: ReqLocation
+    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation
 ) -> tuple[dict, str]:
     """
     Retrieves data from storage based on the location request.
     """
+    data_type = req.included_types
     # TODO at moment the user will only give one category, in the future we should see how to implement this with more
     # realEstateData=(await load_real_estate_categories())
     # filtered_categories = [item for item in realEstateData if item in req.includedTypes]
     # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
 
-    data_type = req.includedTypes[0]
+    
     query = SqlObject.saudi_real_estate_w_bounding_box_and_category
 
     city_data = await Database.fetch(query, data_type, *request_location.bounding_box)
@@ -867,6 +871,14 @@ async def get_real_estate_dataset_from_storage(
         filename = f"saudi_real_estate_{req.city_name.lower()}_{data_type}"
 
     return geojson_data, filename
+
+
+async def fetch_db_categories_by_lat_lng(bounding_box:list[float]) -> Dict:
+    # call db with bounding box
+    pass
+
+
+
 
 
 # Apply the decorator to all functions in this module

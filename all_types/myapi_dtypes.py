@@ -13,6 +13,11 @@ class ReqModel(BaseModel, Generic[U]):
     request_body: U
 
 
+class ReqCityCountry(BaseModel):
+    city_name: str
+    country_name: str
+
+
 class boxmapProperties(BaseModel):
     name: str
     rating: float
@@ -59,25 +64,13 @@ class ReqUserId(BaseModel):
     user_id: str
 
 
-class Coordinate(BaseModel):
-    latitude: float
-    longitude: float
-
-
 class ReqPrdcerLyrMapData(BaseModel):
     prdcer_lyr_id: str
     user_id: str
 
 
-class ReqNearestRoute(ReqPrdcerLyrMapData):
-    points: List[Coordinate]
-
-
-class ReqFetchDataset(BaseModel):
-    dataset_country: str
-    dataset_city: str
-    excludedTypes: list[str]
-    includedTypes: list[str]
+class ReqFetchDataset(ReqCityCountry):
+    boolean_query: Optional[str] = ""
     action: Optional[str] = ""
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
@@ -97,64 +90,49 @@ class ReqFetchCtlgLyrs(BaseModel):
     user_id: str
 
 
-class ReqCostEstimate(BaseModel):
+class ReqCostEstimate(ReqCityCountry):
     included_categories: List[str]
     excluded_categories: List[str]
-    city_name: str
-    country: str
 
 
-# Request models
-class ReqLocation(BaseModel):
+class Coordinate(BaseModel):
     lat: float
     lng: float
+
+
+class ReqStreeViewCheck(Coordinate):
+    pass
+
+
+class ReqGeodata(Coordinate):
+    bounding_box: list[float]
+
+
+class ReqLocation(Coordinate):
     radius: int
-    excludedTypes: list[str]
-    includedTypes: list[str]
     bounding_box: list[float]
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
+    boolean_query: Optional[str] = ""
 
 
-class ReqRealEstate(BaseModel):
-    country_name: str
-    city_name: str
-    excludedTypes: list[str]
-    includedTypes: list[str]
+class ReqNearestRoute(ReqPrdcerLyrMapData):
+    points: List[Coordinate]
+
+
+class ReqCustomData(ReqCityCountry):
+    boolean_query: Optional[str] = ""
     page_token: Optional[str] = ""
-    text_search: Optional[str] = ""
+    included_types: list[str] = []
+    excluded_types: list[str] = []
 
-
-class ReqCensus(BaseModel):
-    country_name: str
-    city_name: str
-    includedTypes: List[str]
-    page_token: Optional[str] = None
-
-
-class ReqCommercial(BaseModel):
-    country_name: str
-    city_name: str
-    includedTypes: List[str]
-    page_token: Optional[str] = None
-    
-
-class ReqGeodata(BaseModel):
-    lat: float
-    lng: float
-    bounding_box: list[float]
 
 class ReqGradientColorBasedOnZone(BaseModel):
     color_grid_choice: list[str]
     change_lyr_id: str
-    change_lyr_name:str
+    change_lyr_name: str
     based_on_lyr_id: str
-    based_on_lyr_name:str
-    coverage_value: float # [10min , 20min or 300 m or 500m]
-    coverage_property: str #[Drive_time or Radius]
-    color_based_on: str # ["rating" or "user_ratings_total"]
-
-
-class ReqStreeViewCheck(BaseModel):
-    lat: float
-    lng: float
+    based_on_lyr_name: str
+    coverage_value: float  # [10min , 20min or 300 m or 500m]
+    coverage_property: str  # [Drive_time or Radius]
+    color_based_on: str  # ["rating" or "user_ratings_total"]
