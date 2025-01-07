@@ -197,8 +197,8 @@ async def check_street_view_availability(req: ReqStreeViewCheck) -> Dict[str, bo
                 return {"has_street_view": True}
             else:
                 raise HTTPException(
-                    status_code=response.status,
-                    detail="Error checking Street View availability",
+                    status_code=499,
+                    detail=f"Error checking Street View availability, error = {response.status}",
                 )
 
 
