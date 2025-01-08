@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 #         "X-Goog-FieldMask": CONF.google_fields,
 #     }
 #     data = {
-#         "includedTypes": [req.includedTypes],
+#         "included_types": [req.included_types],
 #         "excludedTypes": [req.excludedTypes],
 #         "locationRestriction": {
 #             "circle": {

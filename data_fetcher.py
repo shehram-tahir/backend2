@@ -483,7 +483,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
             )
             type_string = make_include_exclude_name(
-                req_dataset.includedTypes, req_dataset.excludedTypes
+                req_dataset.included_types, req_dataset.excluded_types
             )
             string_list_plan = create_string_list(
                 circle_hierarchy, type_string, req_dataset.text_search
@@ -733,7 +733,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         city_name=req.city_name
     ))
 
-    # Now using boolean_query instead of includedTypes
+    # Now using boolean_query instead of included_types
     data_type = determine_data_type(req.boolean_query, categories)
 
     if (data_type == "real_estate" or 

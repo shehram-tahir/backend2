@@ -716,7 +716,7 @@ async def get_census_dataset_from_storage(
     """
 
     # Determine which CSV file to use based on included types
-    data_type = req.includedTypes[0]  # Using first type for now
+    data_type = req.included_types[0]  # Using first type for now
     csv_file = None
 
     if any(type in data_type for type in ["household", "degree"]):
@@ -781,7 +781,7 @@ async def get_commercial_properties_dataset_from_storage(
     Retrieves commercial properties data from database based on the data type requested.
     Returns data in GeoJSON format for consistency with other dataset types.
     """
-    data_type = req.includedTypes[0]
+    data_type = req.included_types[0]
     query = SqlObject.canada_commercial_w_bounding_box_and_property_type
 
     city_data = await Database.fetch(query, data_type.replace("_", " "), *request_location.bounding_box)
@@ -830,7 +830,7 @@ async def get_real_estate_dataset_from_storage(
     data_type = req.included_types
     # TODO at moment the user will only give one category, in the future we should see how to implement this with more
     # realEstateData=(await load_real_estate_categories())
-    # filtered_categories = [item for item in realEstateData if item in req.includedTypes]
+    # filtered_categories = [item for item in realEstateData if item in req.included_types]
     # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
 
     
