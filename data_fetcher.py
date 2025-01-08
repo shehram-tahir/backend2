@@ -1098,7 +1098,7 @@ async def city_categories() -> Dict:
     # google_categories = load_google_categories()
 
     # get city lat and long
-    geo_data = get_req_geodata(req.city_name, req.country_name)
+    # geo_data = get_req_geodata(req.city_name, req.country_name)
     # non_ggl_categories = fetch_db_categories_by_lat_lng(geo_data.bounding_box)
     # categories = {**google_categories, **non_ggl_categories}
 
