@@ -1090,7 +1090,7 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
 #         raise ValueError(f"Error creating feature: {str(e)}")
 
 
-async def city_categories() -> Dict:
+async def city_categories(req:ReqCityCountry ) -> Dict:
     """
     Provides a comprehensive list of place categories, including Google places,
     real estate, census data, and other custom categories.
