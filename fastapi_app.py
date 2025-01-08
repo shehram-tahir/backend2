@@ -282,7 +282,7 @@ async def ep_city_categories(
     ):
     response = await request_handling(
         "",
-        None,
+        "",
         # req.request_body,
         # ReqCityCountry,
         ResModel[dict[str, list[str]]],
