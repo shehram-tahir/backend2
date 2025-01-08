@@ -1090,7 +1090,7 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
 #         raise ValueError(f"Error creating feature: {str(e)}")
 
 
-async def city_categories(req: ReqCityCountry) -> Dict:
+async def city_categories() -> Dict:
     """
     Provides a comprehensive list of place categories, including Google places,
     real estate, census data, and other custom categories.
@@ -1314,6 +1314,34 @@ def filter_locations_by_drive_time(
     return filtered_nearest_locations
 
 
+def average_metric_of_surrounding_points(
+    color_based_on, point, based_on_dataset, radius
+):
+    lat, lon = (
+        point["geometry"]["coordinates"][1],
+        point["geometry"]["coordinates"][0],
+    )
+
+    nearby_metric_value = []
+
+    for point_2 in based_on_dataset["features"]:
+        if color_based_on not in point_2["properties"]:
+            continue
+
+        distance = geodesic(
+            (lat, lon),
+            (point_2["geometry"]["coordinates"][1], point_2["geometry"]["coordinates"][0])
+        ).meters
+
+        if distance <= radius:
+            nearby_metric_value.append(point_2["properties"][color_based_on])
+
+    if nearby_metric_value:
+        return np.mean(nearby_metric_value)
+    else:
+        return None
+
+
 async def process_color_based_on(
     req: ReqGradientColorBasedOnZone,
 ) -> List[ResGradientColorBasedOnZone]:
@@ -1449,37 +1477,6 @@ async def process_color_based_on(
         return new_layers
     else:
 
-        def calculate_distance(lat1, lon1, lat2, lon2):
-            return geodesic((lat1, lon1), (lat2, lon2)).meters
-
-        def average_metric_of_surrounding_points(
-            color_based_on, point, based_on_dataset, radius
-        ):
-            lat, lon = (
-                point["geometry"]["coordinates"][1],
-                point["geometry"]["coordinates"][0],
-            )
-
-            nearby_metric_value = []
-
-            for point_2 in based_on_dataset["features"]:
-                if color_based_on not in point_2["properties"]:
-                    continue
-
-                distance = calculate_distance(
-                    lat,
-                    lon,
-                    point_2["geometry"]["coordinates"][1],
-                    point_2["geometry"]["coordinates"][0],
-                )
-
-                if distance <= radius:
-                    nearby_metric_value.append(point_2["properties"][color_based_on])
-
-            if nearby_metric_value:
-                return np.mean(nearby_metric_value)
-            else:
-                return None
 
         # Calculate influence scores for change_layer_dataset and store them
         influence_scores = []

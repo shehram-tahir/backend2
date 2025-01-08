@@ -19,12 +19,12 @@ class SqlObject:
     population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".population
                                     where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """
-    housing_w_bounding_box: str = """SELECT * FROM "schema_marketplace".housing
-                                    where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
-                                    """
-    household_w_bounding_box: str = """SELECT * FROM "schema_marketplace".household
-                                    where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
-                                    """
+    # population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".housing
+    #                                 where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
+    #                                 """
+    # population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".household
+    #                                 where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
+    #                                 """
     economic_w_bounding_box: str = """SELECT * FROM "schema_marketplace".economic
                                     where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """

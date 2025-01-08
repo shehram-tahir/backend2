@@ -721,13 +721,13 @@ async def get_census_dataset_from_storage(
 
     if any(type in data_type for type in ["household", "degree"]):
         csv_file = CENSUS_FILE_MAPPING["household"]
-        query = SqlObject.household_w_bounding_box
+        query = SqlObject.population_w_bounding_box
     elif any(type in data_type for type in ["population", "demographics"]):
         csv_file = CENSUS_FILE_MAPPING["population"]
         query = SqlObject.population_w_bounding_box
     elif any(type in data_type for type in ["housing", "units"]):
         csv_file = CENSUS_FILE_MAPPING["housing"]
-        query = SqlObject.housing_w_bounding_box
+        query = SqlObject.population_w_bounding_box
     elif any(type in data_type for type in ["economic", "income"]):
         csv_file = CENSUS_FILE_MAPPING["economic"]
         query = SqlObject.economic_w_bounding_box
