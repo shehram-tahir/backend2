@@ -1493,36 +1493,42 @@ async def process_color_based_on(
                 influence_scores.append(surrounding_metric_avg)
                 point_influence_map[change_point["id"]] = surrounding_metric_avg
 
-        # Calculate thresholds based on influence scores
-        percentiles = [16.67, 33.33, 50, 66.67, 83.33]
-        thresholds = np.percentile(influence_scores, percentiles)
 
         # Create layers
         new_layers = []
-        layer_data = [
-            [] for _ in range(len(thresholds) + 2)
-        ]  # +1 for above highest threshold, +1 for unallocated
+        
+        # Calculate thresholds based on influence scores
+        percentiles = [16.67, 33.33, 50, 66.67, 83.33]
+        
+        # Initialize layer data
+        if not influence_scores:
+            # If no scores, create single layer of unallocated points
+            layer_data = [[]] * (len(percentiles) + 1) + [
+                [assign_point_properties(point) for point in change_layer_dataset["features"]]
+            ]
+            thresholds = []  # Empty thresholds since we have no scores
+        else:
+            # Calculate thresholds if we have influence scores
+            thresholds = np.percentile(influence_scores, percentiles)
+            layer_data = [[] for _ in range(len(thresholds) + 2)]
 
-        # Assign points to layers
-        for change_point in change_layer_dataset["features"]:
-            surrounding_metric_avg = point_influence_map.get(change_point["id"])
-            feature = assign_point_properties(change_point)
-
-            if surrounding_metric_avg is None:
-                layer_index = -1  # Last layer (unallocated)
-                feature["properties"]["influence_score"] = None
-            else:
-                layer_index = next(
-                    (
-                        i
-                        for i, threshold in enumerate(thresholds)
-                        if surrounding_metric_avg <= threshold
-                    ),
-                    len(thresholds),
-                )
-                feature["properties"]["influence_score"] = surrounding_metric_avg
-
-            layer_data[layer_index].append(feature)
+            # Assign points to layers
+            for change_point in change_layer_dataset["features"]:
+                surrounding_metric_avg = point_influence_map.get(change_point["id"])
+                feature = assign_point_properties(change_point)
+                
+                if surrounding_metric_avg is None:
+                    layer_index = -1  # Last layer (unallocated)
+                    feature["properties"]["influence_score"] = None
+                else:
+                    layer_index = next(
+                        (i for i, threshold in enumerate(thresholds) 
+                        if surrounding_metric_avg <= threshold),
+                        len(thresholds)
+                    )
+                    feature["properties"]["influence_score"] = surrounding_metric_avg
+                    
+                layer_data[layer_index].append(feature)
 
         # Create layers only for non-empty data
         for i, data in enumerate(layer_data):
