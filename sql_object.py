@@ -16,7 +16,7 @@ class SqlObject:
     """
     load_user_profile_query: str = """SELECT * FROM user_data WHERE user_id = $1;"""
 
-    population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".population
+    census_w_bounding_box: str = """SELECT * FROM "schema_marketplace".census
                                     where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """
     # population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".housing
