@@ -75,7 +75,7 @@ class ReqFetchDataset(ReqCityCountry):
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
     text_search: Optional[str] = ""
-    user_id: str
+    user_id: str = ""
 
 
 # class ReqApplyZoneLayers(BaseModel):
