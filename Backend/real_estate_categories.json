@@ -22,7 +22,8 @@
         "apartment_for_sale",
         "building_for_sale",
         "land_for_sale",
-        "villa_for_sale"
+        "villa_for_sale",
+        "others"
     ],
     "commercial": [
         "business_for_rent",
