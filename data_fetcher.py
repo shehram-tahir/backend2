@@ -482,11 +482,9 @@ async def process_req_plan(req_dataset, req_create_lyr):
             circle_hierarchy = cover_circle_with_seven_circles(
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
             )
-            type_string = make_include_exclude_name(
-                req_dataset.included_types, req_dataset.excluded_types
-            )
+
             string_list_plan = create_string_list(
-                circle_hierarchy, type_string, req_dataset.text_search
+                circle_hierarchy, req_dataset.boolean_query, req_dataset.text_search
             )
 
         string_list_plan.append("end of search plan")
