@@ -73,7 +73,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-EXPANSION_DISTANCE_KM = 10.0  # for each side from the center of the bounding box
+EXPANSION_DISTANCE_KM = 20.0  # for each side from the center of the bounding box
 GGL_CATEGORIES = load_google_categories()
 # Global cache dictionary to store previously fetched locations
 _LOCATION_CACHE = {}
