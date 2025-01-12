@@ -39,7 +39,7 @@ from storage import (
     REAL_ESTATE_CATEGORIES,
     AREA_INTELLIGENCE_CATEGORIES,
     GRADIENT_COLORS,
-    load_real_estate_categories,
+    # load_real_estate_categories,
     # load_area_intelligence_categories,
     get_real_estate_dataset_from_storage,
     get_census_dataset_from_storage,
