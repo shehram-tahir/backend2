@@ -368,11 +368,7 @@ async def fetch_census_realestate(
             get_dataset_func = get_commercial_properties_dataset_from_storage
 
         dataset, bknd_dataset_id, next_page_token = await get_dataset_func(
-            req_dataset,
-            bknd_dataset_id,
-            action,
-            request_location=temp_req,
-            next_page_token=next_page_token,
+            req_dataset, bknd_dataset_id, action, request_location=temp_req, next_page_token=next_page_token
         )
         if dataset:
             dataset = convert_strings_to_ints(dataset)
