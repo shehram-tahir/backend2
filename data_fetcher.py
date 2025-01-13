@@ -362,7 +362,7 @@ async def fetch_census_realestate(
             data_type == "commercial" and req_dataset.country_name == "Saudi Arabia"
         ):
             get_dataset_func = get_real_estate_dataset_from_storage
-        elif data_type in ["demographics", "economic", "housing", "social"]:
+        elif data_type in ["Population Area Intelligence"]:
             get_dataset_func = get_census_dataset_from_storage
         elif data_type == "commercial":
             get_dataset_func = get_commercial_properties_dataset_from_storage
@@ -746,7 +746,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
     if (
         data_type == "real_estate"
-        or data_type in ["demographics", "economic", "housing", "social"]
+        or data_type in list(AREA_INTELLIGENCE_CATEGORIES.keys())
         or (data_type == "commercial" and (req.country_name == "Saudi Arabia" or True))
     ):
 
