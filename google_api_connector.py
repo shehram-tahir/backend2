@@ -71,9 +71,9 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
     try:
         query = (
             req.boolean_query.lower()
-            .replace("and", "&")
-            .replace("or", "|")
-            .replace("not", "~")
+            .replace(" and ", " & ")
+            .replace(" or ", " | ")
+            .replace(" not ", " ~ ")
         )
 
         optimized_queries = optimize_query_sequence(query, POPULARITY_DATA)
