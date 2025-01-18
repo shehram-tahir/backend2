@@ -363,7 +363,8 @@ async def fetch_census_realestate(
             get_dataset_func = get_commercial_properties_dataset_from_storage
 
         dataset, bknd_dataset_id, next_page_token = await get_dataset_func(
-            req_dataset, bknd_dataset_id, action, request_location=temp_req, next_page_token=next_page_token
+            req_dataset, bknd_dataset_id, action, 
+            request_location=temp_req, next_page_token=next_page_token, data_type=data_type
         )
         if dataset:
             dataset = convert_strings_to_ints(dataset)
@@ -726,6 +727,9 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     and returns it. If the layer doesn't exist, it creates a new layer
     """
     next_page_token = None
+    new_layer_id = req.prdcer_lyr_id
+    if req.page_token != "" or req.page_token != "0":
+        new_layer_id = generate_layer_id()
 
     geojson_dataset = []
 
@@ -738,8 +742,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     # Now using boolean_query instead of included_types
     data_type = determine_data_type(req.boolean_query, categories)
 
-    if (
-        data_type == "real_estate"
+    if (data_type == "real_estate"
         or data_type in list(AREA_INTELLIGENCE_CATEGORIES.keys())
         or (data_type == "commercial" and (req.country_name == "Saudi Arabia" or True))
     ):
@@ -749,6 +752,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             city_name=req.city_name,
             boolean_query=req.boolean_query,
             page_token=req.page_token,
+            zoom_level=req.zoom_level,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
             await fetch_census_realestate(
@@ -789,7 +793,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
     geojson_dataset["records_count"] = len(geojson_dataset["features"])
-    geojson_dataset["prdcer_lyr_id"] = generate_layer_id()
+    geojson_dataset["prdcer_lyr_id"] = new_layer_id
     geojson_dataset["next_page_token"] = next_page_token
     return geojson_dataset
 

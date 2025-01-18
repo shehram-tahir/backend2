@@ -683,7 +683,12 @@ async def load_dataset(dataset_id: str) -> Dict:
 
 
 async def get_census_dataset_from_storage(
-    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation, next_page_token: str
+    req: ReqCustomData,
+    filename: str,
+    action: str,
+    request_location: ReqLocation,
+    next_page_token: str,
+    data_type: str,
 ) -> tuple[dict, str, str]:
     """
     Retrieves census data from CSV files based on the data type requested.
@@ -691,28 +696,20 @@ async def get_census_dataset_from_storage(
     """
 
     # Determine which CSV file to use based on included types
-    data_type = req.included_types[0]  # Using first type for now
-    csv_file = None
+    # data_type = req.included_types[0]  # Using first type for now
 
-    if any(type in data_type for type in ["household", "degree"]):
-        csv_file = CENSUS_FILE_MAPPING["household"]
+    if data_type in ["Population Area Intelligence"]:
         query = SqlObject.census_w_bounding_box
-    elif any(type in data_type for type in ["population", "demographics"]):
-        csv_file = CENSUS_FILE_MAPPING["population"]
-        query = SqlObject.census_w_bounding_box
-    elif any(type in data_type for type in ["housing", "units"]):
-        csv_file = CENSUS_FILE_MAPPING["housing"]
-        query = SqlObject.census_w_bounding_box
-    elif any(type in data_type for type in ["economic", "income"]):
-        csv_file = CENSUS_FILE_MAPPING["economic"]
-        query = SqlObject.economic_w_bounding_box
+    # elif data_type in ["Housing Area Intelligence"]:
+    #     query = SqlObject.census_w_bounding_box
+    # elif data_type in ["Income Area Intelligence"]:
+    #     query = SqlObject.economic_w_bounding_box
 
-    if not csv_file:
-        raise HTTPException(
-            status_code=404, detail="Invalid census data type requested"
-        )
-
-    city_data = await Database.fetch(query, *request_location.bounding_box)
+    city_data = await Database.fetch(
+        query, 
+        *request_location.bounding_box, 
+        request_location.zoom_level
+    )
     city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)
     # city_df = pd.DataFrame(city_data, dtype=object)
 
@@ -751,7 +748,12 @@ async def get_census_dataset_from_storage(
 
 
 async def get_commercial_properties_dataset_from_storage(
-    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation, next_page_token: str
+    req: ReqCustomData,
+    filename: str,
+    action: str,
+    request_location: ReqLocation,
+    next_page_token: str,
+    data_type: str,
 ) -> tuple[dict, str, str]:
     """
     Retrieves commercial properties data from database based on the data type requested.
@@ -767,7 +769,13 @@ async def get_commercial_properties_dataset_from_storage(
 
     query = SqlObject.canada_commercial_w_bounding_box_and_property_type
 
-    city_data = await Database.fetch(query, data_type.replace("_", " "), *request_location.bounding_box, DEFAULT_LIMIT, offset)
+    city_data = await Database.fetch(
+        query,
+        data_type.replace("_", " "),
+        *request_location.bounding_box,
+        DEFAULT_LIMIT,
+        offset,
+    )
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     # Convert to GeoJSON format
@@ -805,7 +813,12 @@ async def get_commercial_properties_dataset_from_storage(
 
 
 async def get_real_estate_dataset_from_storage(
-    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation, next_page_token: str
+    req: ReqCustomData,
+    filename: str,
+    action: str,
+    request_location: ReqLocation,
+    next_page_token: str,
+    data_type: str,
 ) -> tuple[dict, str, str]:
     """
     Retrieves data from storage based on the location request.
@@ -823,8 +836,10 @@ async def get_real_estate_dataset_from_storage(
     offset = page_number * DEFAULT_LIMIT
     query = SqlObject.saudi_real_estate_w_bounding_box_and_category
 
-    city_data = await Database.fetch(query, data_type, *request_location.bounding_box, DEFAULT_LIMIT, offset)
-    
+    city_data = await Database.fetch(
+        query, data_type, *request_location.bounding_box, DEFAULT_LIMIT, offset
+    )
+
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     # Convert to GeoJSON format

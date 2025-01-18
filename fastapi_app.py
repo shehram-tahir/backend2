@@ -99,7 +99,7 @@ from data_fetcher import (
     get_user_profile,
     # fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
-    load_area_intelligence_categories
+    load_area_intelligence_categories,
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -280,7 +280,7 @@ async def country_city():
 @app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
 async def ep_city_categories(
     # req: ReqModel[ReqCityCountry]
-    ):
+):
     response = await request_handling(
         "",
         "",
@@ -296,7 +296,7 @@ async def ep_city_categories(
 @app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
 async def ep_load_area_intelligence_categories(
     # req: ReqModel[ReqCityCountry]
-    ):
+):
     response = await request_handling(
         "",
         "",
@@ -631,7 +631,11 @@ async def ep_process_color_based_on(
     return response
 
 
-@app.post(CONF.check_street_view, response_model=ResModel[dict[str, bool]])
+@app.post(
+    CONF.check_street_view,
+    response_model=ResModel[dict[str, bool]],
+    dependencies=[Depends(JWTBearer())],
+)
 async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     response = await request_handling(
         req.request_body,

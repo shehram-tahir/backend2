@@ -17,8 +17,11 @@ class SqlObject:
     load_user_profile_query: str = """SELECT * FROM user_data WHERE user_id = $1;"""
 
     census_w_bounding_box: str = """SELECT * FROM "schema_marketplace".census
-                                    where population is not Null AND latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4;
-                                    """
+                                WHERE population is not Null 
+                                AND latitude BETWEEN $1 AND $2 
+                                AND longitude BETWEEN $3 AND $4
+                                AND zoom_level = $5;
+                                """
     # population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".housing
     #                                 where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
     #                                 """
@@ -54,7 +57,7 @@ class SqlObject:
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """
-    
+
     store_dataset: str = """
     INSERT INTO "schema_marketplace"."datasets" 
     (filename, request_data, response_data, created_at)
@@ -65,7 +68,7 @@ class SqlObject:
         response_data = $3,
         created_at = $4;
     """
-    
+
     load_dataset: str = """
     SELECT response_data 
     FROM "schema_marketplace"."datasets" 

@@ -28,17 +28,6 @@ class boxmapProperties(BaseModel):
     user_ratings_total: int
 
 
-class ReqSavePrdcerLyer(BaseModel):
-    prdcer_layer_name: str
-    prdcer_lyr_id: str
-    bknd_dataset_id: str
-    points_color: str
-    layer_legend: str
-    layer_description: str
-    city_name: str
-    user_id: str
-
-
 class ReqSavePrdcerCtlg(BaseModel):
     prdcer_ctlg_name: str
     subscription_price: str
@@ -65,23 +54,26 @@ class ReqUserId(BaseModel):
 
 
 class ReqPrdcerLyrMapData(BaseModel):
-    prdcer_lyr_id: str
+    prdcer_lyr_id: Optional[str] = ""
     user_id: str
 
 
-class ReqFetchDataset(ReqCityCountry):
+class ReqSavePrdcerLyer(ReqPrdcerLyrMapData):
+    prdcer_layer_name: str
+    bknd_dataset_id: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    city_name: str
+
+
+class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData):
     boolean_query: Optional[str] = ""
     action: Optional[str] = ""
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
     text_search: Optional[str] = ""
-    user_id: str = ""
-
-
-# class ReqApplyZoneLayers(BaseModel):
-#     user_id: str
-#     lyrs: List[str]
-#     lyrs_as_zone: List[Dict[str, str]]
+    zoom_level: Optional[int] = 0
 
 
 class ReqFetchCtlgLyrs(BaseModel):
@@ -114,6 +106,7 @@ class ReqLocation(Coordinate):
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
     boolean_query: Optional[str] = ""
+    zoom_level: Optional[int] = 0
 
 
 class ReqNearestRoute(ReqPrdcerLyrMapData):
@@ -125,6 +118,7 @@ class ReqCustomData(ReqCityCountry):
     page_token: Optional[str] = ""
     included_types: list[str] = []
     excluded_types: list[str] = []
+    zoom_level: Optional[int] = 0
 
 
 class ReqGradientColorBasedOnZone(BaseModel):
