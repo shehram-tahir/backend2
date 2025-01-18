@@ -343,6 +343,7 @@ async def fetch_census_realestate(
     plan_name = ""
     action = req_create_lyr.action
     bknd_dataset_id = ""
+    dataset =  None
 
     req_dataset.included_types, req_dataset.excluded_types = reduce_to_single_query(
         req_dataset.boolean_query
@@ -350,7 +351,8 @@ async def fetch_census_realestate(
 
     temp_req = to_location_req(req_dataset)
     bknd_dataset_id = make_dataset_filename(temp_req)
-    dataset = await load_dataset(bknd_dataset_id)
+    # TODO remove redundent code
+    # dataset = await load_dataset(bknd_dataset_id)
 
     if not dataset:
         if data_type == "real_estate" or (
