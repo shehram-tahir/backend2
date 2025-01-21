@@ -665,7 +665,7 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
             if i == 0:
                 new_item = f"{lat}_{lon}_{value}_{category}_token="
             else:
-                new_item = f"{lat}_{lon}_{value}_{category}_token=page_token=plan_coffee_shop_Saudi Arabia_Jeddah@#${i}"
+                new_item = f"{lat}_{lon}_{value}_{category}_token=page_token={plan_name}@#${i}"
             
             new_plan.append(new_item)
 
