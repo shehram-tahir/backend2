@@ -660,7 +660,7 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
                 
             first_parts = item.split('_', 3)
             lat, lon, value, rest = first_parts
-            category = rest.split('_circle=')[0]
+            category = rest.split('_circle=')[0].replace(" ", "_")
             
             if i == 0:
                 new_item = f"{lat}_{lon}_{value}_{category}_token="
