@@ -871,46 +871,44 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
     """
     Fetches detailed map data for a specific producer layer.
     """
+    dataset = {}
+    user_layer_matching = await load_user_layer_matching()
+    layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
+    layer_owner_data = await load_user_profile(layer_owner_id)
+
     try:
-        dataset = {}
-        user_layer_matching = await load_user_layer_matching()
-        layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
-        layer_owner_data = await load_user_profile(layer_owner_id)
+        layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
+            req.prdcer_lyr_id
+        ]
+    except KeyError as ke:
+        raise HTTPException(
+            status_code=404, detail="Producer layer not found for this user"
+        ) from ke
 
-        try:
-            layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
-                req.prdcer_lyr_id
-            ]
-        except KeyError as ke:
-            raise HTTPException(
-                status_code=404, detail="Producer layer not found for this user"
-            ) from ke
+    dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
+    dataset = await load_dataset(dataset_id)
 
-        dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
-        dataset = await load_dataset(dataset_id)
+    # Extract properties from first feature if available
+    properties = []
+    if dataset.get("features") and len(dataset.get("features", [])) > 0:
+        first_feature = dataset.get("features", [])[0]
+        properties = list(first_feature.get("properties", {}).keys())
+        
+    return ResLyrMapData(
+        type="FeatureCollection",
+        features=dataset.get("features", []),
+        properties=properties,  # Add the properties list here
+        prdcer_layer_name=layer_metadata.get("prdcer_layer_name"),
+        prdcer_lyr_id=req.prdcer_lyr_id,
+        bknd_dataset_id=dataset_id,
+        points_color=layer_metadata.get("points_color"),
+        layer_legend=layer_metadata.get("layer_legend"),
+        layer_description=layer_metadata.get("layer_description"),
+        city_name=layer_metadata.get("city_name"),
+        records_count=dataset_info.get("records_count"),
+        is_zone_lyr="false",
+    )
 
-        # Extract properties from first feature if available
-        properties = []
-        if dataset.get("features") and len(dataset["features"]) > 0:
-            first_feature = dataset["features"][0]
-            properties = list(first_feature.get("properties", {}).keys())
-
-        return ResLyrMapData(
-            type="FeatureCollection",
-            features=dataset["features"],
-            properties=properties,  # Add the properties list here
-            prdcer_layer_name=layer_metadata["prdcer_layer_name"],
-            prdcer_lyr_id=req.prdcer_lyr_id,
-            bknd_dataset_id=dataset_id,
-            points_color=layer_metadata["points_color"],
-            layer_legend=layer_metadata["layer_legend"],
-            layer_description=layer_metadata["layer_description"],
-            city_name=layer_metadata["city_name"],
-            records_count=dataset_info["records_count"],
-            is_zone_lyr="false",
-        )
-    except HTTPException:
-        raise
 
 
 async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:

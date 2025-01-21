@@ -651,35 +651,50 @@ async def load_dataset(dataset_id: str) -> Dict:
         plan = await get_plan(plan_name)
         if not plan:
             return {}
-        # Initialize an empty list to store all datasets
-        all_datasets = []
-        # Load and concatenate all datasets up to the current page number
-        for i in range(page_number):
-            if i == 0:
+
+        #TODO this is a temp fix because this whole thing needs to be redone
+        new_plan = []
+        for i, item in enumerate(plan):
+            if item == "end of search plan":
                 continue
-            # dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
-            # json_content = await use_json(dataset_filepath, "r")
+                
+            first_parts = item.split('_', 3)
+            lat, lon, value, rest = first_parts
+            category = rest.split('_circle=')[0]
+            
+            if i == 0:
+                new_item = f"{lat}_{lon}_{value}_{category}_token="
+            else:
+                new_item = f"{lat}_{lon}_{value}_{category}_token=page_token=plan_coffee_shop_Saudi Arabia_Jeddah@#${i}"
+            
+            new_plan.append(new_item)
+
+        # Initialize an empty list to store all datasets
+        all_features = []
+        feat_collec = {"type": "FeatureCollection", "features": []}
+        for i in range(page_number):
+            dataset_id = new_plan[i]  # Get the formatted item for this page
             json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
             if json_content:
-                all_datasets.extend(json_content["response_data"])
-
+                dataset = orjson.loads(json_content["response_data"])
+                # Extract features from each FeatureCollection
+                all_features.extend(dataset["features"])             
+        if all_features:
+            # Create the final combined GeoJSON
+            feat_collec["features"] = all_features
     else:
-        # dataset_filepath = os.path.join(STORAGE_DIR, f"{dataset_id}.json")
-        # all_datasets = await use_json(dataset_filepath, "r")
         try:
-            all_datasets = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
         except asyncpg.exceptions.UndefinedTableError:
             # If table doesn't exist, create it and retry
             await Database.execute(SqlObject.create_datasets_table)
-            all_datasets = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
 
-        if all_datasets:
-            all_datasets = all_datasets["response_data"]
-
-    if all_datasets:
-        all_datasets = orjson.loads(all_datasets)
-
-    return all_datasets
+        if feat_collec:
+            feat_collec = feat_collec["response_data"]
+            feat_collec = orjson.loads(feat_collec)
+        
+    return feat_collec
 
 
 async def get_census_dataset_from_storage(
