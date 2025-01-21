@@ -135,7 +135,7 @@ from backend_common.stripe_backend import (
     list_payment_methods,
     set_default_payment_method,
     testing_create_card_payment_source,
-    charge_wallet,
+    top_up_wallet,
     fetch_wallet,
 )
 
@@ -688,17 +688,17 @@ async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
 
 # Stripe Wallet
 @app.post(
-    CONF.charge_wallet,
-    description="Charge a customer's wallet in stripe",
+    CONF.top_up_wallet,
+    description="top_up a customer's wallet in stripe",
     tags=["stripe wallet"],
     response_model=ResModel[dict],
 )
-async def charge_wallet_endpoint(user_id: str, amount):
-    response = await charge_wallet(user_id, amount)
+async def top_up_wallet_endpoint(user_id: str, amount):
+    response = await top_up_wallet(user_id, amount)
 
     return ResModel(
         data=response,
-        message="Wallet charged successfully",
+        message="Wallet topped up successfully",
         request_id=str(uuid.uuid4()),
     )
 
@@ -717,6 +717,7 @@ async def fetch_wallet_endpoint(user_id: str):
         request_id=str(uuid.uuid4()),
     )
     return response
+
 
 
 # Stripe Subscriptions

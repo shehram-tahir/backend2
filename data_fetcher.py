@@ -395,13 +395,14 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     if not dataset:
 
         if "default" in search_type or "category_search" in search_type:
-            dataset, _ = await fetch_from_google_maps_api(req_dataset)
+            ggl_api_resp, _ = await fetch_from_google_maps_api(req_dataset)
         elif "keyword_search" in search_type:
-            dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
+            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
 
-        if dataset:
-            # Store the fetched data in storage
-            dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+        # Store the fetched data in storage
+        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
+
+        if ggl_api_resp:
             dataset = convert_strings_to_ints(dataset)
             bknd_dataset_id = await store_data_resp(
                 req_dataset, dataset, bknd_dataset_id
@@ -410,7 +411,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
-    if len(dataset["features"]) < 20 and req_create_lyr.action == "full data":
+    if len(dataset.get("features","")) < 20 and req_create_lyr.action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
             next_page_token = ""
@@ -794,7 +795,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         await update_user_profile(req.user_id, user_data)
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
-    geojson_dataset["records_count"] = len(geojson_dataset["features"])
+    geojson_dataset["records_count"] = len(geojson_dataset.get("features",""))
     geojson_dataset["prdcer_lyr_id"] = new_layer_id
     geojson_dataset["next_page_token"] = next_page_token
     return geojson_dataset
