@@ -720,7 +720,7 @@ async def fetch_wallet_endpoint(user_id: str):
     return response
 
 @app.post(
-    CONF.deduct_from_wallet,
+    CONF.deduct_wallet,
     description="Deduct amount from customer's wallet in stripe",
     tags=["stripe wallet"],
     response_model=ResModel[dict],
