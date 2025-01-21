@@ -886,7 +886,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
         ) from ke
 
     dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
-    dataset = await load_dataset(dataset_id)
+    dataset = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
 
     # Extract properties from first feature if available
     properties = []
@@ -1014,7 +1014,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
-            trans_dataset = await load_dataset(dataset_id)
+            trans_dataset = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
             # trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(trans_dataset)
 
             # Extract properties from first feature if available
@@ -1160,7 +1160,7 @@ async def given_layer_fetch_dataset(layer_id: str):
         ) from ke
 
     dataset_id, dataset_info = await fetch_dataset_id(layer_id)
-    all_datasets = await load_dataset(dataset_id)
+    all_datasets = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
 
     return all_datasets, layer_metadata
 

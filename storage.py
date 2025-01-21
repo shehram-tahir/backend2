@@ -631,7 +631,7 @@ async def store_data_resp(req: ReqLocation, dataset: Dict, file_name: str) -> st
         return await store_data_resp(req, dataset, file_name)
 
 
-async def load_dataset(dataset_id: str) -> Dict:
+async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     """
     Loads a dataset from file based on its ID.
     """
@@ -642,7 +642,7 @@ async def load_dataset(dataset_id: str) -> Dict:
     # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
     # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
     # else load dataset with dataset id
-    if "plan" in dataset_id:
+    if "plan" in dataset_id and fetch_full_plan_datasets:
         # Extract plan name and page number
         plan_name, page_number = dataset_id.split("@#$")
         dataset_prefix, plan_name = plan_name.split("page_token=")
