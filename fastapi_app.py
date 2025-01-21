@@ -137,6 +137,7 @@ from backend_common.stripe_backend import (
     testing_create_card_payment_source,
     top_up_wallet,
     fetch_wallet,
+    deduct_from_wallet
 )
 
 # TODO: Add stripe secret key
@@ -718,7 +719,20 @@ async def fetch_wallet_endpoint(user_id: str):
     )
     return response
 
-
+@app.post(
+    CONF.deduct_from_wallet,
+    description="Deduct amount from customer's wallet in stripe",
+    tags=["stripe wallet"],
+    response_model=ResModel[dict],
+)
+async def deduct_from_wallet_endpoint(user_id: str, amount: int):
+    response = await deduct_from_wallet(user_id, amount)
+    
+    return ResModel(
+        data=response,
+        message="Amount deducted from wallet successfully",
+        request_id=str(uuid.uuid4()),
+    )
 
 # Stripe Subscriptions
 @app.post(
