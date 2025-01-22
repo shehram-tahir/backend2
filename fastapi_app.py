@@ -62,7 +62,7 @@ from backend_common.auth import (
     change_email,
     db,
     JWTBearer,
-    create_user_profile,
+    create_user_profile
 )
 
 from all_types.response_dtypes import (
@@ -101,6 +101,7 @@ from data_fetcher import (
     # fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
     load_area_intelligence_categories,
+    update_profile
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -939,7 +940,7 @@ async def list_stripe_products_endpoint():
 
 
 @app.post("/fastapi/create_user_profile", response_model=list[dict[Any, Any]])
-async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
+async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 
     response_1 = await request_handling(
         req.request_body,
@@ -975,20 +976,20 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
     return response
 
 
-# @app.post(
-#     "/fastapi/update_profile_settings",
-#     response_model=ResModel[dict[str, Any]],
-#     dependencies=[Depends(JWTBearer())]
-# )
-# async def update_profile_settings_endpoint(req: ReqModel[UserProfileSettings]):
-#     response = await request_handling(
-#         req.request_body,
-#         UserProfileSettings,
-#         ResModel[dict[str, Any]],
-#         update_profile_settings,
-#         wrap_output=True,
-#     )
-#     return response
+@app.post(
+    "/fastapi/update_user_profile",
+    response_model=ResModel[dict[str, Any]],
+    dependencies=[Depends(JWTBearer())]
+)
+async def update_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
+    response = await request_handling(
+        req.request_body,
+        ReqCreateUserProfile,
+        ResModel[dict[str, Any]],
+        update_profile,
+        wrap_output=True,
+    )
+    return response
 
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store

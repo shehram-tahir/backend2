@@ -1586,6 +1586,8 @@ async def process_color_based_on(
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
+async def update_profile(req):
+    return await update_user_profile(req.user_id, req.model_dump())
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)
