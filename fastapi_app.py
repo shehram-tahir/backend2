@@ -144,7 +144,7 @@ from backend_common.stripe_backend import (
 
 # TODO: Add stripe secret key
 
-stripe.api_key = "sk_test_51PligvRtvvmhTtnG3d0Ub16a0KCxdNGxp09t7d83ZQylOK2JZ2JXTAQviqVgilklQ2zDFIkhqyjV6NNnNmKO8CVH00Iox4mOog"  # Add your secret key from
+stripe.api_key = CONF.stripe_api_key
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
