@@ -977,10 +977,10 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
     response_model=ResModel[dict[str, Any]],
     dependencies=[Depends(JWTBearer())]
 )
-async def update_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
+async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     response = await request_handling(
         req.request_body,
-        ReqCreateUserProfile,
+        UserProfileSettings,
         ResModel[dict[str, Any]],
         update_profile,
         wrap_output=True,
