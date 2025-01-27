@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from typing import Any, Dict, Tuple, Optional, Union, List
 import json
 import os
@@ -196,7 +196,13 @@ def make_dataset_filename(req) -> str:
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
 
-
+def make_dataset_filename_part(req: ReqLocation, included_types: List[str], excluded_types: List[str]) -> str:
+    """ Generate unique dataset ID based on query terms. """
+    cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
+    include_str = "_".join(sorted(included_types))
+    exclude_str = "_".join(sorted(excluded_types))
+    type_string = f"{include_str}_excluding_{exclude_str}" if exclude_str else include_str
+    return f"{cord_string}_{type_string}"
 async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
     """
     Searches the metastore for a given string and returns the corresponding data if found.
@@ -599,6 +605,11 @@ async def get_plan(plan_name):
 #     files = [file.split(".json")[0] for file in files]
 #     return files
 
+def remove_exclusions_from_id(dataset_id: str) -> str:
+    """ Removes 'excluding_*' from the dataset ID to find a broader match. """
+    parts = dataset_id.split("_")
+    filtered_parts = [p for p in parts if not p.startswith("excluding")]
+    return "_".join(filtered_parts)
 
 async def store_data_resp(req: ReqLocation, dataset: Dict, file_name: str) -> str:
     """
@@ -642,6 +653,21 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
     # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
     # else load dataset with dataset id
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)    
+    try:
+        feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+    except asyncpg.exceptions.UndefinedTableError:
+            # If table doesn't exist, create it and retry
+        await Database.execute(SqlObject.create_datasets_table)
+        feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+    if not feat_collec:
+        return None
+    created_at = feat_collec["created_at"]
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    if created_at and created_at < three_months_ago:
+        await Database.execute(SqlObject.delete_dataset, dataset_id)
+        return None
     if "plan" in dataset_id and fetch_full_plan_datasets:
         # Extract plan name and page number
         plan_name, page_number = dataset_id.split("@#$")
@@ -674,7 +700,7 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
         feat_collec = {"type": "FeatureCollection", "features": []}
         for i in range(page_number):
             dataset_id = new_plan[i]  # Get the formatted item for this page
-            json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
             if json_content:
                 dataset = orjson.loads(json_content["response_data"])
                 # Extract features from each FeatureCollection
@@ -684,11 +710,11 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
             feat_collec["features"] = all_features
     else:
         try:
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
         except asyncpg.exceptions.UndefinedTableError:
             # If table doesn't exist, create it and retry
             await Database.execute(SqlObject.create_datasets_table)
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
 
         if feat_collec:
             feat_collec = feat_collec["response_data"]
