@@ -512,6 +512,10 @@ async def process_req_plan(req_dataset, req_create_lyr):
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
         current_plan_index = int(current_plan_index)
+        if current_plan_index>30:
+            raise HTTPException(
+                status_code=488, detail="temporarely disabled for more than 30 searches"
+            )
         plan = await get_plan(plan_name)
 
         if (

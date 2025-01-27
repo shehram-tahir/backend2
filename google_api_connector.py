@@ -197,7 +197,7 @@ async def text_fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[s
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,
-        "X-Goog-FieldMask": CONF.google_fields,
+        "X-Goog-FieldMask": CONF.google_fields+",nextPageToken",
     }
     data = {
         "textQuery": req.text_search,
