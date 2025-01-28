@@ -654,20 +654,8 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
     # else load dataset with dataset id
     three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)    
-    try:
-        feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
-    except asyncpg.exceptions.UndefinedTableError:
-            # If table doesn't exist, create it and retry
-        await Database.execute(SqlObject.create_datasets_table)
-        feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
-    if not feat_collec:
-        return None
-    created_at = feat_collec["created_at"]
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
-    if created_at and created_at < three_months_ago:
-        await Database.execute(SqlObject.delete_dataset, dataset_id)
-        return None
+
+    
     if "plan" in dataset_id and fetch_full_plan_datasets:
         # Extract plan name and page number
         plan_name, page_number = dataset_id.split("@#$")
@@ -698,27 +686,38 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
         # Initialize an empty list to store all datasets
         all_features = []
         feat_collec = {"type": "FeatureCollection", "features": []}
+        properties_set = set()  # Initialize a set to store unique properties
         for i in range(page_number):
             dataset_id = new_plan[i]  # Get the formatted item for this page
             json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
             if json_content:
-                dataset = orjson.loads(json_content["response_data"])
-                # Extract features from each FeatureCollection
-                all_features.extend(dataset["features"])             
+                created_at = json_content.get("created_at")
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if created_at and created_at < three_months_ago:
+                await Database.execute(SqlObject.delete_dataset, dataset_id)
+                json_content= None
+            if json_content:
+                dataset = orjson.loads(json_content.get("response_data", "{}")) 
+                all_features.extend(dataset.get("features", [])) 
+                properties_set.update(dataset.get("properties", []))            
         if all_features:
             # Create the final combined GeoJSON
             feat_collec["features"] = all_features
+            feat_collec["properties"] = list(properties_set)
     else:
-        try:
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
-        except asyncpg.exceptions.UndefinedTableError:
-            # If table doesn't exist, create it and retry
-            await Database.execute(SqlObject.create_datasets_table)
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+        feat_collec=None
+        json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+        if json_content:
+            created_at = json_content.get("created_at")
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if created_at and created_at < three_months_ago:
+                await Database.execute(SqlObject.delete_dataset, dataset_id)
+                json_content= None
 
-        if feat_collec:
-            feat_collec = feat_collec["response_data"]
-            feat_collec = orjson.loads(feat_collec)
+        if json_content:
+            feat_collec = orjson.loads(json_content.get("response_data", "{}")) 
         
     return feat_collec
 

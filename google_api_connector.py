@@ -82,7 +82,7 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
 
         datasets = {}
         missing_queries = []
-        seen_places = set() 
+        
 
         for included_types, excluded_types in optimized_queries:
             full_dataset_id = make_dataset_filename_part(req, included_types, excluded_types)
@@ -93,54 +93,64 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
             else:
                 missing_queries.append((full_dataset_id, included_types, excluded_types))
 
-        if not missing_queries:
-            all_results = [
-                place for dataset in datasets.values() if isinstance(dataset, list) for place in dataset
+        if missing_queries:
+            logger.info(f"Fetching {len(missing_queries)} queries from Google Maps API.")
+            query_tasks = [
+                execute_single_query(req, included_types, excluded_types)
+                for _, included_types, excluded_types in missing_queries
             ]
-            return all_results
 
-        logger.info(f"Fetching {len(missing_queries)} queries from Google Maps API.")
-        query_tasks = [
-            execute_single_query(req, included_types, excluded_types)
-            for _, included_types, excluded_types in missing_queries
-            for _, included_types, excluded_types in missing_queries
-        ]
+            all_query_results = await asyncio.gather(*query_tasks)
 
-        all_query_results = await asyncio.gather(*query_tasks)
-
-        for (dataset_id, included, excluded), query_results in zip(missing_queries, all_query_results):
-            if query_results:
-                new_results = [place for place in query_results if place.get("place_id","") not in seen_places]
-                
-                if new_results:  
-                    dataset = await MapBoxConnector.new_ggl_to_boxmap(new_results,req.radius)
+            for (dataset_id, included, excluded), query_results in zip(missing_queries, all_query_results):
+                    
+                if query_results:  
+                    dataset = await MapBoxConnector.new_ggl_to_boxmap(query_results,req.radius)
                     dataset = convert_strings_to_ints(dataset)
                     await store_data_resp(req, dataset, dataset_id)
-                    datasets[dataset_id] = new_results
-                    for place in new_results:
-                        seen_places.add(place.get("place_id"))
+                    datasets[dataset_id] = dataset
 
-        all_results = []
+        # Initialize the combined dictionary
+        combined = {
+            'type': 'FeatureCollection',
+            'features': [],
+            'properties': set()
+        }
+
+        # Initialize a set to keep track of unique IDs
+        seen_ids = set()
+
+        # Iterate through each dataset
         for dataset in datasets.values():
-            if isinstance(dataset, list):
-                for place in dataset:
-                    if isinstance(place, dict):
-                        all_results.append(place)
+            # Add properties to the combined set
+            combined['properties'].update(dataset.get('properties', []))
+            features = dataset.get('features', [])
+            
+            # Iterate through each feature in the dataset
+            for feature in features:
+                feature_id = feature.get('properties', {}).get('id')
+                if feature_id is not None and feature_id not in seen_ids:
+                    combined['features'].append(feature)
+                    seen_ids.add(feature_id)
 
-        if all_results:
-            dataset = await MapBoxConnector.new_ggl_to_boxmap(all_results,req.radius)
-            dataset = convert_strings_to_ints(dataset)
-            await store_data_resp(req, dataset, combined_dataset_id)
+        # Convert the properties set back to a list (if needed)
+        combined['properties'] = list(combined['properties'])
+
+        if combined:
+            await store_data_resp(req, combined, combined_dataset_id)
+            for feature in combined['features']:
+                if 'properties' in feature and 'id' in feature['properties']:
+                    del feature['properties']['id']
             logger.info(f"Stored combined dataset: {combined_dataset_id}")
             logger.info(f"Fetched {len(dataset)} places from Google Maps API and DB.")
-            return dataset
+            return combined
         else:
             logger.warning("No valid results returned from Google Maps API or DB.")
-            return [], "No valid results from API or DB"
+            return combined
 
     except Exception as e:
         logger.error(f"Error in fetch_from_google_maps_api: {str(e)}")
-        return [], str(e)
+        return str(e)
 
 
 async def execute_single_query(
