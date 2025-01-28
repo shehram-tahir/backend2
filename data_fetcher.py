@@ -10,7 +10,7 @@ import numpy as np
 from fastapi import HTTPException
 from fastapi import status
 import requests
-from backend_common.auth import load_user_profile, update_user_profile
+from backend_common.auth import load_user_profile, update_user_profile,update_user_profile_settings
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import upload_file_to_google_cloud_bucket
 from config_factory import CONF
@@ -1597,7 +1597,7 @@ async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
 async def update_profile(req):
-    return await update_user_profile(req.user_id, req.model_dump())
+    return await update_user_profile_settings(req)
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)
