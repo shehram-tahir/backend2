@@ -1,5 +1,7 @@
 import logging
 import math
+import geopy.distance
+from urllib.parse import unquote, urlparse
 import uuid
 from typing import List, Dict, Any, Union, Tuple
 import json
@@ -12,7 +14,7 @@ from fastapi import status
 import requests
 from backend_common.auth import load_user_profile, update_user_profile,update_user_profile_settings
 from backend_common.utils.utils import convert_strings_to_ints
-from backend_common.gbucket import upload_file_to_google_cloud_bucket
+from backend_common.gbucket import upload_file_to_google_cloud_bucket, delete_file_from_google_cloud_bucket
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
@@ -49,6 +51,9 @@ from storage import (
     fetch_layer_owner,
     update_dataset_layer_matching,
     update_user_layer_matching,
+    fetch_dataset_id,
+    delete_dataset_layer_matching,
+    delete_user_layer_matching,
     fetch_user_catalogs,
     load_user_layer_matching,
     fetch_user_layers,
@@ -68,6 +73,7 @@ from storage import (
 )
 from boolean_query_processor import reduce_to_single_query
 from popularity_algo import process_plan_popularity
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -511,7 +517,14 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
+
         current_plan_index = int(current_plan_index)
+
+        #limit to 30 calls per plan
+        if current_plan_index>30:
+            raise HTTPException(
+                status_code=488, detail="temporarely disabled for more than 30 searches"
+            )
         if current_plan_index>30:
             raise HTTPException(
                 status_code=488, detail="temporarely disabled for more than 30 searches"
@@ -811,10 +824,21 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     return geojson_dataset
 
 
+
+
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     user_data = await load_user_profile(req.user_id)
-
+    
     try:
+        # Check for duplicate prdcer_layer_name
+        new_layer_name = req.model_dump(exclude={"user_id"})["prdcer_layer_name"]
+        for layer in user_data["prdcer"]["prdcer_lyrs"].values():
+            if layer["prdcer_layer_name"] == new_layer_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Layer name '{new_layer_name}' already exists. Layer names must be unique.",
+                )
+        
         # Add the new layer to user profile
         user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.model_dump(
             exclude={"user_id"}
@@ -832,6 +856,55 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
         ) from ke
 
     return "Producer layer created successfully"
+
+
+
+async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
+    """
+    Deletes a layer based on its id.
+    Args:
+        req (ReqDeletePrdcerLayer): The request data containing `user_id` and `prdcer_lyr_id`.
+
+    Returns:
+        str: Success message if the layer is deleted.
+    """
+
+    bknd_dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
+    user_data = await load_user_profile(req.user_id)
+    
+    try:
+        # Find the layer to delete based on its id
+        layers = user_data["prdcer"]["prdcer_lyrs"]
+        layer_to_delete = None
+        
+        for layer_id, layer in layers.items():
+            if layer["prdcer_lyr_id"] == req.prdcer_lyr_id:
+                layer_to_delete = layer_id
+                break
+        
+        if not layer_to_delete:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Layer id '{req.prdcer_lyr_id}' not found.",
+            )
+        
+        # Delete the layer
+        del user_data["prdcer"]["prdcer_lyrs"][layer_to_delete]
+
+        # Save updated user data
+        await update_user_profile(req.user_id, user_data)
+        await delete_dataset_layer_matching(layer_to_delete, bknd_dataset_id)
+        await delete_user_layer_matching(layer_to_delete)
+    
+    except KeyError as ke:
+        logger.error(f"Invalid user data structure for user_id: {req.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user data structure",
+        ) from ke
+
+    return f"Layer '{req.prdcer_lyr_id}' deleted successfully."
+
 
 
 @preserve_validate_decorator
@@ -963,6 +1036,43 @@ async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         return new_ctlg_id
     except Exception as e:
         raise e
+    
+
+async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
+    """
+    Deletes an existing producer catalog.
+    """
+    try:
+        # Load the user profile to get the catalog
+        user_data = await load_user_profile(req.user_id)
+
+        # Check if the catalog exists
+        if req.prdcer_ctlg_id not in user_data["prdcer"]["prdcer_ctlgs"]:
+            raise ValueError(f"Catalog ID {req.prdcer_ctlg_id} not found.")
+
+        thumbnail_url = user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id]["thumbnail_url"]
+
+        # Delete the catalog
+        del user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id]
+
+        # Delete the thumbnail image from Google Cloud Storage if it exists
+        if thumbnail_url:
+            # Extract the file path from the URL (assuming the URL is like 'https://storage.googleapis.com/bucket_name/path/to/file.jpg')
+            parsed_url = urlparse(thumbnail_url)
+            blob_name = unquote(parsed_url.path.lstrip("/").split("/", 1)[-1])  
+            #file_path = thumbnail_url.split(CONF.gcloud_slocator_bucket_name+"/")[-1]  # Get the file path (e.g., "path/to/file.jpg")
+            delete_file_from_google_cloud_bucket(blob_name, CONF.gcloud_slocator_bucket_name, CONF.gcloud_bucket_credentials_json_path)
+
+
+        # Update the user profile after deleting the catalog
+        await update_user_profile(req.user_id, user_data)
+
+        return f"Catalog with ID {req.prdcer_ctlg_id} deleted successfully."
+
+    except Exception as e:
+        logger.error(f"Error deleting catalog: {str(e)}")
+        raise e
+
 
 
 async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
@@ -1351,6 +1461,17 @@ def average_metric_of_surrounding_points(
         return None
 
 
+def calculate_distance(coord1, coord2):
+    """
+    Calculate the distance between two points (latitude and longitude) in meters.
+    """
+    return geopy.distance.distance(
+        (coord1["latitude"], coord1["longitude"]),
+        (coord2["latitude"], coord2["longitude"]),
+    ).meters
+
+
+
 async def process_color_based_on(
     req: ReqGradientColorBasedOnZone,
 ) -> List[ResGradientColorBasedOnZone]:
@@ -1378,6 +1499,7 @@ async def process_color_based_on(
     if (
         req.coverage_property == "drive_time"
     ):  # currently drive does not take into account ANY based on property
+        
         # Get nearest points
         # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
         nearest_locations = await filter_for_nearest_points(
@@ -1482,6 +1604,84 @@ async def process_color_based_on(
                         is_zone_lyr="true",
                     )
                 )
+
+        return new_layers
+   
+    if req.color_based_on == "name":
+        matched_features = []
+        unmatched_features = []
+
+        for change_point in change_layer_dataset["features"]:
+            change_point_name = change_point["properties"].get("name", "").lower()
+            change_point_coordinates = {
+                "latitude": change_point["geometry"]["coordinates"][1],
+                "longitude": change_point["geometry"]["coordinates"][0],
+            }
+
+            is_matched = False
+
+            for based_on_point in based_on_layer_dataset["features"]:
+                based_on_point_name = based_on_point["properties"].get("name", "").lower()
+                based_on_point_coordinates = {
+                    "latitude": based_on_point["geometry"]["coordinates"][1],
+                    "longitude": based_on_point["geometry"]["coordinates"][0],
+                }
+
+                # Check if names match and if the points are within the radius
+                if (
+                    change_point_name == based_on_point_name
+                    and calculate_distance(
+                        change_point_coordinates, based_on_point_coordinates
+                    )
+                    <= req.coverage_value
+                ):
+                    matched_features.append(assign_point_properties(change_point))
+                    is_matched = True
+                    break  # Stop searching further once a match is found
+
+            if not is_matched:
+                unmatched_features.append(assign_point_properties(change_point))
+
+        # Create layers for matched and unmatched points
+        new_layers = []
+
+        if matched_features:
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=matched_features,
+                    properties=list(matched_features[0].get("properties", {}).keys()),
+                    prdcer_layer_name=f"{req.change_lyr_name} - Matched Points",
+                    prdcer_lyr_id=str(uuid.uuid4()),
+                    sub_lyr_id=f"{req.change_lyr_id}_matched",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color=req.color_grid_choice[0],
+                    layer_legend="Matched points based on name and radius",
+                    layer_description="Points with matching names within the specified radius",
+                    records_count=len(matched_features),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
+                )
+            )
+
+        if unmatched_features:
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=unmatched_features,
+                    properties=list(unmatched_features[0].get("properties", {}).keys()),
+                    prdcer_layer_name=f"{req.change_lyr_name} - Unmatched Points",
+                    prdcer_lyr_id=str(uuid.uuid4()),
+                    sub_lyr_id=f"{req.change_lyr_id}_unmatched",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color="#FFFFFF",
+                    layer_legend="Unmatched points based on name",
+                    layer_description="Points with no matching names within the specified radius",
+                    records_count=len(unmatched_features),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
+                )
+            )
 
         return new_layers
     else:

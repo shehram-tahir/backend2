@@ -44,11 +44,13 @@ from all_types.myapi_dtypes import (
     # ReqNearestRoute,
     ReqCostEstimate,
     ReqSavePrdcerCtlg,
+    ReqDeletePrdcerCtlg,
     ReqGradientColorBasedOnZone,
     ReqStreeViewCheck,
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
     ReqCityCountry,
+    ReqDeletePrdcerLayer
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -88,9 +90,11 @@ from data_fetcher import (
     fetch_catlog_collection,
     fetch_layer_collection,
     save_lyr,
+    delete_layer,
     aquire_user_lyrs,
     fetch_lyr_map_data,
     save_prdcer_ctlg,
+    delete_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
     poi_categories,
@@ -102,6 +106,7 @@ from data_fetcher import (
     fetch_country_city_category_map_data,
     load_area_intelligence_categories,
     update_profile
+    
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -340,6 +345,19 @@ async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     return response
 
 
+@app.delete(
+    CONF.delete_layer,  
+    response_model=ResModel[str],
+    dependencies=[Depends(JWTBearer())]
+)
+async def delete_layer_ep(req: ReqModel[ReqDeletePrdcerLayer], request: Request):
+    response = await request_handling(
+        req.request_body, ReqDeletePrdcerLayer, ResModel[str], delete_layer, wrap_output=True
+    )
+    return response
+
+
+
 @app.post(CONF.user_layers, response_model=ResModel[list[LayerInfo]])
 async def user_layers(req: ReqModel[ReqUserId]):
     response = await request_handling(
@@ -411,6 +429,18 @@ async def ep_save_producer_catalog(
         wrap_output=True,
     )
     return response
+
+@app.delete(
+    CONF.delete_producer_catalog,  
+    response_model=ResModel[str],
+    dependencies=[Depends(JWTBearer())]
+)
+async def ep_delete_producer_catalog(req: ReqModel[ReqDeletePrdcerCtlg], request: Request):
+    response = await request_handling(
+        req.request_body, ReqDeletePrdcerCtlg, ResModel[str], delete_prdcer_ctlg, wrap_output=True
+    )
+    return response
+
 
 
 @app.post(CONF.user_catalogs, response_model=ResModel[list[UserCatalogInfo]])

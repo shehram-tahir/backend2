@@ -39,6 +39,11 @@ class ReqSavePrdcerCtlg(BaseModel):
     display_elements: dict
     catalog_layer_options: dict
 
+class ReqDeletePrdcerCtlg(BaseModel):
+    user_id: str
+    prdcer_ctlg_id: str
+
+
 
 class ZoneLayerInfo(BaseModel):
     lyr_id: str
@@ -66,6 +71,9 @@ class ReqSavePrdcerLyer(ReqPrdcerLyrMapData):
     layer_description: str
     city_name: str
 
+class ReqDeletePrdcerLayer(BaseModel):
+    user_id: str
+    prdcer_lyr_id: str
 
 class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData):
     boolean_query: Optional[str] = ""
