@@ -831,7 +831,7 @@ async def get_census_dataset_from_storage(
 
     city_data = await Database.fetch(
         query, 
-        # *request_location.bounding_box, 
+        *request_location.bounding_box, 
         req.zoom_level
     )
     city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)

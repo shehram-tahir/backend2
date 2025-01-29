@@ -22,9 +22,9 @@ class SqlObject:
     #Ignoring latitude and longitude (disable virtual square)
     census_w_bounding_box: str = """SELECT * FROM "schema_marketplace".census
                                 WHERE population is not Null 
-                                -- AND latitude BETWEEN $1 AND $2 
-                                -- AND longitude BETWEEN $3 AND $4
-                                AND zoom_level = $1;
+                                AND latitude BETWEEN $1 AND $2 
+                                AND longitude BETWEEN $3 AND $4
+                                AND zoom_level = $5;
                                 """
     # population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".housing
     #                                 where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
