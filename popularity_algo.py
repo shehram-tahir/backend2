@@ -1,9 +1,10 @@
-from storage import get_plan
+from geo_std_utils import get_point_at_distance
+from use_json import use_json
 import asyncio
 from backend_common.database import Database
 import json
 import numpy as np
-
+import math
 
 RADIUS_ZOOM_MULTIPLIER = {
     30000.0: 1000, # 1
@@ -66,6 +67,15 @@ def add_popularity_score_category(features):
         feature["properties"]["popularity_score_category"] = category
     
     return features
+
+
+async def get_plan(plan_name):
+    file_path = (
+        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    )
+    # use json file
+    json_content = await use_json(file_path, "r")
+    return json_content
 
 
 async def process_plan_popularity(plan_name: str):
@@ -191,11 +201,93 @@ async def process_plan_popularity(plan_name: str):
         print(f"An error occurred during execution: {e}")
 
 
-async def main():
-    await process_plan("plan_parking_Saudi Arabia_Jeddah")
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def cover_circle_with_seven_circles(
+    center: tuple, radius: float, min_radius=2, is_center_circle=False
+) -> dict:
+    """
+    Calculate the centers and radii of seven circles covering a larger circle, recursively.
+    """
+    small_radius = 0.5 * radius
+    if (is_center_circle and small_radius < 0.5) or (
+        not is_center_circle and small_radius < 1
+    ):
+        return {
+            "center": center,
+            "radius": radius,
+            "sub_circles": [],
+            "is_center": is_center_circle,
+        }
+
+    # Calculate the centers of the six outer circles
+    outer_centers = []
+    for i in range(6):
+        angle = i * 60  # 360 degrees / 6 circles
+        distance = radius * math.sqrt(3) / 2
+        outer_center = get_point_at_distance(center, angle, distance)
+        outer_centers.append(outer_center)
+
+    # The center circle has the same center as the large circle
+    all_centers = [center] + outer_centers
+
+    sub_circles = []
+    for i, c in enumerate(all_centers):
+        is_center = i == 0
+        sub_circle = cover_circle_with_seven_circles(
+            c, small_radius, min_radius, is_center
+        )
+        sub_circles.append(sub_circle)
+
+    return {
+        "center": center,
+        "radius": radius,
+        "sub_circles": sub_circles,
+        "is_center": is_center_circle,
+    }
+
+
+def create_string_list(
+    circle_hierarchy, type_string, text_search, include_hierarchy=False
+):
+    result = []
+    circles_to_process = [(circle_hierarchy, "1")]
+    total_circles = 0
+
+    while circles_to_process:
+        circle, number = circles_to_process.pop(0)
+        total_circles += 1
+
+        lat, lng = circle["center"]
+        radius = circle["radius"]
+
+        circle_string = f"{lat}_{lng}_{radius * 1000}_{type_string}"
+        if text_search != "" and text_search is not None:
+            circle_string = circle_string + f"_{text_search}"
+
+        center_marker = "*" if circle["is_center"] else ""
+        circle_string += f"_circle={number}{center_marker}_circleNumber={total_circles}"
+
+        result.append(circle_string)
+
+        for i, sub_circle in enumerate(circle["sub_circles"], 1):
+            new_number = f"{number}.{i}" if number else f"{i}"
+            circles_to_process.append((sub_circle, new_number))
+
+    return result
+
+
+async def create_plan(lng, lat, radius, boolean_query, text_search):
+    circle_hierarchy = cover_circle_with_seven_circles((lng, lat), radius / 1000)
+    string_list_plan = create_string_list(circle_hierarchy, boolean_query, text_search)
+    string_list_plan.append("end of search plan")
+    return string_list_plan
+
+
+async def save_plan(plan_name, plan):
+    file_path = (
+        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    )
+    await use_json(file_path, "w", plan)
 
 

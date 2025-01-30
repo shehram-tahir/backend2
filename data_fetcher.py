@@ -60,8 +60,6 @@ from storage import (
     fetch_user_layers,
     load_store_catalogs,
     convert_to_serializable,
-    save_plan,
-    get_plan,
     make_dataset_filename,
     generate_layer_id,
     # load_google_categories,
@@ -69,7 +67,7 @@ from storage import (
     make_ggl_layer_filename,
 )
 from boolean_query_processor import reduce_to_single_query
-from popularity_algo import process_plan_popularity
+from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
 
 
 logging.basicConfig(
@@ -82,71 +80,6 @@ logger = logging.getLogger(__name__)
 EXPANSION_DISTANCE_KM = 60.0  # for each side from the center of the bounding box
 # Global cache dictionary to store previously fetched locations
 _LOCATION_CACHE = {}
-
-
-def get_point_at_distance(start_point: tuple, bearing: float, distance: float):
-    """
-    Calculate the latitude and longitude of a point at a given distance and bearing from a start point.
-    """
-    R = 6371  # Earth's radius in km
-    lat1 = math.radians(start_point[1])
-    lon1 = math.radians(start_point[0])
-    bearing = math.radians(bearing)
-
-    lat2 = math.asin(
-        math.sin(lat1) * math.cos(distance / R)
-        + math.cos(lat1) * math.sin(distance / R) * math.cos(bearing)
-    )
-    lon2 = lon1 + math.atan2(
-        math.sin(bearing) * math.sin(distance / R) * math.cos(lat1),
-        math.cos(distance / R) - math.sin(lat1) * math.sin(lat2),
-    )
-
-    return (math.degrees(lon2), math.degrees(lat2))
-
-
-def cover_circle_with_seven_circles(
-    center: tuple, radius: float, min_radius=2, is_center_circle=False
-) -> dict:
-    """
-    Calculate the centers and radii of seven circles covering a larger circle, recursively.
-    """
-    small_radius = 0.5 * radius
-    if (is_center_circle and small_radius < 0.5) or (
-        not is_center_circle and small_radius < 1
-    ):
-        return {
-            "center": center,
-            "radius": radius,
-            "sub_circles": [],
-            "is_center": is_center_circle,
-        }
-
-    # Calculate the centers of the six outer circles
-    outer_centers = []
-    for i in range(6):
-        angle = i * 60  # 360 degrees / 6 circles
-        distance = radius * math.sqrt(3) / 2
-        outer_center = get_point_at_distance(center, angle, distance)
-        outer_centers.append(outer_center)
-
-    # The center circle has the same center as the large circle
-    all_centers = [center] + outer_centers
-
-    sub_circles = []
-    for i, c in enumerate(all_centers):
-        is_center = i == 0
-        sub_circle = cover_circle_with_seven_circles(
-            c, small_radius, min_radius, is_center
-        )
-        sub_circles.append(sub_circle)
-
-    return {
-        "center": center,
-        "radius": radius,
-        "sub_circles": sub_circles,
-        "is_center": is_center_circle,
-    }
 
 
 def print_circle_hierarchy(circle: dict, number=""):
@@ -180,36 +113,6 @@ def count_circles(circle: dict):
 #         circles_to_process.extend(circle.get("sub_circles", []))
 
 #     return result
-
-
-def create_string_list(
-    circle_hierarchy, type_string, text_search, include_hierarchy=False
-):
-    result = []
-    circles_to_process = [(circle_hierarchy, "1")]
-    total_circles = 0
-
-    while circles_to_process:
-        circle, number = circles_to_process.pop(0)
-        total_circles += 1
-
-        lat, lng = circle["center"]
-        radius = circle["radius"]
-
-        circle_string = f"{lat}_{lng}_{radius * 1000}_{type_string}"
-        if text_search != "" and text_search is not None:
-            circle_string = circle_string + f"_{text_search}"
-
-        center_marker = "*" if circle["is_center"] else ""
-        circle_string += f"_circle={number}{center_marker}_circleNumber={total_circles}"
-
-        result.append(circle_string)
-
-        for i, sub_circle in enumerate(circle["sub_circles"], 1):
-            new_number = f"{number}.{i}" if number else f"{i}"
-            circles_to_process.append((sub_circle, new_number))
-
-    return result
 
 
 def expand_bounding_box(
@@ -370,7 +273,7 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         )
     else:
         req = fetch_lat_lng_bounding_box(req)
-        
+
     bknd_dataset_id = make_dataset_filename(req)
     # dataset = await load_dataset(bknd_dataset_id)
 
@@ -460,15 +363,9 @@ async def process_req_plan(req: ReqFetchDataset):
 
     if req.page_token == "" and action == "full data":
         if req.radius > 750:
-            circle_hierarchy = cover_circle_with_seven_circles(
-                (req.lng, req.lat), req.radius / 1000
+            string_list_plan = await create_plan(
+                req.lng, req.lat, req.radius, req.boolean_query, req.text_search
             )
-
-            string_list_plan = create_string_list(
-                circle_hierarchy, req.boolean_query, req.text_search
-            )
-
-            string_list_plan.append("end of search plan")
 
         # TODO creating the name of the file should be moved to storage
         tcc_string = make_ggl_layer_filename(req)
@@ -1403,7 +1300,9 @@ def average_metric_of_surrounding_points(
             nearby_metric_value.append(point_2["properties"][color_based_on])
 
     if nearby_metric_value:
-        return np.mean(nearby_metric_value)
+        cleaned_list = [float(x) for x in nearby_metric_value 
+                        if str(x).strip() and not isinstance(x, bool)]
+        return np.mean(cleaned_list)
     else:
         return None
 
@@ -1553,45 +1452,37 @@ async def process_color_based_on(
 
         return new_layers
 
+
     if req.color_based_on == "name":
+        # Validate input conditions
+        if not req.list_names:
+            raise ValueError("list_names must be provided when color_based_on is 'name'.")
+        if req.based_on_lyr_id != req.change_lyr_id:
+            raise ValueError("Based_on and change layers must be identical for name-based coloring")
+
+        # Normalize names for case-insensitive comparison
+        list_names_lower = [name.strip().lower() for name in req.list_names]
+        
+        # Determine colors to use
+        original_color = req.change_lyr_orginal_color
+        new_color = req.change_lyr_new_color
+
+        # Categorize features
         matched_features = []
         unmatched_features = []
+        
+        for feature in change_layer_dataset["features"]:
+            feature_name = feature["properties"].get("name", "").strip().lower()
+            
+            # Check for partial substring matches
+            if any(search_name in feature_name for search_name in list_names_lower):
+                matched_features.append(assign_point_properties(feature))
+            else:
+                unmatched_features.append(assign_point_properties(feature))
 
-        for change_point in change_layer_dataset["features"]:
-            change_point_name = change_point["properties"].get("name", "").lower()
-            change_point_coordinates = {
-                "latitude": change_point["geometry"]["coordinates"][1],
-                "longitude": change_point["geometry"]["coordinates"][0],
-            }
-
-            is_matched = False
-
-            for based_on_point in based_on_layer_dataset["features"]:
-                based_on_point_name = (
-                    based_on_point["properties"].get("name", "").lower()
-                )
-                based_on_point_coordinates = {
-                    "latitude": based_on_point["geometry"]["coordinates"][1],
-                    "longitude": based_on_point["geometry"]["coordinates"][0],
-                }
-
-                # Check if names match and if the points are within the radius
-                if (
-                    change_point_name == based_on_point_name
-                    and calculate_distance(
-                        change_point_coordinates, based_on_point_coordinates
-                    )
-                    <= req.coverage_value
-                ):
-                    matched_features.append(assign_point_properties(change_point))
-                    is_matched = True
-                    break  # Stop searching further once a match is found
-
-            if not is_matched:
-                unmatched_features.append(assign_point_properties(change_point))
-
-        # Create layers for matched and unmatched points
+        # Create result layers
         new_layers = []
+        base_layer_name = f"{req.change_lyr_name} - Name Match"
 
         if matched_features:
             new_layers.append(
@@ -1599,13 +1490,13 @@ async def process_color_based_on(
                     type="FeatureCollection",
                     features=matched_features,
                     properties=list(matched_features[0].get("properties", {}).keys()),
-                    prdcer_layer_name=f"{req.change_lyr_name} - Matched Points",
+                    prdcer_layer_name=f"{base_layer_name} (Matched)",
                     prdcer_lyr_id=str(uuid.uuid4()),
                     sub_lyr_id=f"{req.change_lyr_id}_matched",
                     bknd_dataset_id=req.change_lyr_id,
-                    points_color=req.color_grid_choice[0],
-                    layer_legend="Matched points based on name and radius",
-                    layer_description="Points with matching names within the specified radius",
+                    points_color=new_color,
+                    layer_legend=f"Contains: {', '.join(req.list_names)}",
+                    layer_description=f"Features matching names: {', '.join(req.list_names)}",
                     records_count=len(matched_features),
                     city_name=change_layer_metadata.get("city_name", ""),
                     is_zone_lyr="true",
@@ -1618,13 +1509,13 @@ async def process_color_based_on(
                     type="FeatureCollection",
                     features=unmatched_features,
                     properties=list(unmatched_features[0].get("properties", {}).keys()),
-                    prdcer_layer_name=f"{req.change_lyr_name} - Unmatched Points",
+                    prdcer_layer_name=f"{base_layer_name} (Unmatched)",
                     prdcer_lyr_id=str(uuid.uuid4()),
                     sub_lyr_id=f"{req.change_lyr_id}_unmatched",
                     bknd_dataset_id=req.change_lyr_id,
-                    points_color="#FFFFFF",
-                    layer_legend="Unmatched points based on name",
-                    layer_description="Points with no matching names within the specified radius",
+                    points_color=original_color,
+                    layer_legend="No name match",
+                    layer_description="Features without matching names",
                     records_count=len(unmatched_features),
                     city_name=change_layer_metadata.get("city_name", ""),
                     is_zone_lyr="true",

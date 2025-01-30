@@ -4,9 +4,7 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Any, Dict, Tuple, Optional, List
 import json
 import os
-import asyncio
-import aiofiles
-from contextlib import asynccontextmanager
+
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 from backend_common.auth import load_user_profile
@@ -19,6 +17,7 @@ from backend_common.auth import db
 import asyncpg
 from backend_common.background import get_background_tasks
 import orjson
+from popularity_algo import create_plan, get_plan
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,45 +66,6 @@ with open(COLOR_PATH, "r") as f:
     GRADIENT_COLORS = json.load(f)
 
 
-class FileLock:
-    def __init__(self):
-        self.locks = {}
-
-    @asynccontextmanager
-    async def acquire(self, filename):
-        if filename not in self.locks:
-            self.locks[filename] = asyncio.Lock()
-        async with self.locks[filename]:
-            yield
-
-
-file_lock_manager = FileLock()
-
-
-async def use_json(
-    file_path: str, mode: str, json_content: dict = None
-) -> Optional[dict]:
-    async with file_lock_manager.acquire(file_path):
-        if mode == "w":
-            try:
-                async with aiofiles.open(file_path, mode="w") as file:
-                    await file.write(json.dumps(json_content, indent=2))
-            except IOError as e:
-                raise Exception(f"Error reading data file: {str(e)}")
-
-        elif mode == "r":
-            try:
-                if os.path.exists(file_path):
-                    async with aiofiles.open(file_path, mode="r") as file:
-                        content = await file.read()
-                        return json.loads(content)
-                return None
-            except json.JSONDecodeError as e:
-                raise Exception(f"Error parsing data file: {str(e)}")
-            except IOError as e:
-                raise Exception(f"Error reading data file: {str(e)}")
-        else:
-            raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
 
 
 def to_serializable(obj: Any) -> Any:
@@ -654,22 +614,6 @@ def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
 
 
-async def save_plan(plan_name, plan):
-    file_path = (
-        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
-    )
-    await use_json(file_path, "w", plan)
-
-
-async def get_plan(plan_name):
-    file_path = (
-        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
-    )
-    # use json file
-    json_content = await use_json(file_path, "r")
-    return json_content
-
-
 # async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
 #     country = req.country_name.lower().replace(" ", "_")
 #     folder_path = (
@@ -727,7 +671,8 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
     # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
     # else load dataset with dataset id
-    three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)    
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)
+    
 
     
     if "plan" in dataset_id and fetch_full_plan_datasets:
@@ -739,6 +684,21 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
         plan = await get_plan(plan_name)
         if not plan:
             return {}
+        # if not plan:
+        #     city_info=load_country_city()
+        #     category = plan_name.split("_")[1]
+        #     country_name = plan_name.split("_")[2]
+        #     city_name = plan_name.split("_")[3]
+
+        #     lng=city_info[f"{country_name}"][f"{city_name}"]["lat"]
+        #     lat=city_info[f"{country_name}"][f"{city_name}"]["lat"]
+        #     radius=ReqFetchDataset.model_fields["radius"].default
+        #     boolean_query=category
+        #     text_search=""
+        #     plan = await create_plan(
+        #         lng, lat, radius, boolean_query, text_search
+        #     )
+
 
         #TODO this is a temp fix because this whole thing needs to be redone
         new_plan = []

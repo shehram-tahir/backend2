@@ -1,6 +1,6 @@
 from all_types.myapi_dtypes import ReqFetchDataset
 from all_types.response_dtypes import ResCostEstimate
-from storage import use_json
+from use_json import use_json
 import logging
 from backend_common.logging_wrapper import apply_decorator_to_module
 from boolean_query_processor import optimize_query_sequence
