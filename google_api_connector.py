@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 #         "excludedTypes": [req.excludedTypes],
 #         "locationRestriction": {
 #             "circle": {
-#                 "center": {"latitude": req.lat, "longitude": req.lng},
+#                 "center": {"latitude": req._lat, "longitude": req._lng},
 #                 "radius": req.radius,
 #             }
 #         },

@@ -831,7 +831,7 @@ async def get_census_dataset_from_storage(
 
     city_data = await Database.fetch(
         query, 
-        *request_location.bounding_box, 
+        *req._bounding_box, 
         req.zoom_level
     )
     city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)
@@ -896,7 +896,7 @@ async def get_commercial_properties_dataset_from_storage(
     city_data = await Database.fetch(
         query,
         data_type.replace("_", " "),
-        *request_location.bounding_box,
+        *request_location._bounding_box,
         DEFAULT_LIMIT,
         offset,
     )
@@ -961,7 +961,7 @@ async def get_real_estate_dataset_from_storage(
     query = SqlObject.saudi_real_estate_w_bounding_box_and_category
 
     city_data = await Database.fetch(
-        query, data_type, *request_location.bounding_box, DEFAULT_LIMIT, offset
+        query, data_type, *request_location._bounding_box, DEFAULT_LIMIT, offset
     )
 
     city_df = pd.DataFrame([dict(record) for record in city_data])

@@ -7,6 +7,15 @@ from all_types.response_dtypes import LyrInfoInCtlgSave
 U = TypeVar("U")
 
 
+class Coordinate(BaseModel):
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class ReqUserId(BaseModel):
+    user_id: str
+
+
 class ReqModel(BaseModel, Generic[U]):
     message: str
     request_info: Dict
@@ -28,21 +37,19 @@ class boxmapProperties(BaseModel):
     user_ratings_total: int
 
 
-class ReqSavePrdcerCtlg(BaseModel):
+class ReqSavePrdcerCtlg(ReqUserId):
     prdcer_ctlg_name: str
     subscription_price: str
     ctlg_description: str
     total_records: int
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
-    user_id: str
     # thumbnail_url: str
     display_elements: dict
     catalog_layer_options: dict
 
-class ReqDeletePrdcerCtlg(BaseModel):
-    user_id: str
-    prdcer_ctlg_id: str
 
+class ReqDeletePrdcerCtlg(ReqUserId):
+    prdcer_ctlg_id: str
 
 
 class ZoneLayerInfo(BaseModel):
@@ -54,13 +61,8 @@ class ReqCatalogId(BaseModel):
     catalogue_dataset_id: str
 
 
-class ReqUserId(BaseModel):
-    user_id: str
-
-
-class ReqPrdcerLyrMapData(BaseModel):
+class ReqPrdcerLyrMapData(ReqUserId):
     prdcer_lyr_id: Optional[str] = ""
-    user_id: str
 
 
 class ReqSavePrdcerLyer(ReqPrdcerLyrMapData):
@@ -71,16 +73,39 @@ class ReqSavePrdcerLyer(ReqPrdcerLyrMapData):
     layer_description: str
     city_name: str
 
+
 class ReqDeletePrdcerLayer(BaseModel):
     user_id: str
     prdcer_lyr_id: str
 
-class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData):
+
+class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData, Coordinate):
     boolean_query: Optional[str] = ""
     action: Optional[str] = ""
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
     text_search: Optional[str] = ""
+    zoom_level: Optional[int] = 0
+    radius: Optional[float] = 0.0
+    _bounding_box: Optional[list[float]] = []
+    _included_types: Optional[list[str]] = []
+    _excluded_types: Optional[list[str]] = []
+
+
+class ReqCustomData(ReqCityCountry):
+    boolean_query: Optional[str] = ""
+    page_token: Optional[str] = ""
+    included_types: list[str] = []
+    excluded_types: list[str] = []
+    zoom_level: Optional[int] = 0
+
+
+class ReqLocation(Coordinate):
+    radius: float
+    bounding_box: list[float]
+    page_token: Optional[str] = ""
+    text_search: Optional[str] = ""
+    boolean_query: Optional[str] = ""
     zoom_level: Optional[int] = 0
 
 
@@ -95,11 +120,6 @@ class ReqCostEstimate(ReqCityCountry):
     excluded_categories: List[str]
 
 
-class Coordinate(BaseModel):
-    lat: float
-    lng: float
-
-
 class ReqStreeViewCheck(Coordinate):
     pass
 
@@ -108,25 +128,8 @@ class ReqGeodata(Coordinate):
     bounding_box: list[float]
 
 
-class ReqLocation(Coordinate):
-    radius: float
-    bounding_box: list[float]
-    page_token: Optional[str] = ""
-    text_search: Optional[str] = ""
-    boolean_query: Optional[str] = ""
-    zoom_level: Optional[int] = 0
-
-
 class ReqNearestRoute(ReqPrdcerLyrMapData):
     points: List[Coordinate]
-
-
-class ReqCustomData(ReqCityCountry):
-    boolean_query: Optional[str] = ""
-    page_token: Optional[str] = ""
-    included_types: list[str] = []
-    excluded_types: list[str] = []
-    zoom_level: Optional[int] = 0
 
 
 class ReqGradientColorBasedOnZone(BaseModel):

@@ -215,7 +215,7 @@ def create_string_list(
     return result
 
 
-def get_custom_bounding_box(
+def expand_bounding_box(
     lat: float, lon: float, expansion_distance_km: float = EXPANSION_DISTANCE_KM
 ) -> list:
     try:
@@ -265,7 +265,7 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
             _LOCATION_CACHE[cache_key] = None
             return None
 
-        bounding_box = get_custom_bounding_box(location.latitude, location.longitude)
+        bounding_box = expand_bounding_box(location.latitude, location.longitude)
         if bounding_box is None:
             logger.warning(f"No bounding box found for {city_name}, {country_name}")
             _LOCATION_CACHE[cache_key] = None
@@ -287,83 +287,53 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
         return None
 
 
-def to_location_req(
-    req_dataset: Union[ReqLocation, ReqCustomData, ReqFetchDataset]
-) -> ReqLocation:
-    # If it's already a ReqLocation, return it directly
-    if isinstance(req_dataset, ReqLocation):
-        return req_dataset
-
+def fetch_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
     # Load country/city data
     country_city_data = load_country_city()
 
     # Find the city coordinates
-    city_data: Optional[ReqGeodata] = None
-    if req_dataset.country_name in country_city_data:
-        for city in country_city_data[req_dataset.country_name]:
-            if city["name"] == req_dataset.city_name:
+    city_data = None
+    if req.country_name in country_city_data:
+        for city in country_city_data[req.country_name]:
+            if city["name"] == req.city_name:
                 if (
                     city.get("lat") is None
                     or city.get("lng") is None
                     or city.get("bounding_box") is None
                 ):
                     raise ValueError(
-                        f"Invalid city data for {req_dataset.city_name} in {req_dataset.country_name}"
+                        f"Invalid city data for {req.city_name} in {req.country_name}"
                     )
+                req._bounding_box = expand_bounding_box(city.get("lat"), city.get("lng"))
+    else:
+        # if city not found in country_city_data, use geocoding to get city_data
+        city_data = get_req_geodata(req.city_name, req.country_name)
+        req._bounding_box = city_data.bounding_box
 
-                bounding_box = get_custom_bounding_box(city.get("lat"), city.get("lng"))
-                if bounding_box is None:
-                    raise ValueError(
-                        f"Invalid bounding box for {req_dataset.city_name} in {req_dataset.country_name}"
-                    )
-
-                city_data = ReqGeodata(
-                    lat=float(city.get("lat")),
-                    lng=float(city.get("lng")),
-                    bounding_box=bounding_box,
-                )
-                break
-        else:
-            # if city not found in country_city_data, use geocoding to get city_data
-            city_data = get_req_geodata(req_dataset.city_name, req_dataset.country_name)
-
-    if not city_data:
-        raise ValueError(
-            f"City {req_dataset.city_name} not found in {req_dataset.country_name}"
-        )
-
-    # Create ReqLocation object
-    return ReqLocation(
-        lat=city_data.lat,
-        lng=city_data.lng,
-        bounding_box=city_data.bounding_box,
-        radius=5000,  # Default radius
-        boolean_query=req_dataset.boolean_query,
-        page_token=req_dataset.page_token or "",
-    )
+    return req
 
 
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCustomData], req_create_lyr: ReqFetchDataset, data_type
+    req_dataset: Union[ReqCustomData], req: ReqFetchDataset, data_type
 ) -> Tuple[Any, str, str, str]:
-    next_page_token = req_dataset.page_token
+    next_page_token = req.page_token
     plan_name = ""
-    action = req_create_lyr.action
+    action = req.action
     bknd_dataset_id = ""
     dataset =  None
 
-    req_dataset.included_types, req_dataset.excluded_types = reduce_to_single_query(
-        req_dataset.boolean_query
+    req._included_types, req._excluded_types = reduce_to_single_query(
+        req.boolean_query
     )
 
-    temp_req = to_location_req(req_dataset)
-    bknd_dataset_id = make_dataset_filename(temp_req)
+    req = fetch_bounding_box(req)
+    # bknd_dataset_id = make_dataset_filename(req)
     # TODO remove redundent code
     # dataset = await load_dataset(bknd_dataset_id)
 
     if not dataset:
         if data_type == "real_estate" or (
-            data_type == "commercial" and req_dataset.country_name == "Saudi Arabia"
+            data_type == "commercial" and req.country_name == "Saudi Arabia"
         ):
             get_dataset_func = get_real_estate_dataset_from_storage
         elif data_type in ["Population Area Intelligence"]:
@@ -372,14 +342,14 @@ async def fetch_census_realestate(
             get_dataset_func = get_commercial_properties_dataset_from_storage
 
         dataset, bknd_dataset_id, next_page_token = await get_dataset_func(
-            req_dataset, bknd_dataset_id, action, 
-            request_location=temp_req, next_page_token=next_page_token, data_type=data_type
+            req, bknd_dataset_id, action, 
+            request_location=req, next_page_token=next_page_token, data_type=data_type
         )
         if dataset:
             dataset = convert_strings_to_ints(dataset)
-            bknd_dataset_id = await store_data_resp(
-                req_dataset, dataset, bknd_dataset_id
-            )
+            # bknd_dataset_id = await store_data_resp(
+            #     req_dataset, dataset, bknd_dataset_id
+            # )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
 
@@ -393,7 +363,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
             await process_req_plan(req_dataset, req_create_lyr)
         )
-    temp_req = to_location_req(req_dataset)
+    temp_req = fetch_bounding_box(req_dataset)
     bknd_dataset_id = make_dataset_filename(temp_req)
     dataset = await load_dataset(bknd_dataset_id)
 
@@ -782,12 +752,12 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
             await fetch_census_realestate(
-                req_dataset, req_create_lyr=req, data_type=data_type
+                req_dataset, req=req, data_type=data_type
             )
         )
     else:
 
-        city_data = to_location_req(req)
+        city_data = fetch_bounding_box(req)
 
         if city_data is None:
             raise HTTPException(
@@ -797,7 +767,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         req_dataset = ReqLocation(
             lat=city_data.lat,
             lng=city_data.lng,
-            bounding_box=city_data.bounding_box,
+            bounding_box=city_data._bounding_box,
             radius=30000.0,
             boolean_query=req.boolean_query,
             page_token=req.page_token,
