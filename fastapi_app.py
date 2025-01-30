@@ -103,7 +103,7 @@ from data_fetcher import (
     process_color_based_on,
     get_user_profile,
     # fetch_nearest_points_Gmap,
-    fetch_country_city_category_map_data,
+    fetch_dataset,
     load_area_intelligence_categories,
     update_profile
     
@@ -329,7 +329,7 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
         req.request_body,
         ReqFetchDataset,
         ResModel[ResFetchDataset],
-        fetch_country_city_category_map_data,
+        fetch_dataset,
         wrap_output=True,
     )
     return response

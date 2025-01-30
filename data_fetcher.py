@@ -366,11 +366,13 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
 
     if req.action == "full data":
         req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req, req)
+            await process_req_plan(req)
         )
-    temp_req = fetch_lat_lng_bounding_box(req)
-    bknd_dataset_id = make_dataset_filename(temp_req)
-    dataset = await load_dataset(bknd_dataset_id)
+    else:
+        req = fetch_lat_lng_bounding_box(req)
+        
+    bknd_dataset_id = make_dataset_filename(req)
+    # dataset = await load_dataset(bknd_dataset_id)
 
     # dataset, bknd_dataset_id = await get_dataset_from_storage(req)
 
@@ -450,35 +452,35 @@ def add_skip_to_subcircles(plan: list, token_plan_index: str):
     return modified_plan
 
 
-async def process_req_plan(req_dataset, req_create_lyr):
-    action = req_create_lyr.action
+async def process_req_plan(req: ReqFetchDataset):
+    action = req.action
     plan: List[str] = []
     current_plan_index = 0
     bknd_dataset_id = ""
 
-    if req_dataset.page_token == "" and action == "full data":
-        if isinstance(req_dataset, ReqFetchDataset) and req_dataset.radius > 750:
+    if req.page_token == "" and action == "full data":
+        if req.radius > 750:
             circle_hierarchy = cover_circle_with_seven_circles(
-                (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
+                (req.lng, req.lat), req.radius / 1000
             )
 
             string_list_plan = create_string_list(
-                circle_hierarchy, req_dataset.boolean_query, req_dataset.text_search
+                circle_hierarchy, req.boolean_query, req.text_search
             )
 
-        string_list_plan.append("end of search plan")
+            string_list_plan.append("end of search plan")
 
         # TODO creating the name of the file should be moved to storage
-        tcc_string = make_ggl_layer_filename(req_create_lyr)
+        tcc_string = make_ggl_layer_filename(req)
         plan_name = f"plan_{tcc_string}"
-        if req_dataset.text_search != "" and req_dataset.text_search is not None:
+        if req.text_search != "" and req.text_search is not None:
             plan_name = plan_name + "_text_search="
         await save_plan(plan_name, string_list_plan)
         plan = string_list_plan
 
         next_search = string_list_plan[0]
         first_search = next_search.split("_")
-        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
+        req.lng, req.lat, req.radius = (
             float(first_search[0]),
             float(first_search[1]),
             float(first_search[2]),
@@ -487,18 +489,14 @@ async def process_req_plan(req_dataset, req_create_lyr):
         bknd_dataset_id = plan[current_plan_index]
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
-    elif req_dataset.page_token != "":
+    elif req.page_token != "":
 
-        plan_name, current_plan_index = req_dataset.page_token.split("@#$")
+        plan_name, current_plan_index = req.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
 
         current_plan_index = int(current_plan_index)
 
         # limit to 30 calls per plan
-        if current_plan_index > 30:
-            raise HTTPException(
-                status_code=488, detail="temporarely disabled for more than 30 searches"
-            )
         if current_plan_index > 30:
             raise HTTPException(
                 status_code=488, detail="temporarely disabled for more than 30 searches"
@@ -510,10 +508,10 @@ async def process_req_plan(req_dataset, req_create_lyr):
             or current_plan_index is None
             or len(plan) <= current_plan_index
         ):
-            return req_dataset, plan_name, "", current_plan_index, bknd_dataset_id
+            return req, plan_name, "", current_plan_index, bknd_dataset_id
 
         search_info = plan[current_plan_index].split("_")
-        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
+        req.lng, req.lat, req.radius = (
             float(search_info[0]),
             float(search_info[1]),
             float(search_info[2]),
@@ -529,7 +527,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
         if current_plan_index == 5:
             await process_plan_popularity(plan_name)
 
-    return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
+    return req, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
 
 async def fetch_catlog_collection():
@@ -707,7 +705,7 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
     return "google_categories"
 
 
-async def fetch_country_city_category_map_data(req: ReqFetchDataset):
+async def fetch_dataset(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,
