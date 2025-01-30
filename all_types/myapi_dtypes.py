@@ -1,5 +1,5 @@
-from typing import Dict, List, TypeVar, Generic, Optional, Any
-from fastapi import UploadFile, File
+from typing import Dict, List, TypeVar, Generic, Optional
+
 from pydantic import BaseModel, Field
 
 from all_types.response_dtypes import LyrInfoInCtlgSave
@@ -86,27 +86,27 @@ class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData, Coordinate):
     search_type: Optional[str] = "default"
     text_search: Optional[str] = ""
     zoom_level: Optional[int] = 0
-    radius: Optional[float] = 0.0
+    radius: Optional[float] = 30000.0
     _bounding_box: Optional[list[float]] = []
     _included_types: Optional[list[str]] = []
     _excluded_types: Optional[list[str]] = []
 
 
-class ReqCustomData(ReqCityCountry):
-    boolean_query: Optional[str] = ""
-    page_token: Optional[str] = ""
-    included_types: list[str] = []
-    excluded_types: list[str] = []
-    zoom_level: Optional[int] = 0
+# class ReqCustomData(ReqCityCountry):
+#     boolean_query: Optional[str] = ""
+#     page_token: Optional[str] = ""
+#     included_types: list[str] = []
+#     excluded_types: list[str] = []
+#     zoom_level: Optional[int] = 0
 
 
-class ReqLocation(Coordinate):
-    radius: float
-    bounding_box: list[float]
-    page_token: Optional[str] = ""
-    text_search: Optional[str] = ""
-    boolean_query: Optional[str] = ""
-    zoom_level: Optional[int] = 0
+# class ReqLocation(Coordinate):
+#     radius: float
+#     bounding_box: list[float]
+#     page_token: Optional[str] = ""
+#     text_search: Optional[str] = ""
+#     boolean_query: Optional[str] = ""
+#     zoom_level: Optional[int] = 0
 
 
 class ReqFetchCtlgLyrs(BaseModel):

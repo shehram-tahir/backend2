@@ -3,18 +3,22 @@ import math
 import geopy.distance
 from urllib.parse import unquote, urlparse
 import uuid
-from typing import List, Dict, Any, Union, Tuple
-import json
-import orjson
+from typing import List, Dict, Any, Tuple, Optional
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
 import numpy as np
 from fastapi import HTTPException
 from fastapi import status
-import requests
-from backend_common.auth import load_user_profile, update_user_profile,update_user_profile_settings
+from backend_common.auth import (
+    load_user_profile,
+    update_user_profile,
+    update_user_profile_settings,
+)
 from backend_common.utils.utils import convert_strings_to_ints
-from backend_common.gbucket import upload_file_to_google_cloud_bucket, delete_file_from_google_cloud_bucket
+from backend_common.gbucket import (
+    upload_file_to_google_cloud_bucket,
+    delete_file_from_google_cloud_bucket,
+)
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
@@ -36,7 +40,6 @@ from backend_common.logging_wrapper import (
 from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import (
-    store_data_resp,
     GOOGLE_CATEGORIES,
     REAL_ESTATE_CATEGORIES,
     AREA_INTELLIGENCE_CATEGORIES,
@@ -48,10 +51,8 @@ from storage import (
     get_commercial_properties_dataset_from_storage,
     fetch_dataset_id,
     load_dataset,
-    fetch_layer_owner,
     update_dataset_layer_matching,
     update_user_layer_matching,
-    fetch_dataset_id,
     delete_dataset_layer_matching,
     delete_user_layer_matching,
     fetch_user_catalogs,
@@ -61,14 +62,10 @@ from storage import (
     convert_to_serializable,
     save_plan,
     get_plan,
-    # create_real_estate_plan,
-    # load_gradient_colors,
     make_dataset_filename,
-    fetch_db_categories_by_lat_lng,
     generate_layer_id,
     # load_google_categories,
     load_country_city,
-    make_include_exclude_name,
     make_ggl_layer_filename,
 )
 from boolean_query_processor import reduce_to_single_query
@@ -287,7 +284,7 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
         return None
 
 
-def fetch_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
+def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
     # Load country/city data
     country_city_data = load_country_city()
 
@@ -304,29 +301,33 @@ def fetch_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
                     raise ValueError(
                         f"Invalid city data for {req.city_name} in {req.country_name}"
                     )
-                req._bounding_box = expand_bounding_box(city.get("lat"), city.get("lng"))
+                req._bounding_box = expand_bounding_box(
+                    city.get("lat"), city.get("lng")
+                )
+                req.lat = city.get("lat")
+                req.lng = city.get("lng")
     else:
         # if city not found in country_city_data, use geocoding to get city_data
         city_data = get_req_geodata(req.city_name, req.country_name)
         req._bounding_box = city_data.bounding_box
+        req.lat = city_data.lat
+        req.lng = city_data.lng
 
     return req
 
 
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCustomData], req: ReqFetchDataset, data_type
+    req: ReqFetchDataset, data_type
 ) -> Tuple[Any, str, str, str]:
     next_page_token = req.page_token
     plan_name = ""
     action = req.action
     bknd_dataset_id = ""
-    dataset =  None
+    dataset = None
 
-    req._included_types, req._excluded_types = reduce_to_single_query(
-        req.boolean_query
-    )
+    req._included_types, req._excluded_types = reduce_to_single_query(req.boolean_query)
 
-    req = fetch_bounding_box(req)
+    req = fetch_lat_lng_bounding_box(req)
     # bknd_dataset_id = make_dataset_filename(req)
     # TODO remove redundent code
     # dataset = await load_dataset(bknd_dataset_id)
@@ -342,8 +343,11 @@ async def fetch_census_realestate(
             get_dataset_func = get_commercial_properties_dataset_from_storage
 
         dataset, bknd_dataset_id, next_page_token = await get_dataset_func(
-            req, bknd_dataset_id, action, 
-            request_location=req, next_page_token=next_page_token, data_type=data_type
+            bknd_dataset_id,
+            action,
+            request_location=req,
+            next_page_token=next_page_token,
+            data_type=data_type,
         )
         if dataset:
             dataset = convert_strings_to_ints(dataset)
@@ -354,42 +358,42 @@ async def fetch_census_realestate(
     return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
-async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
-    search_type = req_create_lyr.search_type
-    next_page_token = req_dataset.page_token
+async def fetch_ggl_nearby(req: ReqFetchDataset):
+    search_type = req.search_type
+    next_page_token = req.page_token
+    action = req.action
     plan_name = ""
 
-    if req_create_lyr.action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr)
+    if req.action == "full data":
+        req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+            await process_req_plan(req, req)
         )
-    temp_req = fetch_bounding_box(req_dataset)
+    temp_req = fetch_lat_lng_bounding_box(req)
     bknd_dataset_id = make_dataset_filename(temp_req)
     dataset = await load_dataset(bknd_dataset_id)
 
-    # dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
+    # dataset, bknd_dataset_id = await get_dataset_from_storage(req)
 
-
-    #if not dataset:
+    # if not dataset:
 
     if "default" in search_type or "category_search" in search_type:
-        dataset = await fetch_from_google_maps_api(req_dataset)
+        dataset = await fetch_from_google_maps_api(req)
     elif "keyword_search" in search_type:
-        ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
-        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req_dataset.radius)
+        ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
+        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
         if ggl_api_resp:
-           dataset = convert_strings_to_ints(dataset)
+            dataset = convert_strings_to_ints(dataset)
     # Store the fetched data in storage
-    # dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req_dataset.radius)
+    # dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req.radius)
     # if ggl_api_resp:
     #     dataset = convert_strings_to_ints(dataset)
     #     bknd_dataset_id = await store_data_resp(
-    #         req_dataset, dataset, bknd_dataset_id
+    #         req, dataset, bknd_dataset_id
     #     )
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
-    if len(dataset.get("features","")) < 20 and req_create_lyr.action == "full data":
+    if len(dataset.get("features", "")) < 20 and action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
             next_page_token = ""
@@ -399,6 +403,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
+
 
 async def rectify_plan(plan_name, current_plan_index):
     plan = await get_plan(plan_name)
@@ -452,7 +457,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
     bknd_dataset_id = ""
 
     if req_dataset.page_token == "" and action == "full data":
-        if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750:
+        if isinstance(req_dataset, ReqFetchDataset) and req_dataset.radius > 750:
             circle_hierarchy = cover_circle_with_seven_circles(
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
             )
@@ -467,20 +472,19 @@ async def process_req_plan(req_dataset, req_create_lyr):
         tcc_string = make_ggl_layer_filename(req_create_lyr)
         plan_name = f"plan_{tcc_string}"
         if req_dataset.text_search != "" and req_dataset.text_search is not None:
-            plan_name = plan_name + f"_text_search="
+            plan_name = plan_name + "_text_search="
         await save_plan(plan_name, string_list_plan)
         plan = string_list_plan
 
-        if isinstance(req_dataset, ReqLocation):
-            next_search = string_list_plan[0]
-            first_search = next_search.split("_")
-            req_dataset.lng, req_dataset.lat, req_dataset.radius = (
-                float(first_search[0]),
-                float(first_search[1]),
-                float(first_search[2]),
-            )
-        if isinstance(req_dataset, ReqCustomData):
-            bknd_dataset_id = plan[current_plan_index]
+        next_search = string_list_plan[0]
+        first_search = next_search.split("_")
+        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
+            float(first_search[0]),
+            float(first_search[1]),
+            float(first_search[2]),
+        )
+
+        bknd_dataset_id = plan[current_plan_index]
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
     elif req_dataset.page_token != "":
@@ -490,12 +494,12 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
         current_plan_index = int(current_plan_index)
 
-        #limit to 30 calls per plan
-        if current_plan_index>30:
+        # limit to 30 calls per plan
+        if current_plan_index > 30:
             raise HTTPException(
                 status_code=488, detail="temporarely disabled for more than 30 searches"
             )
-        if current_plan_index>30:
+        if current_plan_index > 30:
             raise HTTPException(
                 status_code=488, detail="temporarely disabled for more than 30 searches"
             )
@@ -508,31 +512,18 @@ async def process_req_plan(req_dataset, req_create_lyr):
         ):
             return req_dataset, plan_name, "", current_plan_index, bknd_dataset_id
 
-        if isinstance(req_dataset, ReqLocation):
-            search_info = plan[current_plan_index].split("_")
-            req_dataset.lng, req_dataset.lat, req_dataset.radius = (
-                float(search_info[0]),
-                float(search_info[1]),
-                float(search_info[2]),
-            )
-            if plan[current_plan_index + 1] == "end of search plan":
-                next_page_token = ""  # End of search plan
-                await process_plan_popularity(plan_name)
-            else:
-                next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
-
-        if isinstance(req_dataset, ReqCustomData):
-            next_plan_index = current_plan_index + 1
-            bknd_dataset_id = plan[current_plan_index]
-            if plan[current_plan_index + 1] == "end of search plan":
-                next_page_token = ""  # End of search plan
-                await process_plan_popularity(plan_name)
-            else:
-                next_page_token = (
-                    req_dataset.page_token.split("@#$")[0]
-                    + "@#$"
-                    + str(next_plan_index)
-                )
+        search_info = plan[current_plan_index].split("_")
+        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
+            float(search_info[0]),
+            float(search_info[1]),
+            float(search_info[2]),
+        )
+        next_plan_index = current_plan_index + 1
+        if plan[next_plan_index] == "end of search plan":
+            next_page_token = ""  # End of search plan
+            await process_plan_popularity(plan_name)
+        else:
+            next_page_token = f"page_token={plan_name}@#${next_plan_index}"
 
         # TODO: Remove this after testing Process plan at index 5
         if current_plan_index == 5:
@@ -738,43 +729,28 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     # Now using boolean_query instead of included_types
     data_type = determine_data_type(req.boolean_query, categories)
 
-    if (data_type == "real_estate"
+    if (
+        data_type == "real_estate"
         or data_type in list(AREA_INTELLIGENCE_CATEGORIES.keys())
         or (data_type == "commercial" and (req.country_name == "Saudi Arabia" or True))
     ):
-
-        req_dataset = ReqCustomData(
-            country_name=req.country_name,
-            city_name=req.city_name,
-            boolean_query=req.boolean_query,
-            page_token=req.page_token,
-            zoom_level=req.zoom_level,
-        )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(
-                req_dataset, req=req, data_type=data_type
-            )
+            await fetch_census_realestate(req=req, data_type=data_type)
         )
     else:
 
-        city_data = fetch_bounding_box(req)
+        city_data = fetch_lat_lng_bounding_box(req)
 
         if city_data is None:
             raise HTTPException(
                 status_code=404, detail="City not found in the specified country"
             )
         # Default to Google Maps API
-        req_dataset = ReqLocation(
-            lat=city_data.lat,
-            lng=city_data.lng,
-            bounding_box=city_data._bounding_box,
-            radius=30000.0,
-            boolean_query=req.boolean_query,
-            page_token=req.page_token,
-            text_search=req.text_search,
-        )
+        req.lat = city_data.lat
+        req.lng = city_data.lng
+        req._bounding_box = city_data._bounding_box
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_ggl_nearby(req_dataset, req_create_lyr=req)
+            await fetch_ggl_nearby(req)
         )
 
     # if request action was "full data" then store dataset id in the user profile
@@ -788,17 +764,15 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         await update_user_profile(req.user_id, user_data)
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
-    geojson_dataset["records_count"] = len(geojson_dataset.get("features",""))
+    geojson_dataset["records_count"] = len(geojson_dataset.get("features", ""))
     geojson_dataset["prdcer_lyr_id"] = new_layer_id
     geojson_dataset["next_page_token"] = next_page_token
     return geojson_dataset
 
 
-
-
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     user_data = await load_user_profile(req.user_id)
-    
+
     try:
         # Check for duplicate prdcer_layer_name
         new_layer_name = req.model_dump(exclude={"user_id"})["prdcer_layer_name"]
@@ -808,7 +782,7 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Layer name '{new_layer_name}' already exists. Layer names must be unique.",
                 )
-        
+
         # Add the new layer to user profile
         user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.model_dump(
             exclude={"user_id"}
@@ -828,7 +802,6 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     return "Producer layer created successfully"
 
 
-
 async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
     """
     Deletes a layer based on its id.
@@ -841,23 +814,23 @@ async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
 
     bknd_dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
     user_data = await load_user_profile(req.user_id)
-    
+
     try:
         # Find the layer to delete based on its id
         layers = user_data["prdcer"]["prdcer_lyrs"]
         layer_to_delete = None
-        
+
         for layer_id, layer in layers.items():
             if layer["prdcer_lyr_id"] == req.prdcer_lyr_id:
                 layer_to_delete = layer_id
                 break
-        
+
         if not layer_to_delete:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Layer id '{req.prdcer_lyr_id}' not found.",
             )
-        
+
         # Delete the layer
         del user_data["prdcer"]["prdcer_lyrs"][layer_to_delete]
 
@@ -865,7 +838,7 @@ async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
         await update_user_profile(req.user_id, user_data)
         await delete_dataset_layer_matching(layer_to_delete, bknd_dataset_id)
         await delete_user_layer_matching(layer_to_delete)
-    
+
     except KeyError as ke:
         logger.error(f"Invalid user data structure for user_id: {req.user_id}")
         raise HTTPException(
@@ -874,7 +847,6 @@ async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
         ) from ke
 
     return f"Layer '{req.prdcer_lyr_id}' deleted successfully."
-
 
 
 @preserve_validate_decorator
@@ -930,23 +902,21 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
     layer_owner_data = await load_user_profile(layer_owner_id)
 
     try:
-        layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
-            req.prdcer_lyr_id
-        ]
+        layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id]
     except KeyError as ke:
         raise HTTPException(
             status_code=404, detail="Producer layer not found for this user"
         ) from ke
 
     dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
-    dataset = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
+    dataset = await load_dataset(dataset_id, fetch_full_plan_datasets=True)
 
     # Extract properties from first feature if available
     properties = []
     if dataset.get("features") and len(dataset.get("features", [])) > 0:
         first_feature = dataset.get("features", [])[0]
         properties = list(first_feature.get("properties", {}).keys())
-        
+
     return ResLyrMapData(
         type="FeatureCollection",
         features=dataset.get("features", []),
@@ -961,7 +931,6 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
         records_count=dataset_info.get("records_count"),
         is_zone_lyr="false",
     )
-
 
 
 async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
@@ -1006,7 +975,7 @@ async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         return new_ctlg_id
     except Exception as e:
         raise e
-    
+
 
 async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
     """
@@ -1020,7 +989,9 @@ async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
         if req.prdcer_ctlg_id not in user_data["prdcer"]["prdcer_ctlgs"]:
             raise ValueError(f"Catalog ID {req.prdcer_ctlg_id} not found.")
 
-        thumbnail_url = user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id]["thumbnail_url"]
+        thumbnail_url = user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id][
+            "thumbnail_url"
+        ]
 
         # Delete the catalog
         del user_data["prdcer"]["prdcer_ctlgs"][req.prdcer_ctlg_id]
@@ -1029,10 +1000,13 @@ async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
         if thumbnail_url:
             # Extract the file path from the URL (assuming the URL is like 'https://storage.googleapis.com/bucket_name/path/to/file.jpg')
             parsed_url = urlparse(thumbnail_url)
-            blob_name = unquote(parsed_url.path.lstrip("/").split("/", 1)[-1])  
-            #file_path = thumbnail_url.split(CONF.gcloud_slocator_bucket_name+"/")[-1]  # Get the file path (e.g., "path/to/file.jpg")
-            delete_file_from_google_cloud_bucket(blob_name, CONF.gcloud_slocator_bucket_name, CONF.gcloud_bucket_credentials_json_path)
-
+            blob_name = unquote(parsed_url.path.lstrip("/").split("/", 1)[-1])
+            # file_path = thumbnail_url.split(CONF.gcloud_slocator_bucket_name+"/")[-1]  # Get the file path (e.g., "path/to/file.jpg")
+            delete_file_from_google_cloud_bucket(
+                blob_name,
+                CONF.gcloud_slocator_bucket_name,
+                CONF.gcloud_bucket_credentials_json_path,
+            )
 
         # Update the user profile after deleting the catalog
         await update_user_profile(req.user_id, user_data)
@@ -1042,7 +1016,6 @@ async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
     except Exception as e:
         logger.error(f"Error deleting catalog: {str(e)}")
         raise e
-
 
 
 async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
@@ -1104,7 +1077,9 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
-            trans_dataset = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
+            trans_dataset = await load_dataset(
+                dataset_id, fetch_full_plan_datasets=True
+            )
             # trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(trans_dataset)
 
             # Extract properties from first feature if available
@@ -1193,7 +1168,11 @@ async def poi_categories(req: ReqCityCountry = "") -> Dict:
     # categories = {**google_categories, **non_ggl_categories}
 
     # combine all category types
-    categories = {**GOOGLE_CATEGORIES, **REAL_ESTATE_CATEGORIES, **AREA_INTELLIGENCE_CATEGORIES}
+    categories = {
+        **GOOGLE_CATEGORIES,
+        **REAL_ESTATE_CATEGORIES,
+        **AREA_INTELLIGENCE_CATEGORIES,
+    }
 
     return categories
 
@@ -1250,7 +1229,7 @@ async def given_layer_fetch_dataset(layer_id: str):
         ) from ke
 
     dataset_id, dataset_info = await fetch_dataset_id(layer_id)
-    all_datasets = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
+    all_datasets = await load_dataset(dataset_id, fetch_full_plan_datasets=True)
 
     return all_datasets, layer_metadata
 
@@ -1441,7 +1420,6 @@ def calculate_distance(coord1, coord2):
     ).meters
 
 
-
 async def process_color_based_on(
     req: ReqGradientColorBasedOnZone,
 ) -> List[ResGradientColorBasedOnZone]:
@@ -1469,7 +1447,7 @@ async def process_color_based_on(
     if (
         req.coverage_property == "drive_time"
     ):  # currently drive does not take into account ANY based on property
-        
+
         # Get nearest points
         # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
         nearest_locations = await filter_for_nearest_points(
@@ -1576,7 +1554,7 @@ async def process_color_based_on(
                 )
 
         return new_layers
-   
+
     if req.color_based_on == "name":
         matched_features = []
         unmatched_features = []
@@ -1591,7 +1569,9 @@ async def process_color_based_on(
             is_matched = False
 
             for based_on_point in based_on_layer_dataset["features"]:
-                based_on_point_name = based_on_point["properties"].get("name", "").lower()
+                based_on_point_name = (
+                    based_on_point["properties"].get("name", "").lower()
+                )
                 based_on_point_coordinates = {
                     "latitude": based_on_point["geometry"]["coordinates"][1],
                     "longitude": based_on_point["geometry"]["coordinates"][0],
@@ -1766,8 +1746,10 @@ async def process_color_based_on(
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
+
 async def update_profile(req):
     return await update_user_profile_settings(req)
+
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

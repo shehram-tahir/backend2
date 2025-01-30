@@ -1,16 +1,11 @@
 import aiohttp
 import logging
-import math
 from typing import List, Dict, Any, Tuple, Optional
-import pyparsing as pp  # Library for parsing text/expressions
-from dataclasses import dataclass
 import json
 import asyncio
 from fastapi import HTTPException
 import requests
-from sympy import Symbol
-from typing import Dict, Set, List
-from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
+from all_types.myapi_dtypes import ReqStreeViewCheck, ReqFetchDataset
 from backend_common.utils.utils import convert_strings_to_ints
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
@@ -19,7 +14,7 @@ from all_types.response_dtypes import (
     TrafficCondition,
     RouteInfo,
 )
-from boolean_query_processor import optimize_query_sequence,test_optimized_queries
+from boolean_query_processor import optimize_query_sequence
 from mapbox_connector import MapBoxConnector
 from storage import load_dataset, make_dataset_filename, make_dataset_filename_part, store_data_resp
 logging.basicConfig(
@@ -29,34 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-# async def fetch_from_google_maps_api(req: ReqLocation):
-
-#     headers = {
-#         "Content-Type": "application/json",
-#         "X-Goog-Api-Key": CONF.api_key,
-#         "X-Goog-FieldMask": CONF.google_fields,
-#     }
-#     data = {
-#         "included_types": [req.included_types],
-#         "excludedTypes": [req.excludedTypes],
-#         "locationRestriction": {
-#             "circle": {
-#                 "center": {"latitude": req._lat, "longitude": req._lng},
-#                 "radius": req.radius,
-#             }
-#         },
-#     }
-
-#     response = requests.post(CONF.nearby_search, headers=headers, json=data)
-#     if response.status_code == 200:
-#         response_data = response.json()
-#         results = response_data.get("places", [])
-
-#         return results, ""
-#     else:
-#         print("Error:", response.status_code)
-#         return [], None
 
 
 # Load and flatten the popularity data
@@ -69,7 +36,7 @@ for category in raw_popularity_data.values():
     POPULARITY_DATA.update(category)
 
 
-async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, Any]], str]:
+async def fetch_from_google_maps_api(req: ReqFetchDataset) -> Tuple[List[Dict[str, Any]], str]:
     try:
 
         combined_dataset_id = make_dataset_filename(req)
@@ -142,7 +109,6 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
                 if 'properties' in feature and 'id' in feature['properties']:
                     del feature['properties']['id']
             logger.info(f"Stored combined dataset: {combined_dataset_id}")
-            logger.info(f"Fetched {len(dataset)} places from Google Maps API and DB.")
             return combined
         else:
             logger.warning("No valid results returned from Google Maps API or DB.")
@@ -154,7 +120,7 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
 
 
 async def execute_single_query(
-    location_data: ReqLocation, included_types: List[str], excluded_types: List[str]
+    location_data: ReqFetchDataset, included_types: List[str], excluded_types: List[str]
 ) -> List[dict]:
     data = {
         "includedTypes": included_types,
@@ -203,7 +169,7 @@ async def execute_single_query(
 
 
 
-async def text_fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+async def text_fetch_from_google_maps_api(req: ReqFetchDataset) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,

@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime, date, timedelta, timezone
-from typing import Any, Dict, Tuple, Optional, Union, List
+from typing import Any, Dict, Tuple, Optional, List
 import json
 import os
 import asyncio
@@ -12,20 +12,10 @@ from pydantic import BaseModel
 from backend_common.auth import load_user_profile
 from backend_common.database import Database
 import pandas as pd
-from backend_common.dtypes.auth_dtypes import ReqUserProfile
 from sql_object import SqlObject
-from all_types.myapi_dtypes import (
-    Dict,
-    ReqCustomData,
-    ReqLocation,
-    ReqFetchDataset,
-    ReqCustomData,
-    ReqCustomData,
-)
-from config_factory import CONF
+from all_types.myapi_dtypes import ReqFetchDataset
 from backend_common.logging_wrapper import apply_decorator_to_module
 from backend_common.auth import db
-from firebase_admin import firestore
 import asyncpg
 from backend_common.background import get_background_tasks
 import orjson
@@ -196,7 +186,7 @@ def make_dataset_filename(req) -> str:
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
 
-def make_dataset_filename_part(req: ReqLocation, included_types: List[str], excluded_types: List[str]) -> str:
+def make_dataset_filename_part(req: ReqFetchDataset, included_types: List[str], excluded_types: List[str]) -> str:
     """ Generate unique dataset ID based on query terms. """
     cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
     include_str = "_".join(sorted(included_types))
@@ -695,7 +685,7 @@ def remove_exclusions_from_id(dataset_id: str) -> str:
     filtered_parts = [p for p in parts if not p.startswith("excluding")]
     return "_".join(filtered_parts)
 
-async def store_data_resp(req: ReqLocation, dataset: Dict, file_name: str) -> str:
+async def store_data_resp(req: ReqFetchDataset, dataset: Dict, file_name: str) -> str:
     """
     Stores Google Maps data in the database, creating the table if needed.
 
@@ -807,10 +797,9 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
 
 
 async def get_census_dataset_from_storage(
-    req: ReqCustomData,
     filename: str,
     action: str,
-    request_location: ReqLocation,
+    request_location: ReqFetchDataset,
     next_page_token: str,
     data_type: str,
 ) -> tuple[dict, str, str]:
@@ -831,8 +820,8 @@ async def get_census_dataset_from_storage(
 
     city_data = await Database.fetch(
         query, 
-        *req._bounding_box, 
-        req.zoom_level
+        *request_location._bounding_box, 
+        request_location.zoom_level
     )
     city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)
     # city_df = pd.DataFrame(city_data, dtype=object)
@@ -866,16 +855,15 @@ async def get_census_dataset_from_storage(
 
     # Generate a unique filename if one isn't provided
     if not filename:
-        filename = f"census_{req.city_name.lower()}_{data_type}"
+        filename = f"census_{request_location.city_name.lower()}_{data_type}"
 
     return geojson_data, filename, next_page_token
 
 
 async def get_commercial_properties_dataset_from_storage(
-    req: ReqCustomData,
     filename: str,
     action: str,
-    request_location: ReqLocation,
+    request_location: ReqFetchDataset,
     next_page_token: str,
     data_type: str,
 ) -> tuple[dict, str, str]:
@@ -883,7 +871,7 @@ async def get_commercial_properties_dataset_from_storage(
     Retrieves commercial properties data from database based on the data type requested.
     Returns data in GeoJSON format for consistency with other dataset types.
     """
-    data_type = req.included_types[0]
+    data_type = request_location.included_types[0]
 
     page_number = 0
     if next_page_token:
@@ -926,7 +914,7 @@ async def get_commercial_properties_dataset_from_storage(
 
     # Generate a unique filename if one isn't provided
     if not filename:
-        filename = f"commercial_canada_{req.city_name.lower()}_{data_type}"
+        filename = f"commercial_canada_{request_location.city_name.lower()}_{data_type}"
 
     if len(features) < DEFAULT_LIMIT:
         next_page_token = ""
@@ -937,17 +925,16 @@ async def get_commercial_properties_dataset_from_storage(
 
 
 async def get_real_estate_dataset_from_storage(
-    req: ReqCustomData,
     filename: str,
     action: str,
-    request_location: ReqLocation,
+    request_location: ReqFetchDataset,
     next_page_token: str,
     data_type: str,
 ) -> tuple[dict, str, str]:
     """
     Retrieves data from storage based on the location request.
     """
-    data_type = req.included_types
+    data_type = request_location._included_types
     # TODO at moment the user will only give one category, in the future we should see how to implement this with more
     # realEstateData=(await load_real_estate_categories())
     # filtered_categories = [item for item in realEstateData if item in req.included_types]
@@ -990,7 +977,7 @@ async def get_real_estate_dataset_from_storage(
 
     # Generate a unique filename if one isn't provided
     if not filename:
-        filename = f"saudi_real_estate_{req.city_name.lower()}_{data_type}"
+        filename = f"saudi_real_estate_{request_location.city_name.lower()}_{data_type}"
 
     if len(features) < DEFAULT_LIMIT:
         next_page_token = ""
