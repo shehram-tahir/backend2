@@ -284,11 +284,6 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         req = fetch_lat_lng_bounding_box(req)
 
     bknd_dataset_id = make_dataset_filename(req)
-    # dataset = await load_dataset(bknd_dataset_id)
-
-    # dataset, bknd_dataset_id = await get_dataset_from_storage(req)
-
-    # if not dataset:
 
     if "default" in search_type or "category_search" in search_type:
         dataset = await fetch_from_google_maps_api(req)
@@ -297,16 +292,8 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
         if ggl_api_resp:
             dataset = convert_strings_to_ints(dataset)
-    # Store the fetched data in storage
-    # dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req.radius)
-    # if ggl_api_resp:
-    #     dataset = convert_strings_to_ints(dataset)
-    #     bknd_dataset_id = await store_data_resp(
-    #         req, dataset, bknd_dataset_id
-    #     )
+
     # if dataset is less than 20 or none and action is full data
-    #     call function rectify plan
-    #     replace next_page_token with next non-skip page token
     if len(dataset.get("features", "")) < 20 and action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
