@@ -26,7 +26,7 @@ from all_types.response_dtypes import (
     ResLyrMapData,
     LayerInfo,
     UserCatalogInfo,
-    NearestPointRouteResponse,
+    NearestPointRouteResponse
 )
 from google_api_connector import (
     calculate_distance_traffic_route,
@@ -1216,16 +1216,11 @@ async def calculate_nearest_points_drive_time(
             origin = f"{target['latitude']},{target['longitude']}"
             destination = f"{nearest[0]},{nearest[1]}"
 
-            try:
-                # Fetch route information between target and nearest location
+            # Fetch route information between target and nearest location
+            if origin != destination:
                 route_info = await calculate_distance_traffic_route(origin, destination)
                 target_routes.routes.append(route_info)
-            except HTTPException as e:
-                # Handle HTTP exceptions during the route fetching
-                target_routes.routes.append({"error": str(e.detail)})
-            except Exception as e:
-                # Handle any other exceptions
-                target_routes.routes.append({"error": f"An error occurred: {str(e)}"})
+
 
         results.append(target_routes)
 
@@ -1366,9 +1361,13 @@ async def process_color_based_on(
 
             # Get minimum static drive time from routes
             for route in target_routes.routes:
-                if route.route and route.route[0].static_duration:
-                    static_time = int(route.route[0].static_duration.replace("s", ""))
-                    min_static_time = min(min_static_time, static_time)
+                try:
+                    if route.route and route.route[0].static_duration:
+                        static_time = int(route.route[0].static_duration.replace("s", ""))
+                        min_static_time = min(min_static_time, static_time)
+                except:
+                    pause=1
+            
 
             # Find the point with matching coordinates
             for change_point in change_layer_dataset["features"]:
