@@ -237,8 +237,8 @@ def cover_circle_with_seven_circles_helper(center, radius_km):
     outer_centers = []
     for i in range(6):
         angle = i * 60  # 6 circles around at equal angles
-        outer_center = get_point_at_distance(center, angle, distance)
-        outer_centers.append((outer_center.latitude, outer_center.longitude))
+        outer_center = get_point_at_distance(center[::-1], angle, distance)
+        outer_centers.append((outer_center.longitude, outer_center.latitude))
 
     return [center] + outer_centers
 
@@ -346,8 +346,8 @@ class Circle:
 
     def get_dct(self):
         return {
-            "lat": str(self.center[0]),
-            "lng": str(self.center[1]),
+            "lng": str(self.center[0]),
+            "lat": str(self.center[1]),
             "radius": str(self.radius * 1000),
             "level": str(self.level),
             "id": str(self.id),
@@ -368,7 +368,7 @@ async def create_plan(lng, lat, radius, boolean_query, text_search):
 
     def get_data(c):
         data = c.get_dct()
-        db[(data["lat"], data["lng"], data["radius"])] = data
+        db[(data["lng"], data["lat"], data["radius"])] = data
         for child in data["children"]:
             get_data(child)
 
@@ -385,9 +385,9 @@ async def create_plan(lng, lat, radius, boolean_query, text_search):
     db["p_counter"] = np.arange(0, db.shape[0]) + 1
 
     string_list = (
-        db["lat"]
+        db["lng"]
         + "_"
-        + db["lng"]
+        + db["lat"]
         + "_"
         + db["radius"]
         + "_"
