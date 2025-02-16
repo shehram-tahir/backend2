@@ -8,6 +8,7 @@ import math
 import pandas as pd
 from backend_common.logging_wrapper import apply_decorator_to_module
 import logging
+from geopy.distance import geodesic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -355,6 +356,53 @@ class Circle:
             "children": self.children,
             "is_center": "*" if self.is_center else "",
         }
+
+
+
+def filter_circles(circle_list):
+    if not circle_list:
+        return []
+    
+    # Extract the first circle's details (lon, lat, radius)
+    first_circle = circle_list[0]
+    parts = first_circle.split('_')
+    if len(parts) < 3:
+        # Invalid format, return only the first element
+        return [first_circle]
+    
+    try:
+        lon0 = float(parts[0])  # First part is longitude
+        lat0 = float(parts[1])  # Second part is latitude
+        radius0 = float(parts[2])  # Third part is radius in meters
+    except ValueError:
+        # Parsing failed, return the first element as is
+        return [first_circle]
+    
+    filtered = [first_circle]
+    center0 = (lat0, lon0)  # Correct order for geopy (lat, lon)
+    
+    for circle_str in circle_list[1:]:
+        current_parts = circle_str.split('_')
+        if len(current_parts) < 3:
+            # Skip invalid entries
+            continue
+        
+        try:
+            current_lon = float(current_parts[0])  # Longitude is first part
+            current_lat = float(current_parts[1])  # Latitude is second part
+        except ValueError:
+            continue
+        
+        current_center = (current_lat, current_lon)  # Correct order for geopy
+        distance = geodesic(center0, current_center).meters
+        
+        if distance <= radius0:
+            filtered.append(circle_str)
+        else:
+            # Stop at the first circle outside the radius
+            break
+    
+    return filtered
 
 
 async def create_plan(lng, lat, radius, boolean_query, text_search):
