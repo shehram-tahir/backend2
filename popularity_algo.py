@@ -1,4 +1,5 @@
 from geo_std_utils import get_point_at_distance
+from parrallel_create_duplicate_rules import create_duplicate_rules
 from use_json import use_json
 import asyncio
 from backend_common.database import Database
@@ -8,6 +9,9 @@ import math
 import pandas as pd
 from backend_common.logging_wrapper import apply_decorator_to_module
 import logging
+from geopy.distance import geodesic
+
+import json
 from geopy.distance import geodesic
 
 logging.basicConfig(
@@ -27,7 +31,9 @@ RADIUS_ZOOM_MULTIPLIER = {
     937.5: 31.25,  # 6
     468.75: 15.625,  # 7
 }
-
+DEDUPLICATE_RULES_PATH = 'Backend/layer_category_country_city_matching/full_data_plans/duplicate_rules.json'
+with open(DEDUPLICATE_RULES_PATH, "r") as f:
+    DEDUPLICATE_RULES = json.load(f)
 
 def calculate_category_multiplier(index):
     """Calculate category multiplier based on result position."""
@@ -230,10 +236,7 @@ async def process_plan_popularity(plan_name: str):
 
 
 def cover_circle_with_seven_circles_helper(center, radius_km):
-    small_radius = 0.5 * radius_km  # Smaller circles with half radius
-    distance = (
-        radius_km - small_radius + small_radius * math.sqrt(3) / 2
-    )  # Adjust for coverage
+    distance = radius_km * math.sqrt(3) / 2
 
     outer_centers = []
     for i in range(6):
@@ -360,50 +363,113 @@ class Circle:
 
 
 def filter_circles(circle_list):
-    if not circle_list:
-        return []
-    
     # Extract the first circle's details (lon, lat, radius)
     first_circle = circle_list[0]
-    parts = first_circle.split('_')
-    if len(parts) < 3:
-        # Invalid format, return only the first element
-        return [first_circle]
-    
-    try:
-        lon0 = float(parts[0])  # First part is longitude
-        lat0 = float(parts[1])  # Second part is latitude
-        radius0 = float(parts[2])  # Third part is radius in meters
-    except ValueError:
-        # Parsing failed, return the first element as is
-        return [first_circle]
+    parts = first_circle.split('_')    
+    lon0 = float(parts[0])  # First part is longitude
+    lat0 = float(parts[1])  # Second part is latitude
+    radius0 = float(parts[2]) * 1.1 # Third part is radius in meters
+
     
     filtered = [first_circle]
     center0 = (lat0, lon0)  # Correct order for geopy (lat, lon)
     
     for circle_str in circle_list[1:]:
-        current_parts = circle_str.split('_')
-        if len(current_parts) < 3:
-            # Skip invalid entries
-            continue
-        
-        try:
-            current_lon = float(current_parts[0])  # Longitude is first part
-            current_lat = float(current_parts[1])  # Latitude is second part
-        except ValueError:
-            continue
+        current_parts = circle_str.split('_')       
+        current_lon = float(current_parts[0])  # Longitude is first part
+        current_lat = float(current_parts[1])  # Latitude is second part
         
         current_center = (current_lat, current_lon)  # Correct order for geopy
         distance = geodesic(center0, current_center).meters
         
         if distance <= radius0:
             filtered.append(circle_str)
-        else:
-            # Stop at the first circle outside the radius
-            break
-    
+
     return filtered
 
+
+def process_circles(input_strings):
+    duplicate_rules = DEDUPLICATE_RULES
+    # optimized_create_duplicate_rules(r'G:\My Drive\Personal\Work\offline\Jupyter\Git\s_locator\my_middle_API\Backend\layer_category_country_city_matching\full_data_plans\plan_atm_Saudi Arabia_Jeddah.json')
+
+    # parrallel_create_duplicate_rules(r'G:\My Drive\Personal\Work\offline\Jupyter\Git\s_locator\my_middle_API\Backend\layer_category_country_city_matching\full_data_plans\plan_atm_Saudi Arabia_Jeddah.json')
+
+    # create_duplicate_rules(r'G:\My Drive\Personal\Work\offline\Jupyter\Git\s_locator\my_middle_API\Backend\layer_category_country_city_matching\full_data_plans\plan_atm_Saudi Arabia_Jeddah.json')
+    # base_rules = {
+    #     '2.5': '1.2',
+    #     '3.6': '1.3',
+    #     '3.7': '2.4',
+    #     '4.2': '3.5',
+    #     '4.7': '1.4',
+    #     '5.2': '1.5',
+    #     '5.3': '4.6',
+    #     '6.3': '1.6',
+    #     '6.4': '5.7',
+    #     '7.3': '2.6',
+    #     '7.4': '1.7',
+    #     '7.5': '6.2'
+    # }
+    # # Generate all combinations of rules
+    # duplicate_rules = {}
+    
+    # # For patterns like 1.2.5 -> 1.1.2
+    # for x in range(1, 8):
+    #     for key, value in base_rules.items():
+    #         source = f"{x}.{key}"
+    #         target = f"{x}.{value}"
+    #         duplicate_rules[source] = target
+    
+    # # For patterns like x.y.2.5 -> x.y.1.2
+    # for x in range(1, 8):
+    #     for y in range(1, 8):
+    #         for key, value in base_rules.items():
+    #             source = f"{x}.{y}.{key}"
+    #             target = f"{x}.{y}.{value}"
+    #             duplicate_rules[source] = target
+    
+    # # For patterns like x.y.z.2.5 -> x.y.z.1.2
+    # for x in range(1, 8):
+    #     for y in range(1, 8):
+    #         for z in range(1, 8):
+    #             for key, value in base_rules.items():
+    #                 source = f"{x}.{y}.{z}.{key}"
+    #                 target = f"{x}.{y}.{z}.{value}"
+    #                 duplicate_rules[source] = target
+
+    result = []
+    removed_children = {}  # To keep track of removed children for each parent
+    
+    for s in input_strings:
+        parts = s.split('_')
+        circle = None
+        for part in parts:
+            if part.startswith('circle='):
+                circle = part.split('=')[1].rstrip('*')
+                break
+        
+
+        # Check if it's a child of any circle in duplicate_rules
+        is_child = False
+        for parent in duplicate_rules.keys():
+            if circle.startswith(parent + '.'):
+                is_child = True
+                if parent not in removed_children:
+                    removed_children[parent] = []
+                removed_children[parent].append(circle)
+                break
+                
+        if is_child:
+            continue
+
+        # Add _duplicateWith for specified circles
+        if circle in duplicate_rules:
+            # modified_string = s + f"_duplicateWith={duplicate_rules[circle]}"
+            # result.append(modified_string)
+            continue
+        else:
+            result.append(s)
+
+    return result
 
 async def create_plan(lng, lat, radius, boolean_query, text_search):
     text = boolean_query + "_" + text_search
@@ -412,17 +478,17 @@ async def create_plan(lng, lat, radius, boolean_query, text_search):
     circle_hierarchy = Circle(
         (lng, lat), radius / 1000, 1, id="1", counter=counter, is_center=True
     )
-    db = {}
+    db_dict = {}
 
-    def get_data(c):
+    def get_data(c:Circle):
         data = c.get_dct()
-        db[(data["lng"], data["lat"], data["radius"])] = data
+        db_dict[(data["lng"], data["lat"], data["radius"], data["id"])] = data
         for child in data["children"]:
             get_data(child)
 
     get_data(circle_hierarchy)
 
-    db = pd.DataFrame(db.values())
+    db = pd.DataFrame(db_dict.values())
     order = (
         db[["radius", "counter"]]
         .astype("float")
@@ -450,6 +516,8 @@ async def create_plan(lng, lat, radius, boolean_query, text_search):
     )
     string_list = string_list.values.tolist()
     # string_list_plan = create_string_list(circle_hierarchy, boolean_query, text_search)
+    string_list = filter_circles(string_list)
+    string_list = process_circles(string_list)
     string_list.append("end of search plan")
     return string_list
 
