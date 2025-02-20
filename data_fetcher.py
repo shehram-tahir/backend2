@@ -658,7 +658,7 @@ async def fetch_dataset(req: ReqFetchDataset):
         # Default to Google Maps API
         req.lat = city_data.lat
         req.lng = city_data.lng
-        req._bounding_box = city_data._bounding_bo
+        req._bounding_box = city_data._bounding_box
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
             await fetch_ggl_nearby(req)
         )
