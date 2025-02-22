@@ -666,19 +666,25 @@ async def fetch_dataset(req: ReqFetchDataset):
 
 
 
-        # if the first query of the full data was successful and returned results run the fetch data plan in the background
+        # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
         # when saving the dataset we should save what is the % availability of this dataset based on the plan , plan that is 50% executed means data available 50%
         # while we are at it we should add the dataset's next refresh date, and a flag saying whether to auto refresh or no
-        # after the initiial api call api call, when we return to the frontend we need to add a new key in the return object saying delay before next call , and we should make this delay 3 seconds
+        # after the initiial api call api call, when we return to the frontend we need to add a new key in the return object saying delay before next call , 
+        # and we should make this delay 3 seconds
         # in those 3 seconds we hope to allow to backend to advance in the query plan execution
         # the frontend should display the % as a bar with an indication that this bar is filling in those 3 seconds to reassure the user
-        # then on subsequent calls using next page token the backend should execute calls within the same level at the same time in a batch of 5 at a time
-        
-        # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
-
         # we should return this % completetion to the user to display while the user is watiing for his data
         
+
+
+        #TODO this is seperate, optimisation for foreground process of data retrival from db
+        # then on subsequent calls using next page token the backend should execute calls within the same level at the same time in a batch of 5 at a time
+        
+        #TODO
+        # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
+
+
 
 
         user_data = await load_user_profile(req.user_id)
