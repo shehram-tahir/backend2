@@ -6,7 +6,8 @@ from langchain.tools import StructuredTool
 import json
 import requests
 from config_factory import CONF
-from all_types.myapi_dtypes import ReqLLMDataset, ResLLMDataset
+from all_types.myapi_dtypes import ReqLLMDataset
+from all_types.response_dtypes import ResLLMDataset
 
 # Function to fetch Approved_cities, Approved_countries and Approved_Categories
 
