@@ -52,7 +52,8 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
-    ReqLLMDataset
+    ReqLLMDataset,
+    ReqPrompt
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -82,7 +83,8 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
-    ResLLMDataset
+    ResLLMDataset,
+    ResProcessColorBasedOnLLM
 )
 
 from google_api_connector import check_street_view_availability
@@ -337,7 +339,20 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     )
     return response
 
-
+@app.post(
+        CONF.gradient_color_based_on_zone+"_llm",
+        response_model=ResModel[ResProcessColorBasedOnLLM],   
+)
+async def ep_process_color_based_on_agent(
+    req:ReqModel[ReqPrompt], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqPrompt,
+        ResModel[ResProcessColorBasedOnLLM],
+        process_color_based_on_agent,
+        wrap_output=True,
+    )
+    return response
 
 @app.post(
     CONF.process_llm_query,
