@@ -2,6 +2,7 @@ from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from all_types.internal_types import LyrInfoInCtlgSave
 from all_types.myapi_dtypes import ReqFetchDataset
 
 T = TypeVar("T")
@@ -27,13 +28,6 @@ class Feature(BaseModel):
     type: Literal["Feature"]
     properties: dict
     geometry: Geometry
-
-
-class LyrInfoInCtlgSave(BaseModel):
-    layer_id: str
-    points_color: str = Field(
-        ..., description="Color name for the layer points, e.g., 'red'"
-    )
 
 
 class card_metadata(BaseModel):

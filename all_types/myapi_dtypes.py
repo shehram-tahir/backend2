@@ -2,7 +2,7 @@ from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
 
 from pydantic import BaseModel, Field
 
-from all_types.response_dtypes import LyrInfoInCtlgSave
+from all_types.internal_types import LyrInfoInCtlgSave
 
 U = TypeVar("U")
 
