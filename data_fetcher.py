@@ -687,7 +687,7 @@ async def fetch_dataset(req: ReqFetchDataset):
 
 
 
-
+        bknd_dataset_id = plan_name
         user_data = await load_user_profile(req.user_id)
         user_data["prdcer"]["prdcer_dataset"]["dataset_plan"] = plan_name
         await update_user_profile(req.user_id, user_data)
