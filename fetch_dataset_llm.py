@@ -5,35 +5,10 @@ from pydantic import BaseModel, Field, model_validator
 import requests
 from all_types.response_dtypes import ResLLMFetchDataset
 from all_types.myapi_dtypes import ReqLLMFetchDataset
+from cost_calculator import calculate_cost
 from config_factory import CONF
 
 
-def calculate_cost(Request: ResLLMFetchDataset):
-    api_requests = [Request.fetch_dataset_request]
-    API_ENDPOINT = CONF.cost_calculator
-    responses = []
-    total_cost = 0
-    
-    for api_request in api_requests:
-        try:
-            payload = {
-                "message": "Cost calculation request from LLM",
-                "request_info": {},  # Add relevant request info if needed
-                "request_body": api_request.dict()
-            }
-            
-            response = requests.post(
-                API_ENDPOINT,
-                json=payload
-            )
-            response.raise_for_status()
-            total_cost += response.json()["data"]["cost"]
-            responses.append(response.json())
-        except requests.exceptions.RequestException as e:
-            responses.append({"error": f"API request failed for {api_request}: {e}"})
-    Request.cost = str(total_cost)
-
-    return Request
 def fetch_approved_data(url: str):
     """
     Sends a GET request to the specified API endpoint.
@@ -122,10 +97,10 @@ async def process_llm_query(req:ReqLLMFetchDataset):
     prompt_and_model = prompt | model
     output = prompt_and_model.invoke({"query": req.query,"system_message":system_message})
     outputResponse = parser.invoke(output)
-    
     if outputResponse.fetch_dataset_request is None:
         return outputResponse
     else:
-        outputResponse.requestStatus = "Processed"
-        return calculate_cost(outputResponse)
+        costData = await calculate_cost(outputResponse.fetch_dataset_request)
+        outputResponse.cost = str(costData.cost)
+        return (outputResponse)
     
