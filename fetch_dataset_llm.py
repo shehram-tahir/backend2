@@ -7,7 +7,6 @@ from all_types.response_dtypes import ResLLMFetchDataset
 from all_types.myapi_dtypes import ReqLLMFetchDataset
 from cost_calculator import calculate_cost
 from config_factory import CONF
-#baseurl = "http://37.27.195.216:8000"
 
 def fetch_approved_data(url: str):
     """
