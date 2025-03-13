@@ -71,7 +71,10 @@ from backend_common.auth import (
     JWTBearer,
     create_user_profile
 )
-
+try:  # For Test Run
+    from backend_common.auth import db
+except:
+    db = None
 from all_types.response_dtypes import (
     ResModel,
     ResFetchDataset,
